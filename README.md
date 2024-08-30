@@ -2,7 +2,7 @@
 
 Repository for backend service of Data upload and Validation tool
 
-Code pushes to be done in the `dev` branch only.
+Code pushes to be done in the `main` branch only.
 
 
 ## Requirements
