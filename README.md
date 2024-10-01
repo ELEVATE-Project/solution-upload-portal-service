@@ -51,8 +51,8 @@ python app.py
 
 FLASK_APP = app.py
 FLASK_RUN_PORT = 5000
-HOSTIP = http://127.0.0.1:5000/
-mongoURL = mongodb://localhost:27017/
+HOSTIP = "Add server ip Address"
+mongoURL = "Add server mongo url"
 db = templateValidation
 userCollection = users
 conditionsCollection = conditions
@@ -60,4 +60,4 @@ validationsCollection = validation
 sampleTemplatesCollection = sampleTemplates
 #AUTH SECRET_KEY
 SECRET_KEY = "98bcbfb0f82aff815f17d5bfed66c1f4"
-admin-token = "16c6a8b5cbad36c887e74eed42454241" 
+admin-token = "16c6a8b5cbad36c887e74eed42454241"
