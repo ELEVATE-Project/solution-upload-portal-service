@@ -1,0 +1,48 @@
+---
+- hosts: elevate-anlytics
+  vars:
+    project_path: /opt/solution-upload-portal-service
+    root_path: /opt/
+  tasks:
+    - name: Slurp host file
+      slurp:
+        src: "/opt/backend/deployment/.token"
+      register: slurpfile
+      
+    - name: Run vault credentials
+      shell: "curl --location --request GET '{{ vaultAddress }}solution-upload-portal-service' --header 'X-Vault-Token: {{ slurpfile['content'] | b64decode }}' | jq '.data' > '{{root_path}}/data2.json'"
+      register: vaultCurl
+
+    - name: Change directory
+      shell: cd {{project_path}}
+
+    - name: Fetch the latest code
+      git:
+        repo: https://github.com/ELEVATE-Project/solution-upload-portal-service
+        dest: "{{project_path}}"
+        version: "{{gitBranch}}"
+        force: yes
+
+    - name: Install Python dependencies
+      shell: |
+        cd {{project_path}} 
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install -r requirements.txt
+
+    - name: Set permissions for scripts
+      shell: chmod +x {{ project_path }}/start.sh
+
+    - name: Generate .env file
+      shell: cat {{root_path}}/data2.json | jq '.data' > {{ project_path }}/.env
+      register: envConfig
+
+    - debug: msg="Environment Config: {{ envConfig }}"
+
+    - name: Start Flask application using PM2
+      shell: |
+        cd {{project_path}}
+        pm2 start {{project_path}}/start.sh --name "solution-upload-portal-service"
+
+    - name: Ensure PM2 runs on startup
+      shell: pm2 startup
