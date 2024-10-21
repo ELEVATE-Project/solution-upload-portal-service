@@ -864,27 +864,27 @@ def fetchSurveySolutions():
 @app.route('/template/api/v1/survey/create', methods=['POST'])
 def create():
     req = request.get_json()
+    # print(req,"req")
     helperInstance = Helpers
     programFile=helperInstance.loadSurveyFile(req['file'])
-    # Token validation
-    auth = request.headers.get("Authorization")
-    signing_key = os.environ.get("SECRET_KEY")
-    payload = False
-    if(not auth):
-        return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : ""}}
-    else:
+    # print(programFile,"programFile 870")
+    # print(f"Type of programFile: {type(programFile)}")
+    
+    if isinstance(programFile, str):
         try:
-            payload = jwt.decode(auth, signing_key, algorithms=['HS256'])
-        except Exception as e:
-            print(e)
-
-    if(not payload):
-        return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : "True"}}
+            programFile = json.loads(programFile)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON: {e}")
+            return jsonify({"status": 500, "code": "NOTOK", "message": "Invalid JSON format in solution"})
+        
     if programFile:
-        return jsonify({"status": 200, "code": "Success", "result": [{"solutionId":programFile}]})
+        # print(f"Type of programFile: {type(programFile)}")
+        # print(programFile)
+        return jsonify({"status": 200, "code": "Success", "result": {"solutionId":programFile}})
     else :
         return jsonify({"status": 500, "code": "NOTOK","massege":"Could not create survey solution"})
     
 if (__name__ == '__main__'):
     app.run(host=os.environ.get("HOSTIP")  , port=os.environ.get("FLASK_RUN_PORT") , debug=True)
     
+

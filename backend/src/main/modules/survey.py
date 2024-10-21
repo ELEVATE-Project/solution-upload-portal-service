@@ -43,6 +43,18 @@ class SurveyCreate:
         }
 
         payload = {
+
+        #     "query": {
+        #         "status": "active",
+        #         "type": resourceType
+        #     },
+        #     "mongoIdKeys": [
+        #         "_id",
+        #         "solutionId",
+        #         "metaInformation.solutionId"
+        #     ],
+        #     "limit": 1000
+        # }
             "query": {"status": "active"},
             "resourceType": [resourceType + " Solution"],
             "mongoIdKeys": ["_id", "solutionId", "metaInformation.solutionId"],
@@ -71,7 +83,7 @@ class SurveyCreate:
             if solution_id in all_parent_solution_ids:
                 continue
             solution_data = {
-                # 'SOLUTION_ID': solution_id,
+                # 'SOLUTION_ID': item.get("_id", 'N/A'),
                 'SOLUTION_NAME': item.get('name', 'N/A'),
                 'SOLUTION_CREATED_DATE': item.get('createdAt', 'N/A'),
                 'START_DATE': item.get('startDate', 'None'),

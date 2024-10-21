@@ -1,10 +1,10 @@
-connectionUrl="mongodb://localhost:27017/"
-databaseName = "templateValidationProject"
+connectionUrl= "" #Please enter your connectionUrl
+databaseName = "templateValidation"
 collectionName = "validation"
 conditionCollection = "conditions"
 
-hostUrl = "https://staging.sunbirded.org/"
-preprodHostUrl = "https://staging.sunbirded.org/"
+hostUrl = "" #Please enter your hostUrl
+preprodHostUrl = "" #Please enter your preprodHostUrl
 
 errBasic = 300
 errAdv = 301

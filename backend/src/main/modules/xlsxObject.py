@@ -17,9 +17,13 @@ class xlsxObject:
     self.validationDB = client[databaseName]
     collection = self.validationDB[collectionName]
     self.templateId = id
+    # print(collection,"collection")
     query = {"id":self.templateId}
+    # print(query,"query")
     
     result = collection.find(query)
+    # print(result,"result")
+    # print(collection.count_documents(query),"xcvgbhjk")
     
     if collection.count_documents(query) == 1:
       self.success = True
