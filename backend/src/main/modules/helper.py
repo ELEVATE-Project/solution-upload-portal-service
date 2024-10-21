@@ -128,8 +128,8 @@ class Helpers:
             "concepts": [],
             "createdFor": orgIds,
             "rootOrganisations": orgIds,
-            "startDate": startDateOfProgram,
-            "endDate": endDateOfProgram,
+            # "startDate": startDateOfProgram,
+            # "endDate": endDateOfProgram,
             "imageCompression": {
                 "quality": 10
             },
@@ -141,11 +141,11 @@ class Helpers:
                 "entities": entitiesPGMID,
                 "roles": roles
             },
-            "metaInformation": {
-                "state":entitiesPGM.split(","),
-                "roles": mainRole.split(",")
-                },
-                "requestForPIIConsent":True
+            # "metaInformation": {
+            #     "state":entitiesPGM.split(","),
+            #     "roles": mainRole.split(",")
+            #     },
+            #     "requestForPIIConsent":True
                 })
         messageArr.append("Body : " + str(payload))
         headers = {'X-authenticated-user-token': accessToken,
