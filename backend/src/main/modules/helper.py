@@ -264,7 +264,7 @@ class Helpers:
                         writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
                         writer.writerows([pdpmcolo1])
                     # messageArr.append("Response : " + str(pdpmcolo1))
-                    # createAPILog(parentFolder, messageArr)
+                    # Helpers.createAPILog(parentFolder, messageArr)
 
                     fileheader = [creatorName,"program manager mapped succesfully","Passed"]
                     # apicheckslog(parentFolder,fileheader)
@@ -290,19 +290,19 @@ class Helpers:
         messageArr = ["program mapping sheet.",
                       "File path : " + MainFilePath + '/pdpmmapping/mapping.csv']
         messageArr.append("Upload status code : " + str(responseProgrammappingApi.status_code))
-        # createAPILog(parentFolder, messageArr)
+        Helpers.createAPILog(parentFolder, messageArr)
 
         if responseProgrammappingApi.status_code == 200:
             print('--->program manager and designer mapping is Success')
             with open(MainFilePath + '/pdpmmapping/mappinginternal.csv', 'w+',encoding='utf-8') as projectRes:
                 projectRes.write(responseProgrammappingApi.text)
                 messageArr.append("Response : " + str(responseProgrammappingApi.text))
-                # createAPILog(parentFolder, messageArr)
+                Helpers.createAPILog(parentFolder, messageArr)
         else:
             messageArr.append("Response : " + str(responseProgrammappingApi.text))
-            # createAPILog(parentFolder, messageArr)
-            # fileheader = ["PDPM mapping","PDPM mapping is failed","Failed","check PDPM sheet"]
-            # apicheckslog(parentFolder,fileheader)
+            Helpers.createAPILog(parentFolder, messageArr)
+            fileheader = ["PDPM mapping","PDPM mapping is failed","Failed","check PDPM sheet"]
+            Helpers.apicheckslog(parentFolder,fileheader)
             sys.exit()
 
 
@@ -351,7 +351,7 @@ class Helpers:
         rolesReturn = list()
         messageArr = ["Roles list fetch API called.", "URL  : " + str(urlFetchRolesListApi),
                       "Status Code : " + str(responseFetchRolesListApi.status_code)]
-        # createAPILog(solutionName_for_folder_path, messageArr)
+        Helpers.createAPILog(solutionName_for_folder_path, messageArr)
         if responseFetchRolesListApi.status_code == 200:
             responseFetchRolesListApi = responseFetchRolesListApi.json()
             for listRoles in responseFetchRolesListApi['result']:
@@ -385,13 +385,13 @@ class Helpers:
                     print("Role error...")
                     print("Role : " + ur)
                     messageArr = ["Roles Error", "URL  : ", "Role : " + ur]
-                    # createAPILog(solutionName_for_folder_path, messageArr)
+                    Helpers.createAPILog(solutionName_for_folder_path, messageArr)
 
         messageArr = ["Accepted Roles : " + str(listOfFoundRoles)]
-        # createAPILog(solutionName_for_folder_path, messageArr)
+        Helpers.createAPILog(solutionName_for_folder_path, messageArr)
         if len(listOfFoundRoles) == 0:
             messageArr = ["No roles matched our DB "]
-            # createAPILog(solutionName_for_folder_path, messageArr)
+            Helpers.createAPILog(solutionName_for_folder_path, messageArr)
             print("No Roles matched our DB.")
         return listOfFoundRoles
 
@@ -465,12 +465,12 @@ class Helpers:
                             messageArr.append("programExternalId : " + str(programExternalId))
                             messageArr.append("programDescription : " + str(programDescription))
                             messageArr.append("isAPrivateProgram : " + str(isAPrivateProgram))
-                        # createAPILog(solutionName_for_folder_path, messageArr)
+                        Helpers.createAPILog(solutionName_for_folder_path, messageArr)
         else:
             print("Program search API failed...")
             messageArr.append("Program search API failed...")
-            # createAPILog(solutionName_for_folder_path, messageArr)
-            # terminatingMessage("Response Code : " + str(responseProgramSearch.status_code))
+            Helpers.createAPILog(solutionName_for_folder_path, messageArr)
+            Helpers.terminatingMessage("Response Code : " + str(responseProgramSearch.status_code))
         return True
     
     def fetchEntityId(solutionName_for_folder_path, accessToken, entitiesNameList, scopeEntityType):
@@ -524,8 +524,8 @@ class Helpers:
             return entityToUpload
         else:
             messageArr = ["Error in Location search",str(responseFetchEntityListApi.status_code)]
-            # createAPILog(solutionName_for_folder_path, messageArr)
-            # terminatingMessage("---> Error in location search.")
+            Helpers.createAPILog(solutionName_for_folder_path, messageArr)
+            Helpers.terminatingMessage("---> Error in location search.")
 
     
     def programsFileCheck(filePathAddPgm, accessToken, parentFolder, MainFilePath):
@@ -1143,7 +1143,7 @@ class Helpers:
         responseProjectUploadApi = requests.post(url=urlProjectUploadApi, headers=headerProjectUploadApi,data=project_payload,files=filesProject)
         messageArr = ["program mapping is success.","File path : " + projectName_for_folder_path + '/projectUpload/projectUpload.csv']
         messageArr.append("Upload status code : " + str(responseProjectUploadApi.status_code))
-        # createAPILog(projectName_for_folder_path, messageArr)
+        Helpers.createAPILog(projectName_for_folder_path, messageArr)
 
         if responseProjectUploadApi.status_code == 200:
             print('ProjectUploadApi Success')
@@ -1152,7 +1152,7 @@ class Helpers:
         else:
             print("Project Upload failed.")
             messageArr.append("Response : " + str(responseProjectUploadApi.text))
-            # createAPILog(projectName_for_folder_path, messageArr)
+            Helpers.createAPILog(projectName_for_folder_path, messageArr)
             sys.exit()
 
     def taskUpload(projectFile, projectName_for_folder_path, accessToken):
@@ -1177,7 +1177,7 @@ class Helpers:
                               "File path : " + projectName_for_folder_path + '/taskUpload/taskUpload.csv']
                 messageArr.append("URL : " + str(fetchProjectIdApi))
                 messageArr.append("Upload status code : " + str(responseProjectListApi.status_code))
-                # createAPILog(projectName_for_folder_path, messageArr)
+                Helpers.createAPILog(projectName_for_folder_path, messageArr)
 
                 if responseProjectListApi.status_code == 200:
                     print('project fetch api Success')
@@ -1188,8 +1188,8 @@ class Helpers:
                             project_id = project['_id']
                 else:
                     messageArr.append("Response : " + str(responseProjectListApi.text))
-                    # createAPILog(projectName_for_folder_path, messageArr)
-                    # terminatingMessage("project fetch api failed.")
+                    Helpers.createAPILog(projectName_for_folder_path, messageArr)
+                    Helpers.terminatingMessage("project fetch api failed.")
 
             urlTasksUploadApi = internal_kong_ip + taskuploadapi + project_id
             headerTasksUploadApi = {
@@ -1211,7 +1211,7 @@ class Helpers:
                           "File path : " + projectName_for_folder_path + '/taskUpload/taskUpload.csv']
             messageArr.append("URL : " + str(urlTasksUploadApi))
             messageArr.append("Upload status code : " + str(responseTasksUploadApi.status_code))
-            # createAPILog(projectName_for_folder_path, messageArr)
+            Helpers.createAPILog(projectName_for_folder_path, messageArr)
 
             if responseTasksUploadApi.status_code == 200:
                 print('TaskUploadApi Success')
@@ -1219,8 +1219,8 @@ class Helpers:
                     tasksRes.write(responseTasksUploadApi.text)
             else:
                 messageArr.append("Response : " + str(responseTasksUploadApi.text))
-                # createAPILog(projectName_for_folder_path, messageArr)
-                # terminatingMessage("--->Tasks Upload failed.")
+                Helpers.createAPILog(projectName_for_folder_path, messageArr)
+                Helpers.terminatingMessage("--->Tasks Upload failed.")
 
     def prepareaddingcertificatetemp(filePathAddProject, projectName_for_folder_path, accessToken, solutionId, programID,baseTemplate_id):
         wbproject = xlrd.open_workbook(filePathAddProject, on_demand=True)
@@ -1445,7 +1445,7 @@ class Helpers:
                       "File path : " + projectName_for_folder_path + '/addCertificate/Addcertificate.text']
         messageArr.append("URL : " + str(responseaddcertificateUploadApi))
         messageArr.append("Upload status code : " + str(responseaddcertificateUploadApi.status_code))
-        # createAPILog(projectName_for_folder_path, messageArr)
+        Helpers.createAPILog(projectName_for_folder_path, messageArr)
         with open(projectName_for_folder_path + '/addCertificate/Addcertificatejson.json',
                   'w+',encoding='utf-8') as tasksRes:
             tasksRes.write(json.dumps(payload))
@@ -1463,7 +1463,7 @@ class Helpers:
         else:
             print("Add certificate mission failed please check logs")
             messageArr.append("Response : " + str(responseaddcertificateUploadApi.text))
-            # createAPILog(projectName_for_folder_path, messageArr)
+            Helpers.createAPILog(projectName_for_folder_path, messageArr)
             sys.exit()
 
         urluploadcertificatepi =internal_kong_ip + uploadcertificatetosvg + certificatetemplateid
@@ -1901,7 +1901,7 @@ class Helpers:
                       "solution name : " + responseFetchSolutionJson["result"]["name"],
                       "solution ExternalId : " + responseFetchSolutionJson["result"]["externalId"]]
         messageArr.append("Upload status code : " + str(responseFetchSolutionApiUrl.status_code))
-        # createAPILog(solutionName_for_folder_path, messageArr)
+        Helpers.createAPILog(solutionName_for_folder_path, messageArr)
 
         if responseFetchSolutionApiUrl.status_code == 200:
             print('Fetch solution Api Success')
@@ -1984,7 +1984,7 @@ class Helpers:
                 responseCreateSolutionApi = responseCreateSolutionApi.json()
                 solutionId = responseCreateSolutionApi['result']['_id']
                 messageArr.append("Solution Generated : " + str(solutionId))
-                # createAPILog(projectName_for_folder_path, messageArr)
+                Helpers.createAPILog(projectName_for_folder_path, messageArr)
                 print("ProjectSolutionCreationApi Success")
                 duplicateTemplateExtId = projectExternalId + '_IMPORTED'
                 queryparamsMapProjectSolutionApi = projectExternalId + '?solutionId=' + solutionExternalId
@@ -2011,7 +2011,7 @@ class Helpers:
                     responseMapProjectSolutionApi = responseMapProjectSolutionApi.json()
                     duplicateTemplateId = responseMapProjectSolutionApi['result']['_id']
                     messageArr.append("duplicate TemplateId successfully created: " + str(duplicateTemplateId))
-                    # createAPILog(projectName_for_folder_path, messageArr)
+                    Helpers.createAPILog(projectName_for_folder_path, messageArr)
                     print("MapSolutionToProjectApi Sucsess")
                     with open(projectName_for_folder_path + '/solutionDetails/solutionDetails.csv', 'a',encoding='utf-8') as file:
                         writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
@@ -2072,7 +2072,7 @@ class Helpers:
                       "solution name : " + responseFetchSolutionJson["result"]["name"],
                       "solution ExternalId : " + responseFetchSolutionJson["result"]["externalId"]]
         messageArr.append("Upload status code : " + str(responseFetchSolutionApi.status_code))
-        # createAPILog(solutionName_for_folder_path, messageArr)
+        Helpers.createAPILog(solutionName_for_folder_path, messageArr)
 
         if responseFetchSolutionApi.status_code == 200:
             print('Fetch solution Api Success')
@@ -2090,7 +2090,7 @@ class Helpers:
                                                      data=payloadFetchSolutionLinkApi)
         messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
         messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
-        # createAPILog(solutionName_for_folder_path, messageArr)
+        Helpers.createAPILog(solutionName_for_folder_path, messageArr)
 
         if responseFetchSolutionLinkApi.status_code == 200:
             print('Fetch solution Link Api Success')
@@ -2143,7 +2143,7 @@ class Helpers:
         else:
             print("Fetch solution link API Failed")
             messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
-            # createAPILog(solutionName_for_folder_path, messageArr)
+            Helpers.createAPILog(solutionName_for_folder_path, messageArr)
             sys.exit()
         return solutionLink
 
@@ -2355,7 +2355,7 @@ class Helpers:
             for listOfSoulution in range(0, len(searchSolutionjson["result"]["data"])):
                 solution_id = searchSolutionjson["result"]["data"][listOfSoulution]["_id"]
                 messageArr.append("solution found : " + str(solution_id))
-                # createAPILog(projectName_for_folder_path, messageArr)
+                Helpers.createAPILog(projectName_for_folder_path, messageArr)
                 print("searchSolutionApi Success")
                 solutionDetailsurl = internal_kong_ip + fetchsolutiondoc + solution_id
 
@@ -2380,7 +2380,7 @@ class Helpers:
                         solutionEntityType = solutionDetailsjson["result"]["entityType"]
                         solutionExternalId = solutionDetailsjson["result"]["externalId"]
                         messageArr.append("Task solution Entity Type found : " + str(solutionEntityType))
-                        # createAPILog(projectName_for_folder_path, messageArr)
+                        Helpers.createAPILog(projectName_for_folder_path, messageArr)
                         print("FetchSolutionDocApi Success")
                         break
                 else:
@@ -2389,7 +2389,7 @@ class Helpers:
                         "URL : " + str(searchSolutionurl),
                         "Status Code : " + str(searchSolutionresponse.status_code),
                         "Response : " + str(searchSolutionresponse.text)]
-                    # createAPILog(projectName_for_folder_path, messageArr)
+                    Helpers.createAPILog(projectName_for_folder_path, messageArr)
                     Helpers.terminatingMessage("FetchSolutionDocApi is failed")
 
         else:
@@ -2401,6 +2401,39 @@ class Helpers:
             if arr[i] != arr[i - 1] + 1:
                 return False
         return True
+    
+    def createAPILog(solutionName_for_folder_path, messageArr):
+        file_exists = solutionName_for_folder_path + '/apiHitLogs/apiLogs.txt'
+        # check if the file existis or not and create a file 
+        if not path.exists(file_exists):
+            API_log = open(file_exists, "w", encoding='utf-8')
+            API_log.write("===============================================================================")
+            API_log.write("\n")
+            API_log.write("ENVIRONMENT : " + str(environment))
+            API_log.write("\n")
+            API_log.write("===============================================================================")
+            API_log.write("\n")
+            API_log.close()
+
+        API_log = open(file_exists, "a", encoding='utf-8')
+        API_log.write("\n")
+        for msg in messageArr:
+            API_log.write(msg)
+            API_log.write("\n")
+        API_log.close()
+
+    def apicheckslog(solutionName_for_folder_path, messageArr):
+        file_exists = solutionName_for_folder_path + '/apiHitLogs/apiLogs.csv'
+        # global fileheader
+        fileheader = ["Resource","Process","Status","Remark"]
+
+        if not path.exists(file_exists):
+            with open(file_exists, 'w', newline='',encoding='utf-8') as file:
+                writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
+                writer.writerows([fileheader])
+        with open(file_exists, 'a', newline='',encoding='utf-8') as file:
+            writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
+            writer.writerows([messageArr])
     
     def validateSheets(filePathAddObs, accessToken, parentFolder):
         global criteriaLevelsReport, scopeRoles, criteriaLevels, scopeEntityType , ccRootOrgName , ccRootOrgId
@@ -2859,358 +2892,406 @@ class Helpers:
         
                     
         for sheets in projectSheetNames:
-            if sheets.strip().lower() == 'details'.lower() and typeofSolution == 1 or typeofSolution == 5:
-                ResourceSheet = wbproject.sheet_by_name(sheets)
-                keysEnv = [ResourceSheet.cell(1, col_index_env).value for col_index_env in
-                               range(ResourceSheet.ncols)]
-                dictDetailsEnv = {keysEnv[col_index_env]: ResourceSheet.cell(row_index_env, col_index_env).value
-                                          for
-                                          col_index_env in range(ResourceSheet.ncols)}
-                ObsWRResourceName = dictDetailsEnv['observation_solution_name'].encode('utf-8').decode('utf-8')
-                #print(resourceName, "2805")
-                try: 
-                    def addObsWRFunc(parentFolder, wbObservation, millisecond, accessToken):
-                        if typeofSolution == 5:
-                            impLedObsFlag = True
-                        else:
-                            impLedObsFlag = False
-                        Helpers.criteriaUpload(parentFolder, wbObservation, millisecond, accessToken, "framework", impLedObsFlag)
-                        print("Criteria Upload success....")
-                        userDetails = Helpers.fetchUserDetails(accessToken, dikshaLoginId)
-                        matchedShikshalokamLoginId = userDetails[0]
-                        
-                        frameworkExternalId = Helpers.frameWorkUpload(parentFolder, matchedShikshalokamLoginId, wbObservation, millisecond, accessToken)
-                        observationExternalId = frameworkExternalId + "-OBSERVATION-TEMPLATE"
-                        Helpers.themesUpload(parentFolder, wbObservation, millisecond, accessToken, frameworkExternalId, False)
-                        solutionId = Helpers.createSolutionFromFramework(parentFolder, wbObservation, accessToken, frameworkExternalId)
+            if sheets.strip().lower() == 'details'.lower() and typeofSolution in [1, 5]:
+                try:
+                    ResourceSheet = wbproject.sheet_by_name(sheets)
+                    keysEnv = [ResourceSheet.cell(1, col_index_env).value for col_index_env in range(ResourceSheet.ncols)]
+                    dictDetailsEnv = {keysEnv[col_index_env]: ResourceSheet.cell(row_index_env, col_index_env).value
+                                    for col_index_env in range(ResourceSheet.ncols)}
+                    ObsWRResourceName = dictDetailsEnv['observation_solution_name'].encode('utf-8').decode('utf-8')
+                except Exception as e:
+                    print(f"Error reading 'details' sheet or processing observation solution name: {str(e)}")
+                    return None  # Or handle accordingly
 
-                        ecmsSheet = wbObservation.sheet_by_name('ECMs or Domains')
-                        keys = [ecmsSheet.cell(1, col_index).value for col_index in range(ecmsSheet.ncols)]
-                        ecm_update = dict()
-                        ecm_dict = dict()
-                        section = dict()
-                        ecmSeqCount = 1
-                        for row_index in range(2, ecmsSheet.nrows):
-                            dictECMs = {keys[col_index]: ecmsSheet.cell(row_index, col_index).value for col_index in
-                                        range(ecmsSheet.ncols)}
-                            EMC_ID = dictECMs['ECM Id/Domian ID'].encode('utf-8').decode('utf-8').strip() + '_' + str(millisecond)
-                            ECM_NAME = dictECMs['ECM Name/Domain Name'].encode('utf-8').decode('utf-8').strip()
-                            section.update({dictECMs['section_id']: dictECMs['section_name']})
-                            ecm_sections[EMC_ID] = dictECMs['section_id']
-                            if dictECMs['Is ECM Mandatory?']:
-                                if dictECMs['Is ECM Mandatory?'] == "TRUE" or dictECMs['Is ECM Mandatory?'] == 1:
-                                    dictECMs['Is ECM Mandatory?'] = False
-                                elif dictECMs['Is ECM Mandatory?'] == "FALSE" or dictECMs['Is ECM Mandatory?'] == 0:
-                                    dictECMs['Is ECM Mandatory?'] = True
-                            else:
-                                dictECMs['Is ECM Mandatory?'] = False
-                            ecm_update[EMC_ID] = {
-                                "externalId": EMC_ID, "tip": None, "name": ECM_NAME, "description": None,
-                                "modeOfCollection": "onfield",
-                                "canBeNotApplicable": dictECMs['Is ECM Mandatory?'],
-                                "notApplicable": False, "canBeNotAllowed": dictECMs['Is ECM Mandatory?'],
-                                "remarks": None,
-                                "sequenceNo": ecmSeqCount
+                try:
+                    def addObsWRFunc(parentFolder, wbObservation, millisecond, accessToken):
+                        try:
+                            impLedObsFlag = True if typeofSolution == 5 else False
+                            Helpers.criteriaUpload(parentFolder, wbObservation, millisecond, accessToken, "framework", impLedObsFlag)
+                            print("Criteria Upload success....")
+                        except Exception as e:
+                            print(f"Error during criteria upload: {str(e)}")
+                            return None  # Handle failure
+
+                        try:
+                            userDetails = Helpers.fetchUserDetails(accessToken, dikshaLoginId)
+                            matchedShikshalokamLoginId = userDetails[0]
+                        except Exception as e:
+                            print(f"Error fetching user details: {str(e)}")
+                            return None
+
+                        try:
+                            frameworkExternalId = Helpers.frameWorkUpload(parentFolder, matchedShikshalokamLoginId, wbObservation, millisecond, accessToken)
+                            observationExternalId = frameworkExternalId + "-OBSERVATION-TEMPLATE"
+                            Helpers.themesUpload(parentFolder, wbObservation, millisecond, accessToken, frameworkExternalId, False)
+                            solutionId = Helpers.createSolutionFromFramework(parentFolder, wbObservation, accessToken, frameworkExternalId)
+                        except Exception as e:
+                            print(f"Error during framework or solution creation: {str(e)}")
+                            return None
+
+                        try:
+                            # ECM processing
+                            ecmsSheet = wbObservation.sheet_by_name('ECMs or Domains')
+                            keys = [ecmsSheet.cell(1, col_index).value for col_index in range(ecmsSheet.ncols)]
+                            ecm_update = dict()
+                            ecm_dict = dict()
+                            section = dict()
+                            ecmSeqCount = 1
+                            for row_index in range(2, ecmsSheet.nrows):
+                                dictECMs = {keys[col_index]: ecmsSheet.cell(row_index, col_index).value for col_index in range(ecmsSheet.ncols)}
+                                EMC_ID = dictECMs['ECM Id/Domian ID'].encode('utf-8').decode('utf-8').strip() + '_' + str(millisecond)
+                                ECM_NAME = dictECMs['ECM Name/Domain Name'].encode('utf-8').decode('utf-8').strip()
+                                section.update({dictECMs['section_id']: dictECMs['section_name']})
+                                ecm_sections[EMC_ID] = dictECMs['section_id']
+                                
+                                # Handle boolean conversion safely
+                                is_mandatory = dictECMs.get('Is ECM Mandatory?', 'FALSE')
+                                is_mandatory = str(is_mandatory).strip().upper() in ['TRUE', '1']
+
+                                ecm_update[EMC_ID] = {
+                                    "externalId": EMC_ID, "tip": None, "name": ECM_NAME, "description": None,
+                                    "modeOfCollection": "onfield", "canBeNotApplicable": not is_mandatory,
+                                    "notApplicable": False, "canBeNotAllowed": not is_mandatory, "remarks": None,
+                                    "sequenceNo": ecmSeqCount
                                 }
-                            ecmSeqCount += 1
-                        ecm_dict['evidenceMethods'] = ecm_update
-                        bodySolutionUpdate = ecm_dict
-                        Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
-                        bodySolutionUpdate = {"sections": section}
-                        Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
-                        bodySolutionUpdate = {"status": "active", "isDeleted": False, "criteriaLevelReport": criteriaLevelsReport}
-                        Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
-                        excelBook = open_workbook(addObservationSolution)
-                        Helpers.questionUpload(addObservationSolution, parentFolder, frameworkExternalId, millisecond, accessToken,solutionId,typeofSolution)
-                        if not pointBasedValue.lower() == "null":
-                            bodySolutionUpdate = {"isRubricDriven": True}
+                                ecmSeqCount += 1
+                            ecm_dict['evidenceMethods'] = ecm_update
+                            Helpers.solutionUpdate(parentFolder, accessToken, solutionId, ecm_dict)
+                            Helpers.solutionUpdate(parentFolder, accessToken, solutionId, {"sections": section})
+                        except Exception as e:
+                            print(f"Error during ECM processing: {str(e)}")
+                            return None
+
+                        try:
+                            # Continue rest of the process
+                            bodySolutionUpdate = {"status": "active", "isDeleted": False, "criteriaLevelReport": criteriaLevelsReport}
                             Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
-                            Helpers.fetchSolutionCriteria(parentFolder, observationExternalId, accessToken)
-                            Helpers.uploadCriteriaRubrics(parentFolder, wbObservation, millisecond, accessToken, frameworkExternalId, True)
-                            Helpers.uploadThemeRubrics(parentFolder, wbObservation, accessToken, frameworkExternalId, True)
-                        else:
-                            print("Observation with scoring system : null.")
-                        bodySolutionUpdate = {'allowMultipleAssessemts': allow_multiple_submissions, "creator": creator}
-                        Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
-                        solutionDetails = Helpers.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionId, accessToken)
-                        if solutionDetails[1]:
-                            startDateArr = str(solutionDetails[1]).split("-")
-                            bodySolutionUpdate = {
-                                "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
-                            # print(bodySolutionUpdate, "<-----------------startDate=================")
-                            Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
-                        if solutionDetails[2]:
-                            endDateArr = str(solutionDetails[2]).split("-")
-                            bodySolutionUpdate = {
-                                "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                            # print(bodySolutionUpdate,"<-------------------------endDate============" )
-                            Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
-                        if isProgramnamePresent:
-                            childId = Helpers.createChild(parentFolder, observationExternalId, accessToken)
-                            if childId[0]:
-                                solutionDetails = Helpers.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, childId[0],
-                                                                                    accessToken)
-                                scopeEntities = entitiesPGMID
-                                scopeRoles = solutionDetails[0]
-                                bodySolutionUpdate = {
-                                    "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-                                Helpers.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate)
-                                if solutionDetails[1]:
-                                    startDateArr = str(solutionDetails[1]).split("-")
-                                    bodySolutionUpdate = {
-                                        "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[
-                                            0] + " 00:00:00"}
+                            
+                            # Handle rubrics
+                            if pointBasedValue.lower() != "null":
+                                Helpers.uploadCriteriaRubrics(parentFolder, wbObservation, millisecond, accessToken, frameworkExternalId, True)
+                                Helpers.uploadThemeRubrics(parentFolder, wbObservation, accessToken, frameworkExternalId, True)
+                            
+                            # Handle program information and start/end dates
+                            solutionDetails = Helpers.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionId, accessToken)
+                            if solutionDetails[1]:
+                                startDateArr = str(solutionDetails[1]).split("-")
+                                bodySolutionUpdate = {"startDate": f"{startDateArr[2]}-{startDateArr[1]}-{startDateArr[0]} 00:00:00"}
+                                Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
+
+                            if solutionDetails[2]:
+                                endDateArr = str(solutionDetails[2]).split("-")
+                                bodySolutionUpdate = {"endDate": f"{endDateArr[2]}-{endDateArr[1]}-{endDateArr[0]} 23:59:59"}
+                                Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
+
+                            # If program name exists, handle child creation and linking
+                            if isProgramnamePresent:
+                                childId = Helpers.createChild(parentFolder, observationExternalId, accessToken)
+                                if childId[0]:
+                                    childSolutionDetails = Helpers.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, childId[0], accessToken)
+                                    bodySolutionUpdate = {"scope": {"entityType": scopeEntityType, "entities": entitiesPGMID, "roles": childSolutionDetails[0]}}
                                     Helpers.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate)
-                                if solutionDetails[2]:
-                                    endDateArr = str(solutionDetails[2]).split("-")
-                                    bodySolutionUpdate = {
-                                        "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                                    Helpers.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate)
-                                ObsRubricSolutionLink = Helpers.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, childId[1], childId[0],
-                                                        accessToken)
-                                # print(ObsRubricSolutionLink)
-                        else:
-                            print("No program name detected.")
-                        finalObsRubricSolutionLink =  {ObsWRResourceName:ObsRubricSolutionLink}
+                        except Exception as e:
+                            print(f"Error during rubric or program handling: {str(e)}")
+                            return None
+
+                        # Final link creation
+                        finalObsRubricSolutionLink = {ObsWRResourceName: ObsRubricSolutionLink}
                         return finalObsRubricSolutionLink
-                except:
-                    print("Terminated")
+
+                except Exception as e:
+                    print(f"Error in 'addObsWRFunc': {str(e)}")
+                    return None
+
+                # Call function
                 millisecond = int(time.time() * 1000)
-                ObsWRSolutionLink=addObsWRFunc(parentFolder, wbObservation, millisecond, accessToken)
+                ObsWRSolutionLink = addObsWRFunc(parentFolder, wbObservation, millisecond, accessToken)
                 return ObsWRSolutionLink
+
 
             elif sheets.strip().lower() == 'details'.lower() and typeofSolution == 2:
                 ResourceSheet = wbproject.sheet_by_name(sheets)
-                keysEnv = [ResourceSheet.cell(1, col_index_env).value for col_index_env in
-                               range(ResourceSheet.ncols)]
-                dictDetailsEnv = {keysEnv[col_index_env]: ResourceSheet.cell(row_index_env, col_index_env).value
-                                          for
-                                          col_index_env in range(ResourceSheet.ncols)}
+                keysEnv = [ResourceSheet.cell(1, col_index_env).value for col_index_env in range(ResourceSheet.ncols)]
+                
+                # Collect observation solution details
+                dictDetailsEnv = {
+                    keysEnv[col_index_env]: ResourceSheet.cell(row_index_env, col_index_env).value
+                    for col_index_env in range(ResourceSheet.ncols)
+                }
                 ObsWORResourceName = dictDetailsEnv['observation_solution_name'].encode('utf-8').decode('utf-8')
                 
-                try: 
+                try:
                     def addObsWORFunc(parentFolder, wbObservation, millisecond, accessToken):
                         print("Create Observation Function called ....")
-                        Helpers.criteriaUpload(parentFolder, wbObservation, millisecond, accessToken, "criteria", False)
-                        print("-------------> criteria upload done")
                         
-                        # Finding the "Diksha_loginId" column
-                        detailsEnvSheet = wbproject.sheet_by_name(sheets)
-                        keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in range(detailsEnvSheet.ncols)]
-                        
-                        for row_index_env in range(2, detailsEnvSheet.nrows):
-                            dictDetailsEnv = {
-                                keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
-                                for col_index_env in range(detailsEnvSheet.ncols)
+                        try:
+                            # Step 1: Upload criteria
+                            Helpers.criteriaUpload(parentFolder, wbObservation, millisecond, accessToken, "criteria", False)
+                            print("-------------> criteria upload done")
+                            
+                            # Step 2: Process user details for Diksha_loginId
+                            detailsEnvSheet = wbproject.sheet_by_name(sheets)
+                            keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in range(detailsEnvSheet.ncols)]
+                            
+                            for row_index_env in range(2, detailsEnvSheet.nrows):
+                                dictDetailsEnv = {
+                                    keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
+                                    for col_index_env in range(detailsEnvSheet.ncols)
+                                }
+                                if 'Diksha_loginId' in dictDetailsEnv:
+                                    userDetails = Helpers.fetchUserDetails(accessToken, dictDetailsEnv['Diksha_loginId'])
+                                    matchedShikshalokamLoginId = userDetails[0]
+                                    print(f"Matched login ID: {matchedShikshalokamLoginId}")
+                            
+                            # Step 3: Upload framework and themes
+                            frameworkExternalId = Helpers.frameWorkUpload(parentFolder, matchedShikshalokamLoginId, wbObservation, millisecond, accessToken)
+                            observationExternalId = frameworkExternalId + "-OBSERVATION-TEMPLATE"
+                            Helpers.themesUpload(parentFolder, wbObservation, millisecond, accessToken, frameworkExternalId, True)
+                            
+                            # Step 4: Create solution from framework
+                            solutionId = Helpers.createSolutionFromFramework(parentFolder, wbObservation, accessToken, frameworkExternalId)
+                            
+                            # Step 5: Update solution with sections
+                            sectionsObj = {"sections": {'S1': 'Observation Question'}}
+                            Helpers.solutionUpdate(parentFolder, accessToken, solutionId, sectionsObj)
+                            
+                            # Step 6: Upload criteria and evidence methods
+                            ecmObj = {
+                                "evidenceMethods": {
+                                    'OB': {
+                                        'externalId': 'OB', 'tip': None, 'name': 'Observation', 'description': None,
+                                        'modeOfCollection': 'onfield', 'canBeNotApplicable': False,
+                                        'notApplicable': False, 'canBeNotAllowed': False, 'remarks': None
+                                    }
+                                }
                             }
-                            if 'Diksha_loginId' in dictDetailsEnv:
-                                userDetails = Helpers.fetchUserDetails(accessToken, dictDetailsEnv['Diksha_loginId'])
-                                matchedShikshalokamLoginId = userDetails[0]
-                                # print("Matched login ID: {matchedShikshalokamLoginId}")
-                        
-                        frameworkExternalId = Helpers.frameWorkUpload(parentFolder,matchedShikshalokamLoginId, wbObservation, millisecond, accessToken)
-                        observationExternalId = frameworkExternalId + "-OBSERVATION-TEMPLATE"
-                        Helpers.themesUpload(parentFolder, wbObservation, millisecond, accessToken, frameworkExternalId, True)
-                        solutionId = Helpers.createSolutionFromFramework(parentFolder, wbObservation, accessToken, frameworkExternalId)
-                        sectionsObj = {"sections": {'S1': 'Observation Question'}}
-                        Helpers.solutionUpdate(parentFolder, accessToken, solutionId, sectionsObj)
-                        ecmObj = {}
-                        ecmExternalId = None
-                        ecmObj = {
-                            "evidenceMethods": {'OB': {'externalId': 'OB', 'tip': None, 'name': 'Observation', 'description': None,
-                                                    'modeOfCollection': 'onfield', 'canBeNotApplicable': False,
-                                                    'notApplicable': False, 'canBeNotAllowed': False, 'remarks': None}}}
-                        Helpers.solutionUpdate(parentFolder, accessToken, solutionId, ecmObj)
-                        # typeofSolution = Helpers.validateSheets(addObservationSolution, accessToken, parentFolder)
-                        Helpers.questionUpload(addObservationSolution, parentFolder, frameworkExternalId, millisecond, accessToken,
-                                    solutionId, typeofSolution)
-                        Helpers.fetchSolutionCriteria(parentFolder, observationExternalId, accessToken)
-                        if not pointBasedValue.lower() == "null":
-                            Helpers.uploadCriteriaRubrics(parentFolder, wbObservation, millisecond, accessToken, frameworkExternalId, False)
-                            Helpers.uploadThemeRubrics(parentFolder, wbObservation, accessToken, frameworkExternalId, False)
-                        bodySolutionUpdate = {"status": "active", "isDeleted": False, "allowMultipleAssessemts": True,
-                                            "creator": creator}
-                        Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
-
-                        solutionDetails = Helpers.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionId, accessToken)
-                        # Below script will convert date DD-MM-YYYY TO YYYY-MM-DD 00:00:00 to match the code syntax
-
-                        if solutionDetails[1]:
-                            startDateArr = str(solutionDetails[1]).split("-")
-                            bodySolutionUpdate = {
-                                "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
+                            Helpers.solutionUpdate(parentFolder, accessToken, solutionId, ecmObj)
+                            Helpers.questionUpload(addObservationSolution, parentFolder, frameworkExternalId, millisecond, accessToken, solutionId, typeofSolution)
+                            Helpers.fetchSolutionCriteria(parentFolder, observationExternalId, accessToken)
+                            
+                            # Handle point-based value and rubrics
+                            if pointBasedValue.lower() != "null":
+                                Helpers.uploadCriteriaRubrics(parentFolder, wbObservation, millisecond, accessToken, frameworkExternalId, False)
+                                Helpers.uploadThemeRubrics(parentFolder, wbObservation, accessToken, frameworkExternalId, False)
+                            
+                            # Step 7: Activate and update solution status
+                            bodySolutionUpdate = {"status": "active", "isDeleted": False, "allowMultipleAssessemts": True, "creator": creator}
                             Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
-                        if solutionDetails[2]:
-                            endDateArr = str(solutionDetails[2]).split("-")
-                            bodySolutionUpdate = {
-                                "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                            Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
-                        if isProgramnamePresent:
-                            childId = Helpers.createChild(parentFolder, observationExternalId, accessToken)
-                            if childId[0]:
-                                solutionDetails = Helpers.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, childId[0],
-                                                                                    accessToken)
-                                scopeEntities = entitiesPGMID
-                                scopeRoles = solutionDetails[0]
+                            
+                            # Step 8: Update solution dates (start and end)
+                            solutionDetails = Helpers.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionId, accessToken)
+                            if solutionDetails[1]:
+                                startDateArr = str(solutionDetails[1]).split("-")
                                 bodySolutionUpdate = {
-                                    "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-                                Helpers.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate)
-                                if solutionDetails[1]:
-                                    startDateArr = str(solutionDetails[1]).split("-")
+                                    "startDate": f"{startDateArr[2]}-{startDateArr[1]}-{startDateArr[0]} 00:00:00"
+                                }
+                                Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
+                            if solutionDetails[2]:
+                                endDateArr = str(solutionDetails[2]).split("-")
+                                bodySolutionUpdate = {
+                                    "endDate": f"{endDateArr[2]}-{endDateArr[1]}-{endDateArr[0]} 23:59:59"
+                                }
+                                Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
+
+                            # Step 9: Handle program name
+                            if isProgramnamePresent:
+                                childId = Helpers.createChild(parentFolder, observationExternalId, accessToken)
+                                if childId[0]:
+                                    solutionDetails = Helpers.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, childId[0], accessToken)
+                                    scopeEntities = entitiesPGMID
+                                    scopeRoles = solutionDetails[0]
                                     bodySolutionUpdate = {
-                                        "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[
-                                            0] + " 00:00:00"}
+                                        "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}
+                                    }
                                     Helpers.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate)
-                                if solutionDetails[2]:
-                                    endDateArr = str(solutionDetails[2]).split("-")
-                                    bodySolutionUpdate = {
-                                        "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                                    Helpers.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate)
-                                ObsSolutionLink = Helpers.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, childId[1], childId[0],
-                                                        accessToken)
-                                print(ObsSolutionLink)
-                        else:
-                            print("No program name detected.")
-                        finalObsSolutionLink = {ObsWORResourceName:ObsSolutionLink}
-                        return finalObsSolutionLink
-                except:
-                    print("Terminated")
-                millisecond = int(time.time() * 1000)
-                ObsWORSolutionLink=addObsWORFunc(parentFolder, wbObservation, millisecond, accessToken)
-                return ObsWORSolutionLink
+                                    if solutionDetails[1]:
+                                        startDateArr = str(solutionDetails[1]).split("-")
+                                        bodySolutionUpdate = {
+                                            "startDate": f"{startDateArr[2]}-{startDateArr[1]}-{startDateArr[0]} 00:00:00"
+                                        }
+                                        Helpers.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate)
+                                    if solutionDetails[2]:
+                                        endDateArr = str(solutionDetails[2]).split("-")
+                                        bodySolutionUpdate = {
+                                            "endDate": f"{endDateArr[2]}-{endDateArr[1]}-{endDateArr[0]} 23:59:59"
+                                        }
+                                        Helpers.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate)
+                                    ObsSolutionLink = Helpers.prepareProgramSuccessSheet(
+                                        MainFilePath, parentFolder, programFile, childId[1], childId[0], accessToken
+                                    )
+                                    print(ObsSolutionLink)
+                                else:
+                                    print("Failed to create child observation.")
+                            
+                            finalObsSolutionLink = {ObsWORResourceName: ObsSolutionLink}
+                            return finalObsSolutionLink
+
+                        except Exception as e:
+                            print(f"Error during observation creation: {str(e)}")
+                            raise RuntimeError("Observation creation failed due to an unexpected error.")
+                    
+                    millisecond = int(time.time() * 1000)
+                    ObsWORSolutionLink = addObsWORFunc(parentFolder, wbObservation, millisecond, accessToken)
+                    return ObsWORSolutionLink
+                
+                except Exception as e:
+                    print(f"Error occurred: {str(e)}")
+                    raise RuntimeError("The process failed due to an unexpected error.")
+
 
             elif sheets.strip().lower() == 'Project upload'.lower() and typeofSolution == 4:
                 print("Checking project upload sheet...")
                 projectsheet = wbproject.sheet_by_name(sheets)
-                keysEnv = [projectsheet.cell(1, col_index_env).value for col_index_env in
-                           range(projectsheet.ncols)]
+                keysEnv = [projectsheet.cell(1, col_index_env).value for col_index_env in range(projectsheet.ncols)]
+                
                 for row_index_env in range(1, projectsheet.nrows):
                     projectDetails = {keysEnv[col_index_env]: projectsheet.cell(row_index_env, col_index_env).value
-                                      for col_index_env in range(projectsheet.ncols)}
+                                    for col_index_env in range(projectsheet.ncols)}
                     ProjectName = projectDetails["title"].encode('utf-8').decode('utf-8')
-                    # print(ProjectName)
                     entityType = "school"
 
                 try:
                     def addProjectFunc(filePathAddProject, projectName_for_folder_path, millisAddObs):
                         print('Add Project Function Called')
-                        
-                        projectName_for_folder = None
-                        
+
+                        # Create project folder if it doesn't exist
                         if not path.exists(projectName_for_folder_path):
                             os.mkdir(projectName_for_folder_path)
-                        # copy input file to drive file
+
+                        # Create a user input folder if it doesn't exist
                         if not path.exists(projectName_for_folder_path + "/user_input_file"):
                             os.mkdir(projectName_for_folder_path + "/user_input_file")
+                        
+                        # Copy files to the folder
                         shutil.copy(filePathAddProject, projectName_for_folder_path + "/user_input_file")
                         shutil.copy(programFile, projectName_for_folder_path + "/user_input_file")
-                        messageArr = ["Access token generated.", "Access token : " + accessToken, "Solution file created.",
-                                    "Path : " + projectName_for_folder_path]
-                        # createAPILog(projectName_for_folder_path, messageArr)
+
+                        # Log and add project details
                         wbproject = xlrd.open_workbook(filePathAddProject, on_demand=True)
                         projectsheetforcertificate = wbproject.sheet_names()
+                        
+                        # Process the project upload sheet
                         for prosheet in projectsheetforcertificate:
                             if prosheet.strip().lower() == 'Project upload'.lower():
-                                detailsColCheck = wbproject.sheet_by_name(prosheet)
-                                keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
-                                                    range(detailsColCheck.ncols)]
                                 detailsEnvSheet = wbproject.sheet_by_name(prosheet)
-                                keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
-                                        range(detailsEnvSheet.ncols)]
+                                keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in range(detailsEnvSheet.ncols)]
+                                
                                 for row_index_env in range(2, detailsEnvSheet.nrows):
-                                    # print(dictDetailsEnv)
-                                    # sys.exit()
                                     dictDetailsEnv = {
                                         keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
-                                        for
-                                        col_index_env in range(detailsEnvSheet.ncols)}
-                                    if str(dictDetailsEnv['has certificate']).lower() == 'No'.lower():
-                                        Helpers.prepareProjectAndTasksSheets(addObservationSolution, projectName_for_folder_path,
-                                                                    accessToken)
-                                        # sys.exit()
-                                        Helpers.projectUpload(addObservationSolution, projectName_for_folder_path, accessToken)
-                                        Helpers.taskUpload(addObservationSolution, projectName_for_folder_path, accessToken)
-                                        ProjectSolutionResp = Helpers.solutionCreationAndMapping(projectName_for_folder_path,
-                                                                                        entityToUpload,
-                                                                                        listOfFoundRoles, accessToken,programFile)
-                                        ProjectSolutionExternalId = ProjectSolutionResp[0]
-                                        ProjectSolutionId = ProjectSolutionResp[1]
-                                        solutionlink = Helpers.prepareProgramSuccessSheet(MainFilePath, projectName_for_folder_path, programFile,
-                                                                ProjectSolutionExternalId,
-                                                                ProjectSolutionId, accessToken)
-                                        print(solutionlink)
-                                    elif str(dictDetailsEnv['has certificate']).lower()== 'Yes'.lower():
-                                        print("---->this is certificate with project<---")
-                                        baseTemplate_id=Helpers.fetchCertificateBaseTemplate(filePathAddProject,accessToken,projectName_for_folder_path)
-                                        # sys.exit()
-                                        Helpers.downloadlogosign(filePathAddProject,projectName_for_folder_path)
-                                        Helpers.editsvg(accessToken,filePathAddProject,projectName_for_folder_path,baseTemplate_id)
-                                        Helpers.prepareProjectAndTasksSheets(addObservationSolution, projectName_for_folder_path,accessToken)
-                                        Helpers.projectUpload(addObservationSolution, projectName_for_folder_path, accessToken)
-                                        Helpers.taskUpload(addObservationSolution, projectName_for_folder_path, accessToken)
-                                        ProjectSolutionResp = Helpers.solutionCreationAndMapping(projectName_for_folder_path,entityToUpload,listOfFoundRoles, accessToken,programFile)
-                                        ProjectSolutionExternalId = ProjectSolutionResp[0]
-                                        ProjectSolutionId = ProjectSolutionResp[1]
-                                        print("---------------------------------------------")
-                                        certificatetemplateid= Helpers.prepareaddingcertificatetemp(filePathAddProject,projectName_for_folder_path, accessToken,ProjectSolutionId,programID,baseTemplate_id)
-                                        solutionlink = Helpers.prepareProgramSuccessSheet(MainFilePath, projectName_for_folder_path, programFile,
-                                                                ProjectSolutionExternalId,
-                                                                ProjectSolutionId, accessToken)
-                                        #print(solutionlink)
-                        finalprojectsolutionlink =  {ProjectName:solutionlink}
-                        return finalprojectsolutionlink
+                                        for col_index_env in range(detailsEnvSheet.ncols)
+                                    }
 
-                # return solutionlink
-                except:
-                    print("Terminated")
-                millisecond = int(time.time() * 1000)
-                projectSolutionLink=addProjectFunc(addObservationSolution, parentFolder, millisecond)
-                return projectSolutionLink
-                # print(projectSolutionLink,"projectSolutionLink")
-                # print("Done.")
+                                    # Handle projects without a certificate
+                                    if str(dictDetailsEnv['has certificate']).lower() == 'no':
+                                        Helpers.prepareProjectAndTasksSheets(addObservationSolution, projectName_for_folder_path, accessToken)
+                                        Helpers.projectUpload(addObservationSolution, projectName_for_folder_path, accessToken)
+                                        Helpers.taskUpload(addObservationSolution, projectName_for_folder_path, accessToken)
+                                        
+                                        ProjectSolutionResp = Helpers.solutionCreationAndMapping(
+                                            projectName_for_folder_path, entityToUpload, listOfFoundRoles, accessToken, programFile)
+                                        ProjectSolutionExternalId = ProjectSolutionResp[0]
+                                        ProjectSolutionId = ProjectSolutionResp[1]
+                                        
+                                        solutionlink = Helpers.prepareProgramSuccessSheet(
+                                            MainFilePath, projectName_for_folder_path, programFile,
+                                            ProjectSolutionExternalId, ProjectSolutionId, accessToken)
+                                        print(solutionlink)
+
+                                    # Handle projects with a certificate
+                                    elif str(dictDetailsEnv['has certificate']).lower() == 'yes':
+                                        print("----> Certificate required for project <----")
+                                        baseTemplate_id = Helpers.fetchCertificateBaseTemplate(
+                                            filePathAddProject, accessToken, projectName_for_folder_path)
+                                        Helpers.downloadlogosign(filePathAddProject, projectName_for_folder_path)
+                                        Helpers.editsvg(accessToken, filePathAddProject, projectName_for_folder_path, baseTemplate_id)
+                                        Helpers.prepareProjectAndTasksSheets(addObservationSolution, projectName_for_folder_path, accessToken)
+                                        Helpers.projectUpload(addObservationSolution, projectName_for_folder_path, accessToken)
+                                        Helpers.taskUpload(addObservationSolution, projectName_for_folder_path, accessToken)
+                                        
+                                        ProjectSolutionResp = Helpers.solutionCreationAndMapping(
+                                            projectName_for_folder_path, entityToUpload, listOfFoundRoles, accessToken, programFile)
+                                        ProjectSolutionExternalId = ProjectSolutionResp[0]
+                                        ProjectSolutionId = ProjectSolutionResp[1]
+
+                                        # Handle certificate template
+                                        certificatetemplateid = Helpers.prepareaddingcertificatetemp(
+                                            filePathAddProject, projectName_for_folder_path, accessToken, ProjectSolutionId, programID, baseTemplate_id)
+
+                                        solutionlink = Helpers.prepareProgramSuccessSheet(
+                                            MainFilePath, projectName_for_folder_path, programFile,
+                                            ProjectSolutionExternalId, ProjectSolutionId, accessToken)
+                                        
+                                    finalprojectsolutionlink = {ProjectName: solutionlink}
+                                    return finalprojectsolutionlink
+
+                    # Calculate the current time in milliseconds
+                    millisecond = int(time.time() * 1000)
+                    projectSolutionLink = addProjectFunc(addObservationSolution, parentFolder, millisecond)
+                    return projectSolutionLink
+
+                except Exception as e:
+                    print(f"Error occurred during project creation: {str(e)}")
+                    raise RuntimeError("The project creation failed due to an unexpected error")
+
     
             elif sheets.strip().lower() == 'details'.lower() and typeofSolution == 3:
-                ResourceSheet = wbproject.sheet_by_name(sheets)
-                keysEnv = [ResourceSheet.cell(1, col_index_env).value for col_index_env in
-                               range(ResourceSheet.ncols)]
-                dictDetailsEnv = {keysEnv[col_index_env]: ResourceSheet.cell(row_index_env, col_index_env).value
-                                          for
-                                          col_index_env in range(ResourceSheet.ncols)}
-                SurveyResourceName = dictDetailsEnv['survey_solution_name'].encode('utf-8').decode('utf-8')
-                # print(SurveyResourceName, "3104")
                 try:
-                    def addsurveyFunc(parentFolder, wbObservation, millisecond, accessToken): 
-                        # print(wbObservation,"3086")
-                        # print(parentFolder,"3087")
-                        Helpers.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath)
-                        wbprogram = xlrd.open_workbook(programFile, on_demand=True)
-                        programSheetNames = wbprogram.sheet_names()
-                        wbSurvey = xlrd.open_workbook(addObservationSolution, on_demand=True)
-                        # print(wbSurvey,"3092")
-                        surevySheetNames = wbSurvey.sheet_names()
-                        # print(surevySheetNames,"<--------------projectSheetNames 3093")
-                        
-                        surveyResp = Helpers.createSurveySolution(parentFolder, wbSurvey, accessToken)
-                        surTempExtID = surveyResp[1]
-                        surTempSolID = surveyResp[0]
-                        bodySolutionUpdate = {"status": "active", "isDeleted": False}
-                        Helpers.solutionUpdate(parentFolder, accessToken, surveyResp[0], bodySolutionUpdate)
-                        # print(parentFolder, "3101")
-                        Helpers.uploadSurveyQuestions(MainFilePath, parentFolder, wbSurvey, addObservationSolution, accessToken, surTempExtID,
-                                            surTempSolID, millisecond,programFile)
-                        
-                        # print(surveySolutionlink,"3106")
-                        # surveySolution = (SurveyResourceName,":",surveySolutionlink)
-                        # print(surveySolution,"3136")
-                        finalsurveySolutionlink =  {SurveyResourceName:surveySolutionlink}
-                        return finalsurveySolutionlink
-                        
-                except:
-                    print("Terminated")
-                millisecond = int(time.time() * 1000)
-                surveySollink=addsurveyFunc(parentFolder, wbObservation, millisecond, accessToken)
-                # print(surveySollink,"3111")
-                return surveySollink
+                    ResourceSheet = wbproject.sheet_by_name(sheets)
+                    keysEnv = [ResourceSheet.cell(1, col_index_env).value for col_index_env in range(ResourceSheet.ncols)]
+                    dictDetailsEnv = {keysEnv[col_index_env]: ResourceSheet.cell(row_index_env, col_index_env).value for col_index_env in range(ResourceSheet.ncols)}
+                    SurveyResourceName = dictDetailsEnv['survey_solution_name'].encode('utf-8').decode('utf-8')
+
+                    def addsurveyFunc(parentFolder, wbObservation, millisecond, accessToken):
+                        try:
+                            # Validate program file and survey sheets
+                            Helpers.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath)
+                            wbprogram = xlrd.open_workbook(programFile, on_demand=True)
+                            programSheetNames = wbprogram.sheet_names()
+
+                            wbSurvey = xlrd.open_workbook(addObservationSolution, on_demand=True)
+                            surevySheetNames = wbSurvey.sheet_names()
+
+                            # Create survey solution
+                            surveyResp = Helpers.createSurveySolution(parentFolder, wbSurvey, accessToken)
+                            surTempExtID = surveyResp[1]
+                            surTempSolID = surveyResp[0]
+
+                            # Update solution status
+                            bodySolutionUpdate = {"status": "active", "isDeleted": False}
+                            Helpers.solutionUpdate(parentFolder, accessToken, surveyResp[0], bodySolutionUpdate)
+
+                            # Upload survey questions
+                            Helpers.uploadSurveyQuestions(MainFilePath, parentFolder, wbSurvey, addObservationSolution, accessToken, surTempExtID, surTempSolID, millisecond, programFile)
+
+                            finalsurveySolutionlink = {SurveyResourceName: surveySolutionlink}
+                            return finalsurveySolutionlink
+
+                        except KeyError as e:
+                            print(f"KeyError: {str(e)} - Possible missing column or incorrect key in sheet.")
+                            return None
+                        except xlrd.XLRDError as e:
+                            print(f"XLRDError: {str(e)} - Issue with reading the Excel file.")
+                            return None
+                        except Exception as e:
+                            print(f"An error occurred: {str(e)}")
+                            return None
+
+                    millisecond = int(time.time() * 1000)
+                    surveySollink = addsurveyFunc(parentFolder, wbObservation, millisecond, accessToken)
+
+                    if surveySollink:
+                        return surveySollink
+                    else:
+                        print("Survey creation failed due to an error.")
+
+                except KeyError as e:
+                    print(f"KeyError: {str(e)} - Check if 'survey_solution_name' exists in the sheet.")
+                except xlrd.XLRDError as e:
+                    print(f"XLRDError: {str(e)} - Unable to load the Excel sheet: {sheets}")
+                except Exception as e:
+                    print(f"An unexpected error occurred: {str(e)}")
+
 
 
         # Helpers.SolutionFileCheck(addObservationSolution, accessToken, parentFolder, MainFilePath)
@@ -3441,7 +3522,7 @@ class Helpers:
         messageArr = ["Criteria Upload Sheet Prepared.",
                     "File path : " + solutionName_for_folder_path + '/criteriaUpload/uploadSheet.csv']
         messageArr.append("Upload status code : " + str(responseCriteriaUploadApi.status_code))
-        # createAPILog(solutionName_for_folder_path, messageArr)
+        Helpers.createAPILog(solutionName_for_folder_path, messageArr)
 
         if responseCriteriaUploadApi.status_code == 200:
             print('CriteriaUploadApi Success')
@@ -3450,7 +3531,7 @@ class Helpers:
         else:
 
             messageArr.append("Response : " + str(responseCriteriaUploadApi.text))
-            # createAPILog(solutionName_for_folder_path, messageArr)
+            Helpers.createAPILog(solutionName_for_folder_path, messageArr)
             print("Criteria Upload failed.")
             sys.exit()
     
@@ -3623,14 +3704,14 @@ class Helpers:
         messageArr = ["Framwork json file created.",
                     "File loc : " + solutionName_for_folder_path + '/framework/uploadFile.json',
                     "Framework upload API called,", "Status code : " + str(responseFrameworkUploadApi.status_code)]
-        # createAPILog(solutionName_for_folder_path, messageArr)
+        Helpers.createAPILog(solutionName_for_folder_path, messageArr)
         if responseFrameworkUploadApi.status_code == 200:
             print('Framework upload Success')
             return frameworkExternalId
 
         else:
             messageArr = ["Framwork upload Failed.", "Response : " + responseFrameworkUploadApi.text]
-            # createAPILog(solutionName_for_folder_path, messageArr)
+            Helpers.createAPILog(solutionName_for_folder_path, messageArr)
             print('Framework upload api failed in ' + environment,
                 'status_code response from api is ' + str(responseFrameworkUploadApi.status_code))
             sys.exit()
@@ -3698,14 +3779,14 @@ class Helpers:
                     "File path : " + solutionName_for_folder_path + '/themeUpload/uploadSheet.csv',
                     "Theme upload to framework API called.", "URL : " + urlThemesUploadApi,
                     "Status code : " + str(responseThemeUploadApi.status_code)]
-        # createAPILog(solutionName_for_folder_path, messageArr)
+        Helpers.createAPILog(solutionName_for_folder_path, messageArr)
         if responseThemeUploadApi.status_code == 200:
             print('Theme UploadApi Success')
             with open(solutionName_for_folder_path + '/themeUpload/uploadInternalIdsSheet.csv', 'w+',encoding='utf-8') as criteriaRes:
                 criteriaRes.write(responseThemeUploadApi.text)
         else:
             messageArr = ["Themes upload failed.", "Response : " + str(responseThemeUploadApi.text)]
-            # createAPILog(solutionName_for_folder_path, messageArr)
+            Helpers.createAPILog(solutionName_for_folder_path, messageArr)
             print("Theme upload failed.")
             sys.exit()
 
@@ -3735,17 +3816,17 @@ class Helpers:
                     "URL : " + str(urlCreateSolutionApi + queryparamsCreateSolutionApi),
                     "Status Code : " + str(responseCreateSolutionApi.status_code),
                     "Response : " + str(responseCreateSolutionApi.text)]
-        # createAPILog(solutionName_for_folder_path, messageArr)
+        Helpers.createAPILog(solutionName_for_folder_path, messageArr)
         messageArr = []
         if responseCreateSolutionApi.status_code == 200:
             responseCreateSolutionApi = responseCreateSolutionApi.json()
             solutionId = responseCreateSolutionApi['result']['templateId']
             messageArr.append("Parent Solution Generated : " + str(solutionId))
             print("Parent Solution Generated : " + str(solutionId))
-            # createAPILog(solutionName_for_folder_path, messageArr)
+            Helpers.createAPILog(solutionName_for_folder_path, messageArr)
         else:
             messageArr.append("Solution from framework api failed.")
-            # createAPILog(solutionName_for_folder_path, messageArr)
+            Helpers.createAPILog(solutionName_for_folder_path, messageArr)
             print("Solution from framework api failed.")
             sys.exit()
         return solutionId
@@ -3963,7 +4044,7 @@ class Helpers:
                                         messageArr = [questionFileObj[
                                                         'parentQuestionId'] + " Referenced before intialising in questions sheet.",
                                                     "Please check question sequesnce...", ]
-                                        # createAPILog(solutionName_for_folder_path, messageArr)
+                                        Helpers.createAPILog(solutionName_for_folder_path, messageArr)
                                         sys.exit()
                                     if responseCheck:
                                         if not searchResponse.string.replace("response(", "").replace(")",
@@ -4479,7 +4560,7 @@ class Helpers:
         messageArr = ["Question Upload sheet prepared.",
                     "File loc : " + solutionName_for_folder_path + '/questionUpload/uploadSheet.csv',
                     "Question upload API called.", "Status code : " + str(responseQuestionUploadApi.status_code)]
-        # createAPILog(solutionName_for_folder_path, messageArr)
+        Helpers.createAPILog(solutionName_for_folder_path, messageArr)
         if responseQuestionUploadApi.status_code == 200:
             print('QuestionUploadApi Success')
             with open(solutionName_for_folder_path + '/questionUpload/uploadInternalIdsSheet.csv','w+',
@@ -4487,7 +4568,7 @@ class Helpers:
                 questionRes.write(responseQuestionUploadApi.text)
         else:
             messageArr = ["Question Upload Failed.", "Response : " + str(responseQuestionUploadApi.text)]
-            #createAPILog(solutionName_for_folder_path, messageArr)
+            Helpers.createAPILog(solutionName_for_folder_path, messageArr)
             print("Question Upload failed.")
             sys.exit()
 
@@ -4579,14 +4660,14 @@ class Helpers:
         messageArr = ["Criteria Rubric upload sheet prepared.",
                     "File Loc : " + solutionName_for_folder_path + '/criteriaRubrics/uploadSheet.csv',
                     "Status Code : " + str(responseCriteriaRubricUploadApi.status_code)]
-        # createAPILog(solutionName_for_folder_path, messageArr)
+        Helpers.createAPILog(solutionName_for_folder_path, messageArr)
         if responseCriteriaRubricUploadApi.status_code == 200:
             with open(solutionName_for_folder_path + '/criteriaRubrics/uploadInternalIdsSheet.csv',
                     'w+',encoding='utf-8') as criteriaRubricRes:
                 criteriaRubricRes.write(responseCriteriaRubricUploadApi.text)
         else:
             messageArr = ["Criteria Rubric upload Failed.", "Response : " + str(responseCriteriaRubricUploadApi.text)]
-            # createAPILog(solutionName_for_folder_path, messageArr)
+            Helpers.createAPILog(solutionName_for_folder_path, messageArr)
             print("Criteria Rubric upload Failed.")
             sys.exit()
 
@@ -4601,7 +4682,7 @@ class Helpers:
 
         response = requests.request("POST", url, headers=headers)
         messageArr = ["Criteria solution fetch API called.", "Status Code  : " + str(response.status_code), "URL : " + url]
-        # createAPILog(solutionName_for_folder_path, messageArr)
+        Helpers.createAPILog(solutionName_for_folder_path, messageArr)
 
         os.mkdir(solutionName_for_folder_path + "/solutionCriteriaFetch/")
         if response.status_code == 200:
@@ -4611,7 +4692,7 @@ class Helpers:
                 solutionCriteriaFetch.write(response.text)
         else:
             messageArr = ["Criteria solution fetch API failed.", "Response  : " + str(response.text)]
-            # createAPILog(solutionName_for_folder_path, messageArr)
+            Helpers.createAPILog(solutionName_for_folder_path, messageArr)
             print("Solution criteria fetch failed. Status Code : " + str(response.status_code))
             sys.exit()
 
@@ -4688,7 +4769,7 @@ class Helpers:
             messageArr = ['theme rubric upload api failed in ' + environment,
                         ' status_code response from api is ' + str(responseThemeRubricUploadApi.status_code),
                         "Response : " + str(responseThemeRubricUploadApi.text)]
-            # createAPILog(solutionName_for_folder_path, messageArr)
+            Helpers.createAPILog(solutionName_for_folder_path, messageArr)
             print('theme rubric upload api failed in ' + environment + ' status_code response from api is ' + str(responseThemeRubricUploadApi.status_code))
             sys.exit()
 
@@ -4837,13 +4918,13 @@ class Helpers:
 
             responseSol_prog_mapping = responseSol_prog_mapping.json()
             child_id = responseSol_prog_mapping['result']['_id']
-            # createAPILog(solutionName_for_folder_path, messageArr)
+            Helpers.createAPILog(solutionName_for_folder_path, messageArr)
             return [child_id, childObservationExternalId]
         else:
             print("Unable to create child solution")
 
             messageArr.append("Unable to create child solution")
-            # createAPILog(solutionName_for_folder_path, messageArr)
+            Helpers.createAPILog(solutionName_for_folder_path, messageArr)
             return False
     
     def createSurveySolution(parentFolder, wbSurvey, accessToken):
@@ -4924,8 +5005,8 @@ class Helpers:
                                         "Status code : " + str(responseCreateSolutionApi.status_code),
                                         "Response : " + responseCreateSolutionApi.text]
                             fileheader = [surveySolutionCreationReqBody['name'].encode('utf-8').decode('utf-8'),'Program Sheet Validation'," "]
-                            # createAPILog(parentFolder, messageArr)
-                            # apicheckslog(parentFolder,fileheader)
+                            Helpers.createAPILog(parentFolder, messageArr)
+                            Helpers.apicheckslog(parentFolder,fileheader)
                             if responseCreateSolutionApi.status_code == 200:
                                 responseCreateSolutionApi = responseCreateSolutionApi.json()
                                 urlSearchSolution = internal_kong_ip + fetchsolutiondetails + "survey&page=1&limit=10&search=" + str(surveySolutionExternalId)
@@ -4934,8 +5015,8 @@ class Helpers:
                                 messageArr = ["********* Search Survey Solution *********", "URL : " + urlSearchSolution,
                                             "Status code : " + str(responseSearchSolution.status_code),
                                             "Response : " + responseSearchSolution.text]
-                                # createAPILog(parentFolder, messageArr)
-                                # apicheckslog(parentFolder, messageArr)
+                                Helpers.createAPILog(parentFolder, messageArr)
+                                Helpers.apicheckslog(parentFolder, messageArr)
                                 if responseSearchSolution.status_code == 200:
                                     responseSearchSolutionApi = responseSearchSolution.json()
                                     surveySolutionExternalId = None
@@ -5228,9 +5309,9 @@ class Helpers:
                                 "Path : " + str(parentFolder) + str('/questionUpload/uploadSheet.csv'),
                                 "Status code : " + str(responseQuestionUploadApi.status_code),
                                 "Response : " + responseQuestionUploadApi.text]
-                    # createAPILog(parentFolder, messageArr)
+                    Helpers.createAPILog(parentFolder, messageArr)
                     messageArr1 = ["Questions","Question upload Success","Passed",str(responseQuestionUploadApi.status_code)]
-                    # apicheckslog(parentFolder,messageArr1)
+                    Helpers.apicheckslog(parentFolder,messageArr1)
 
                     with open(parentFolder + '/questionUpload/uploadInternalIdsSheet.csv', 'w+',encoding='utf-8') as questionRes:
                         questionRes.write(responseQuestionUploadApi.text)
@@ -5248,7 +5329,7 @@ class Helpers:
                         messageArr = ["********* Creating Child api *********", "URL : " + urlImportSoluTemplate,
                                     "Status code : " + str(responseImportSoluTemplateApi.status_code),
                                     "Response : " + responseImportSoluTemplateApi.text]
-                        # createAPILog(parentFolder, messageArr)
+                        Helpers.createAPILog(parentFolder, messageArr)
                         responseImportSoluTemplateApi = responseImportSoluTemplateApi.json()
                         solutionIdSuc = responseImportSoluTemplateApi["result"]["solutionId"]
                         urlSurveyProgramMapping = internal_kong_ip + importsurveysolutiontoprogramurl + str(solutionIdSuc) + "?programId=" + programExternalId.lstrip().rstrip()
@@ -5264,7 +5345,7 @@ class Helpers:
                             messageArr = ["********* Program mapping api *********", "URL : " + urlSurveyProgramMapping,
                                         "Status code : " + str(responseSurveyProgramMappingApi.status_code),
                                         "Response : " + responseSurveyProgramMappingApi.text]
-                            # createAPILog(parentFolder, messageArr)
+                            Helpers.createAPILog(parentFolder, messageArr)
                             surveyLink = None
                             solutionIdSuc = None
                             surveyExternalIdSuc = None
@@ -5289,18 +5370,18 @@ class Helpers:
                             messageArr = ["********* Program mapping api *********", "URL : " + urlSurveyProgramMapping,
                                         "Status code : " + str(responseSurveyProgramMappingApi.status_code),
                                         "Response : " + responseSurveyProgramMappingApi.text]
-                            # createAPILog(parentFolder, messageArr)
+                            Helpers.createAPILog(parentFolder, messageArr)
                     else:
                         print('Creating Child API Failed')
                         messageArr = ["********* Program mapping api *********", "URL : " + urlImportSoluTemplate,
                                     "Status code : " + str(responseImportSoluTemplateApi.status_code),
                                     "Response : " + responseImportSoluTemplateApi.text]
-                        # createAPILog(parentFolder, messageArr)
+                        Helpers.createAPILog(parentFolder, messageArr)
                 else:
                     print('QuestionUploadApi Failed')
                     messageArr = ["********* Question Upload api *********", "URL : " + urlQuestionsUploadApi,
                                 "Path : " + str(parentFolder) + str('/questionUpload/uploadSheet.csv'),
                                 "Status code : " + str(responseQuestionUploadApi.status_code),
                                 "Response : " + responseQuestionUploadApi.text]
-                    # createAPILog(parentFolder, messageArr)
+                    Helpers.createAPILog(parentFolder, messageArr)
         return surveySolutionlink
