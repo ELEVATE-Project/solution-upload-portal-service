@@ -41,25 +41,55 @@ class SurveyCreate:
             'X-Channel-id': x_channel_id,
             'internal-access-token': internal_access_token
         }
+        if resourceType == "observation with rubrics":
+            payload = {
 
-        payload = {
+                "query": {
+                    "status": "active",
+                    "type": "observation",
+                    "isRubricDriven": True
+                },
+                "mongoIdKeys": [
+                    "_id",
+                    "solutionId",
+                    "metaInformation.solutionId"
+                ],
+                "limit": 100000
+            }
+            #     "query": {"status": "active"},
+            #     "resourceType": [resourceType + " Solution"],
+            #     "mongoIdKeys": ["_id", "solutionId", "metaInformation.solutionId"],
+            #     "limit": 1000
+            # }
+        elif resourceType == "observation without rubrics":
+            payload = {
 
-        #     "query": {
-        #         "status": "active",
-        #         "type": resourceType
-        #     },
-        #     "mongoIdKeys": [
-        #         "_id",
-        #         "solutionId",
-        #         "metaInformation.solutionId"
-        #     ],
-        #     "limit": 1000
-        # }
-            "query": {"status": "active"},
-            "resourceType": [resourceType + " Solution"],
-            "mongoIdKeys": ["_id", "solutionId", "metaInformation.solutionId"],
-            "limit": 1000
-        }
+                "query": {
+                    "status": "active",
+                    "type": "observation",
+                    "isRubricDriven": False
+                },
+                "mongoIdKeys": [
+                    "_id",
+                    "solutionId",
+                    "metaInformation.solutionId"
+                ],
+                "limit": 100000
+            }
+        else:
+            payload = {
+
+                "query": {
+                    "status": "active",
+                    "type": resourceType
+                },
+                "mongoIdKeys": [
+                    "_id",
+                    "solutionId",
+                    "metaInformation.solutionId"
+                ],
+                "limit": 100000
+            }
         print(payload)
         try:
             response = requests.post(
@@ -70,6 +100,8 @@ class SurveyCreate:
             response.raise_for_status()
             # print(response.text)
             result = response.json().get('result', [])
+            result2 = response.json().get('count', [])
+            print(result2)
         except requests.RequestException as e:
             return None
         
@@ -83,13 +115,13 @@ class SurveyCreate:
             if solution_id in all_parent_solution_ids:
                 continue
             solution_data = {
-                # 'SOLUTION_ID': item.get("_id", 'N/A'),
                 'SOLUTION_NAME': item.get('name', 'N/A'),
-                'SOLUTION_CREATED_DATE': item.get('createdAt', 'N/A'),
-                'START_DATE': item.get('startDate', 'None'),
-                'END_DATE': item.get('endDate', 'None'),
-                "PROGRAM_NAME":item.get('programName','None')
+                'SOLUTION_CREATED_DATE': item.get('createdAt') if item.get('createdAt') != 'None' else None,
+                'START_DATE': item.get('startDate') if item.get('startDate') != 'None' else None,
+                'END_DATE': item.get('endDate') if item.get('endDate') != 'None' else None,
+                'PROGRAM_NAME': item.get('programName', 'None')
             }
+
             solutions_data.append(solution_data)
 
         solutions_data.sort(key=lambda x: datetime.strptime(x['SOLUTION_CREATED_DATE'], "%Y-%m-%dT%H:%M:%S.%fZ"), reverse=True)
