@@ -865,9 +865,11 @@ def fetchSurveySolutions_Csv():
     survey = SurveyCreate()
     access_token = survey.generate_access_token()
     csvFilePath=survey.fetch_solution_id_csv(access_token,resurceType['resourceType'])
+    ospath = os.environ.get("HOSTIP")+"/template/api/v1/errDownload?templatePath=" + csvFilePath
+    print(csvFilePath,"csvFilePathcsvFilePath")
 
     if csvFilePath:
-        return jsonify({"status": 200, "code": "Success", "csvFilePath": f"/download/{csvFilePath}"})
+        return jsonify({"status": 200, "code": "Success", "csvFilePath": ospath})
     
     else:
         return jsonify({"status": 400, "code": "NOTOK","SolutionList":"Error in getting the list of solutions"})

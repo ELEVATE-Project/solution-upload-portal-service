@@ -54,7 +54,7 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 100000
+                "limit": 1000
             }
             #     "query": {"status": "active"},
             #     "resourceType": [resourceType + " Solution"],
@@ -74,21 +74,21 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 100000
+                "limit": 1000
             }
         else:
             payload = {
 
                 "query": {
                     "status": "active",
-                    "type": resourceType
+                    "type": "improvementProject"
                 },
                 "mongoIdKeys": [
                     "_id",
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 100000
+                "limit": 1000
             }
         print(payload)
         try:
@@ -129,6 +129,7 @@ class SurveyCreate:
         return solutions_data
     
     def fetch_solution_id_csv(self, access_token, resurceType ,csv_file_path='solutions.csv'):
+        print(resurceType,"resurceType")
         if not access_token:
             return None
         solution_update_api = f"{internal_kong_ip}{dbfindapi_url}solutions"
@@ -153,7 +154,7 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 100000
+                "limit": 1000
             }
             #     "query": {"status": "active"},
             #     "resourceType": [resourceType + " Solution"],
@@ -180,14 +181,14 @@ class SurveyCreate:
 
                 "query": {
                     "status": "active",
-                    "type": resurceType
+                    "type": "improvementProject"
                 },
                 "mongoIdKeys": [
                     "_id",
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 100000
+                "limit": 100
             }
         print(payload,"line192")
         try:
@@ -198,7 +199,7 @@ class SurveyCreate:
             )
             response.raise_for_status()
             result = response.json().get('result', [])
-            print(result)
+            # print(result)
         except requests.RequestException as e:
             print(f"Error fetching solutions: {e}")
             return None
@@ -229,11 +230,15 @@ class SurveyCreate:
                     'SOLUTION_ID': solution_id,'SOLUTION_NAME': solution_name,'SOLUTION_CREATED_DATE': solution_createdat,'START_DATE': startdate,'END_DATE': endate})
 
         print("Data written to CSV successfully.")
-        csv_filepath = os.path.abspath('solutions.csv')
+        local = os.getcwd()
+        print(local)
+        csv_filepath =os.path.abspath('solutions.csv')
+        downloadcsv= csv_filepath
         print(f"CSV file is created at: {csv_filepath}")
         self.schedule_deletion(csv_file_path)
+
         # couldPathForCsv=self.uploadSuccessSheetToBucket(csv_file_path,access_token)
-        return csv_file_path
+        return downloadcsv
     
     # def uploadSuccessSheetToBucket(self,csv_file_path,access_token):
     #     persignedUrl = public_url_for_core_service + getpresignedurl
