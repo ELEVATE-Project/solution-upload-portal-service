@@ -54,7 +54,7 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 100000
+                "limit": 1000
             }
             #     "query": {"status": "active"},
             #     "resourceType": [resourceType + " Solution"],
@@ -74,21 +74,21 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 100000
+                "limit": 1000
             }
         else:
             payload = {
 
                 "query": {
                     "status": "active",
-                    "type": resourceType
+                    "type": "improvementProject"
                 },
                 "mongoIdKeys": [
                     "_id",
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 100000
+                "limit": 1000
             }
         print(payload)
         try:
@@ -128,3 +128,175 @@ class SurveyCreate:
         
         return solutions_data
     
+    def fetch_solution_id_csv(self, access_token, resurceType ,csv_file_path='solutions.csv'):
+        print(resurceType,"resurceType")
+        if not access_token:
+            return None
+        solution_update_api = f"{internal_kong_ip}{dbfindapi_url}solutions"
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': authorization,
+            'X-authenticated-user-token': access_token,
+            'X-Channel-id': x_channel_id,
+            'internal-access-token': internal_access_token
+        }
+
+        if resurceType == "observation with rubrics":
+            payload = {
+
+                "query": {
+                    "status": "active",
+                    "type": "observation",
+                    "isRubricDriven": True
+                },
+                "mongoIdKeys": [
+                    "_id",
+                    "solutionId",
+                    "metaInformation.solutionId"
+                ],
+                "limit": 1000
+            }
+            #     "query": {"status": "active"},
+            #     "resourceType": [resourceType + " Solution"],
+            #     "mongoIdKeys": ["_id", "solutionId", "metaInformation.solutionId"],
+            #     "limit": 1000
+            # }
+        elif resurceType == "observation without rubrics":
+            payload = {
+
+                "query": {
+                    "status": "active",
+                    "type": "observation",
+                    "isRubricDriven": False
+                },
+                "mongoIdKeys": [
+                    "_id",
+                    "solutionId",
+                    "metaInformation.solutionId"
+                ],
+                "limit": 100000
+            }
+        else:
+            payload = {
+
+                "query": {
+                    "status": "active",
+                    "type": "improvementProject"
+                },
+                "mongoIdKeys": [
+                    "_id",
+                    "solutionId",
+                    "metaInformation.solutionId"
+                ],
+                "limit": 100
+            }
+        print(payload,"line192")
+        try:
+            response = requests.post(
+                url=solution_update_api,
+                headers=headers,
+                data=json.dumps(payload)
+            )
+            response.raise_for_status()
+            result = response.json().get('result', [])
+            # print(result)
+        except requests.RequestException as e:
+            print(f"Error fetching solutions: {e}")
+            return None
+
+        result.sort(key=lambda x: x.get('createdAt', 'N/A'), reverse=True)
+        
+        all_solution_ids = {item['_id'] for item in result}
+        all_parent_solution_ids = {item['parentSolutionId'] for item in result if 'parentSolutionId' in item}
+
+        file_exists = os.path.isfile(csv_file_path)
+        with open(csv_file_path, mode='w', newline='', encoding='utf-8') as csvfile:
+            fieldnames = ['SOLUTION_ID', 'SOLUTION_NAME', 'SOLUTION_CREATED_DATE', 'START_DATE', 'END_DATE']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+
+            for item in result:
+                solution_id = item.get('_id', 'N/A')
+                parent_solution_id = item.get('parentSolutionId', 'N/A')
+                if solution_id in all_parent_solution_ids:
+                    continue
+                solution_id = item.get('_id', 'N/A')
+                solution_name = item.get('name', 'N/A')
+                solution_createdat = item.get('createdAt', 'N/A')
+                startdate = item.get('startDate', 'None')
+                endate = item.get('endDate', 'None')
+
+                writer.writerow({
+                    'SOLUTION_ID': solution_id,'SOLUTION_NAME': solution_name,'SOLUTION_CREATED_DATE': solution_createdat,'START_DATE': startdate,'END_DATE': endate})
+
+        print("Data written to CSV successfully.")
+        local = os.getcwd()
+        print(local)
+        csv_filepath =os.path.abspath('solutions.csv')
+        downloadcsv= csv_filepath
+        print(f"CSV file is created at: {csv_filepath}")
+        self.schedule_deletion(csv_file_path)
+
+        # couldPathForCsv=self.uploadSuccessSheetToBucket(csv_file_path,access_token)
+        return downloadcsv
+    
+    # def uploadSuccessSheetToBucket(self,csv_file_path,access_token):
+    #     persignedUrl = public_url_for_core_service + getpresignedurl
+    #     solutionDump = "surveydump"
+        
+    #     presignedUrlBody = {
+    #         "request": {
+    #             solutionDump :{
+                 
+    #                 "files": [
+    #                     csv_file_path
+    #                 ]
+    #         }
+                
+    #         },
+    #         "ref": "solutionDump"
+    #     }
+    #     headerPreSignedUrl = {'Authorization': authorization,
+    #                                'X-authenticated-user-token': access_token,
+    #                                'Content-Type': content_type}
+    #     responseForPresignedUrl = requests.request("POST", persignedUrl, headers=headerPreSignedUrl,
+    #                                                 data=json.dumps(presignedUrlBody))
+        
+    #     if responseForPresignedUrl.status_code == 200:
+    #         presignedResponse = responseForPresignedUrl.json()
+    #         programupdateData = presignedResponse['result']
+    #         fileUploadUrl = presignedResponse['result'][solutionDump]['files'][0]['url']
+    #         if '?file=' in fileUploadUrl:
+    #             downloadedurl = fileUploadUrl.split('?file=')[1]
+    #         else:
+    #             downloadedurl = None
+
+    #         headers = {
+    #             'Authorization': authorization,
+    #             'X-authenticated-user-token': access_token,
+
+    #         }
+
+
+    #         files={
+    #             'file': open(csv_file_path, 'rb')
+    #         }
+
+    #         response = requests.post(url=fileUploadUrl, headers=headers, files=files)
+    #         if response.status_code == 200:
+    #             print("File Uploaded successfully")
+    #     return downloadSuccessSheet+downloadedurl
+        
+    def schedule_deletion(self,file_path):
+        def delete_file():
+            try:
+                time.sleep(60)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    print(f"File {file_path} deleted successfully.")
+                else:
+                    print(f"File {file_path} not found.")
+            except Exception as e:
+                print(f"Error deleting file: {e}")
+
+        threading.Thread(target=delete_file, daemon=True).start()
