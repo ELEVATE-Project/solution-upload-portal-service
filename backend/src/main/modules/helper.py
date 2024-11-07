@@ -2452,7 +2452,7 @@ class Helpers:
         typeofSolutin = 0
 
         global environment, observationId, solutionName, pointBasedValue, entityType, allow_multiple_submissions, programName, userEntity, roles, isProgramnamePresent, solutionLanguage, keyWords, entityTypeId, solutionDescription, creator, dikshaLoginId
-
+        print(sheetNames1,"2455")
         if (len(rubrics_sheet_names) == len(sheetNames1)) and ((set(rubrics_sheet_names) == set(sheetNames1))):
             print("--->Observation with rubrics file detected.<---")
             typeofSolutin = 1
@@ -2966,14 +2966,20 @@ class Helpers:
                             # Continue rest of the process
                             bodySolutionUpdate = {"status": "active", "isDeleted": False, "criteriaLevelReport": criteriaLevelsReport}
                             Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
+                            Helpers.questionUpload(addObservationSolution, parentFolder, frameworkExternalId, millisecond, accessToken,solutionId,typeofSolution)
                             
                             # Handle rubrics
                             if pointBasedValue.lower() != "null":
+                                bodySolutionUpdate = {"isRubricDriven": True}
+                                Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
+                                Helpers.fetchSolutionCriteria(parentFolder, observationExternalId, accessToken)
                                 Helpers.uploadCriteriaRubrics(parentFolder, wbObservation, millisecond, accessToken, frameworkExternalId, True)
                                 Helpers.uploadThemeRubrics(parentFolder, wbObservation, accessToken, frameworkExternalId, True)
-                            
                             # Handle program information and start/end dates
+                            bodySolutionUpdate = {'allowMultipleAssessemts': allow_multiple_submissions, "creator": creator}
+                            Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
                             solutionDetails = Helpers.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionId, accessToken)
+                            print("handling program information...")
                             if solutionDetails[1]:
                                 startDateArr = str(solutionDetails[1]).split("-")
                                 bodySolutionUpdate = {"startDate": f"{startDateArr[2]}-{startDateArr[1]}-{startDateArr[0]} 00:00:00"}
@@ -2991,6 +2997,19 @@ class Helpers:
                                     childSolutionDetails = Helpers.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, childId[0], accessToken)
                                     bodySolutionUpdate = {"scope": {"entityType": scopeEntityType, "entities": entitiesPGMID, "roles": childSolutionDetails[0]}}
                                     Helpers.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate)
+                                    if solutionDetails[1]:
+                                        startDateArr = str(solutionDetails[1]).split("-")
+                                        bodySolutionUpdate = {
+                                            "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[
+                                                0] + " 00:00:00"}
+                                        Helpers.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate)
+                                    if solutionDetails[2]:
+                                        endDateArr = str(solutionDetails[2]).split("-")
+                                        bodySolutionUpdate = {
+                                            "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
+                                        Helpers.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate)
+                                    ObsRubricSolutionLink = Helpers.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, childId[1], childId[0],
+                                                            accessToken)
                         except Exception as e:
                             print(f"Error during rubric or program handling: {str(e)}")
                             return None
@@ -3381,12 +3400,12 @@ class Helpers:
                                 downloaded_file.append(download_file)
 
             print("--->Solution input file successfully downloaded: " + str(downloaded_file))
-
             for addObservationSolution in downloaded_file:
                 print(f"Processing file: {addObservationSolution}")
                 solutionSL = Helpers.mainFunc(MainFilePath, programFile, millisecond, isProgramnamePresent, isCourse)
                 for resourceName, solutionLink in solutionSL.items():
                     solutionDict[resourceName] = solutionLink
+            downloaded_file = None
 
         # Combine solutionDict and programName into a single dictionary for returning
         result = {
@@ -4582,6 +4601,7 @@ class Helpers:
                 criteriaInternalReader = csv.DictReader(criteriaInternalFile)
                 for crit in criteriaInternalReader:
                     dictSolCritLookUp[crit['criteriaID']] = [crit['criteriaInternalId'], crit['criteriaName']]
+    
         else:
             criteriaRubricSheet = wbObservation.sheet_by_name('criteria')
             dictSolCritLookUp = dict()
