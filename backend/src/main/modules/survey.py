@@ -54,7 +54,7 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 1000
+                "limit": 10000
             }
             #     "query": {"status": "active"},
             #     "resourceType": [resourceType + " Solution"],
@@ -74,7 +74,7 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 1000
+                "limit": 10000
             }
         elif resourceType == "survey":
             payload = {
@@ -88,7 +88,7 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 100
+                "limit": 10000
             }
         else:
             payload = {
@@ -102,9 +102,9 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 1000
+                "limit": 10000
             }
-        print(payload)
+        # print(payload)
         try:
             response = requests.post(
                 url=solution_update_api,
@@ -168,7 +168,7 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 1000
+                "limit": 10000
             }
             #     "query": {"status": "active"},
             #     "resourceType": [resourceType + " Solution"],
@@ -188,7 +188,7 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 100000
+                "limit": 10000
             }
         elif resurceType == "survey":
             payload = {
@@ -202,7 +202,7 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 100
+                "limit": 10000
             }
         else:
             payload = {
@@ -216,9 +216,9 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 100
+                "limit": 10000
             }
-        print(payload,"line192")
+        # print(payload,"line192")
         try:
             response = requests.post(
                 url=solution_update_api,

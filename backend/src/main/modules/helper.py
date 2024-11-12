@@ -2452,7 +2452,6 @@ class Helpers:
         typeofSolutin = 0
 
         global environment, observationId, solutionName, pointBasedValue, entityType, allow_multiple_submissions, programName, userEntity, roles, isProgramnamePresent, solutionLanguage, keyWords, entityTypeId, solutionDescription, creator, dikshaLoginId
-        print(sheetNames1,"2455")
         if (len(rubrics_sheet_names) == len(sheetNames1)) and ((set(rubrics_sheet_names) == set(sheetNames1))):
             print("--->Observation with rubrics file detected.<---")
             typeofSolutin = 1
@@ -2979,7 +2978,6 @@ class Helpers:
                             bodySolutionUpdate = {'allowMultipleAssessemts': allow_multiple_submissions, "creator": creator}
                             Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
                             solutionDetails = Helpers.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionId, accessToken)
-                            print("handling program information...")
                             if solutionDetails[1]:
                                 startDateArr = str(solutionDetails[1]).split("-")
                                 bodySolutionUpdate = {"startDate": f"{startDateArr[2]}-{startDateArr[1]}-{startDateArr[0]} 00:00:00"}
