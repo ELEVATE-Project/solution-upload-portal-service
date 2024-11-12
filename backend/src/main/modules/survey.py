@@ -54,7 +54,7 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 1000
+                "limit": 10000
             }
             #     "query": {"status": "active"},
             #     "resourceType": [resourceType + " Solution"],
@@ -74,7 +74,21 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 1000
+                "limit": 10000
+            }
+        elif resourceType == "survey":
+            payload = {
+
+                "query": {
+                    "status": "active",
+                    "type": "survey"
+                },
+                "mongoIdKeys": [
+                    "_id",
+                    "solutionId",
+                    "metaInformation.solutionId"
+                ],
+                "limit": 10000
             }
         else:
             payload = {
@@ -88,9 +102,9 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 1000
+                "limit": 10000
             }
-        print(payload)
+        # print(payload)
         try:
             response = requests.post(
                 url=solution_update_api,
@@ -154,7 +168,7 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 1000
+                "limit": 10000
             }
             #     "query": {"status": "active"},
             #     "resourceType": [resourceType + " Solution"],
@@ -174,7 +188,21 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 100000
+                "limit": 10000
+            }
+        elif resurceType == "survey":
+            payload = {
+
+                "query": {
+                    "status": "active",
+                    "type": "survey"
+                },
+                "mongoIdKeys": [
+                    "_id",
+                    "solutionId",
+                    "metaInformation.solutionId"
+                ],
+                "limit": 10000
             }
         else:
             payload = {
@@ -188,9 +216,9 @@ class SurveyCreate:
                     "solutionId",
                     "metaInformation.solutionId"
                 ],
-                "limit": 100
+                "limit": 10000
             }
-        print(payload,"line192")
+        # print(payload,"line192")
         try:
             response = requests.post(
                 url=solution_update_api,
@@ -236,56 +264,7 @@ class SurveyCreate:
         downloadcsv= csv_filepath
         print(f"CSV file is created at: {csv_filepath}")
         self.schedule_deletion(csv_file_path)
-
-        # couldPathForCsv=self.uploadSuccessSheetToBucket(csv_file_path,access_token)
         return downloadcsv
-    
-    # def uploadSuccessSheetToBucket(self,csv_file_path,access_token):
-    #     persignedUrl = public_url_for_core_service + getpresignedurl
-    #     solutionDump = "surveydump"
-        
-    #     presignedUrlBody = {
-    #         "request": {
-    #             solutionDump :{
-                 
-    #                 "files": [
-    #                     csv_file_path
-    #                 ]
-    #         }
-                
-    #         },
-    #         "ref": "solutionDump"
-    #     }
-    #     headerPreSignedUrl = {'Authorization': authorization,
-    #                                'X-authenticated-user-token': access_token,
-    #                                'Content-Type': content_type}
-    #     responseForPresignedUrl = requests.request("POST", persignedUrl, headers=headerPreSignedUrl,
-    #                                                 data=json.dumps(presignedUrlBody))
-        
-    #     if responseForPresignedUrl.status_code == 200:
-    #         presignedResponse = responseForPresignedUrl.json()
-    #         programupdateData = presignedResponse['result']
-    #         fileUploadUrl = presignedResponse['result'][solutionDump]['files'][0]['url']
-    #         if '?file=' in fileUploadUrl:
-    #             downloadedurl = fileUploadUrl.split('?file=')[1]
-    #         else:
-    #             downloadedurl = None
-
-    #         headers = {
-    #             'Authorization': authorization,
-    #             'X-authenticated-user-token': access_token,
-
-    #         }
-
-
-    #         files={
-    #             'file': open(csv_file_path, 'rb')
-    #         }
-
-    #         response = requests.post(url=fileUploadUrl, headers=headers, files=files)
-    #         if response.status_code == 200:
-    #             print("File Uploaded successfully")
-    #     return downloadSuccessSheet+downloadedurl
         
     def schedule_deletion(self,file_path):
         def delete_file():
