@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import json 
 import hashlib 
 import jwt
+import re
 from flask_cors import CORS
 import numpy as np
 import pymongo
@@ -235,6 +236,60 @@ def signup():
     except Exception as e:
         # return error 
         return {"status" : 500,"code" : str(e) ,"errorFlag" : True,"error" : ["Error in reaching server"],"response" : {"accessToken" : "" }}
+
+def validate_password(password: str) -> bool:
+    # Check for length (at least 8 characters)
+    if len(password) < 8:
+        return False
+    # Check for at least one uppercase letter
+    if not re.search(r'[A-Z]', password):
+        return False
+    # Check for at least one lowercase letter
+    if not re.search(r'[a-z]', password):
+        return False
+    # Check for at least one digit
+    if not re.search(r'[0-9]', password):
+        return False
+    # Check for at least one special character
+    if not re.search(r'[@#$%^&+=]', password):
+        return False
+    return True
+
+@app.route("/template/api/v1/forgot-password", methods=['POST'])
+def forgot_password():
+    req_body = request.get_json()
+    try:
+        userName = req_body['request']['email']
+        new_password = req_body['request']['new_password']
+        confirm_password = req_body['request']['confirm_password']
+
+        if not userName or not new_password or not confirm_password:
+            return {"status": 400, "code": "Bad Request", "errorFlag": True, "error": ["All fields are required."]}
+
+        if new_password != confirm_password:
+            return {"status": 400, "code": "Bad Request", "errorFlag": True, "error": ["Passwords do not match."]}
+
+        hashed_password = hashlib.md5(new_password.encode('utf-8'))
+        usersCollection = connectDb(os.environ.get('mongoURL'), os.environ.get('db'), 'userCollection')
+        user = usersCollection.find_one({'userName': userName})
+        if not user:
+            return {"status": 404, "code": "Error", "errorFlag": True, "error": ["The email address provided is not registered."]}
+
+        # Validate password complexity
+        if not validate_password(new_password):
+            return {"status": 400, "code": "Bad Request", "errorFlag": True, "error": [
+                "Password must be at least 8 characters long, contain uppercase and lowercase letters, a number, and a special character."
+            ]}
+        
+        now = datetime.now()
+        usersCollection.update_one(
+            {'userName': userName},
+            {'$set': {"password": str(hashed_password.hexdigest()), "updatedAt": str(now)}}
+        )
+        return {"status": 200, "code": "Password Updated", "errorFlag": False, "error": [], "response": "Password updated successfully."}
+    
+    except Exception as e:
+        return {"status": 500, "code": str(e), "errorFlag": True, "error": ["Error in reaching server"], "response": "" }
 
 # sample template downloader api
 @app.route("/template/api/v1/download/sampleTemplate", methods = ['GET'])
