@@ -4,6 +4,8 @@ Repository for backend service of Data upload and Validation tool
 
 Code pushes to be done in the `main` branch only.
 
+## Limitations
+The character limit on the os.path is 260 characters and the path can not be beyond the limit. Please Keep the file names short.
 
 ## Requirements
 1. Python dependencies
