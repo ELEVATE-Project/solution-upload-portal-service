@@ -232,7 +232,7 @@ def signup():
             return {"status" : 200,"code" : "Authenticated","errorFlag" : False,"error" : [],"response" : "User created Successfully."}
         else:
             # return user already exists 
-            return {"status" : 404,"code" : "Error","errorFlag" : True,"error" : ["UserName already exisiting."],"response" : {"accessToken" : "" }}
+            return {"status" : 404,"code" : "Error","errorFlag" : True,"error" : ["Please provide a new email, this email is already registered."],"response" : {"accessToken" : "" }}
     except Exception as e:
         # return error 
         return {"status" : 500,"code" : str(e) ,"errorFlag" : True,"error" : ["Error in reaching server"],"response" : {"accessToken" : "" }}

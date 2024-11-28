@@ -129,6 +129,7 @@ class SurveyCreate:
             if solution_id in all_parent_solution_ids:
                 continue
             solution_data = {
+                'Link' : item.get('link', 'None'),
                 'SOLUTION_NAME': item.get('name', 'N/A'),
                 'SOLUTION_CREATED_DATE': item.get('createdAt') if item.get('createdAt') != 'None' else None,
                 'START_DATE': item.get('startDate') if item.get('startDate') != 'None' else None,
