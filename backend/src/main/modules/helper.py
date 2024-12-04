@@ -232,13 +232,13 @@ class Helpers:
                                       col_index_env in range(detailsEnvSheet.ncols)}
 
                     if str(dictDetailsEnv['Is a SSO user?']).strip() == "YES":
-                        programmanagername2 = dictDetailsEnv['Sunbird user id ( profile ID)'] if dictDetailsEnv['Sunbird user id ( profile ID)'] else Helpers.terminatingMessage("\"Sunbird user id ( profile ID)\" must not be Empty in \"Program details\" sheet")
+                        programmanagername2 = dictDetailsEnv['Diksha user id ( profile ID)'] if dictDetailsEnv['Diksha user id ( profile ID)'] else Helpers.terminatingMessage("\"Diksha user id ( profile ID)\" must not be Empty in \"Program details\" sheet")
                     else:
                         try :
-                            programmanagername2 = dictDetailsEnv['Login ID on Sunbird'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Login ID on Sunbird'] else Helpers.terminatingMessage("\"Login ID on Sunbird\" must not be Empty in \"Program details\" sheet")
+                            programmanagername2 = dictDetailsEnv['Login ID on DIKSHA'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Login ID on DIKSHA'] else Helpers.terminatingMessage("\"Login ID on DIKSHA\" must not be Empty in \"Program details\" sheet")
                             userDetails = Helpers.fetchUserDetails(accessToken, programmanagername2)
                         except :
-                            programmanagername2 = dictDetailsEnv['Sunbird user id ( profile ID)'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Sunbird user id ( profile ID)'] else Helpers.terminatingMessage("\"Sunbird user id ( profile ID)\" must not be Empty in \"Program details\" sheet")
+                            programmanagername2 = dictDetailsEnv['Diksha user id ( profile ID)'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Diksha user id ( profile ID)'] else Helpers.terminatingMessage("\"Diksha user id ( profile ID)\" must not be Empty in \"Program details\" sheet")
                             userDetails = Helpers.fetchUserDetails(accessToken, programmanagername2)
 
                     userDetails = Helpers.fetchUserDetails(accessToken, programmanagername2)
