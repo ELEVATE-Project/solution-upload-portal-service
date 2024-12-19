@@ -15,7 +15,6 @@ from openpyxl import load_workbook
 from openpyxl.comments import Comment
 from openpyxl.styles import PatternFill
 from bson import json_util
-# importing ObjectId from bson library
 from bson.objectid import ObjectId
 from datetime import datetime
 import subprocess
