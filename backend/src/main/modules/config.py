@@ -1,8 +1,8 @@
 connectionUrl= "" #add mongo url
-databaseName = "templateValidationSup"
+databaseName = "" #add database name
 collectionName = "validation"
 conditionCollection = "conditions"
-hostUrl = "https://staging.sunbirded.org/"
-preprodHostUrl = "https://staging.sunbirded.org/"
+hostUrl = "" #add host details
+preprodHostUrl = "" #add host details
 errBasic = 300
 errAdv = 301
