@@ -109,69 +109,84 @@ class Helpers:
         self.scopeEntityType = ""
 
     def programCreation(accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM):
-        messageArr = []
-        messageArr.append("++++++++++++ Program Creation ++++++++++++")
-        # program creation url 
-        programCreationurl =  internal_kong_ip + programcreationurl
-        messageArr.append("Pogram Creation URL : " + programCreationurl)
-        # program creation payload
-        payload = json.dumps({
-        "externalId": externalId,
-        "name": pName,
-        "description": pDescription,
-        "resourceType": [
-            "program"
-        ],
-        "language": [
-            "English"
-        ],
-        "keywords": keywords,
-        "concepts": [],
-        "createdFor": orgIds,
-        "rootOrganisations": orgIds,
-        "startDate": startDateOfProgram,
-        "endDate": endDateOfProgram,
-        "imageCompression": {
-            "quality": 10
-        },
-        "creator": creatorName,
-        "owner": creatorKeyCloakId,
-        "author": creatorKeyCloakId,
-        "scope": {
-            "entityType": scopeEntityType,
-            "entities": entitiesPGMID,
-            "roles": roles
-        },
-        # "metaInformation": {
-        #     "state":entitiesPGM.split(","),
-        #     "roles": mainRole.split(",")
-        #     },
-        #     "requestForPIIConsent":True
-        })
-        messageArr.append("Body : " + str(payload))
-        headers = {'X-authenticated-user-token': accessToken,
-                   'internal-access-token': internal_access_token,
-                   'Content-Type': 'application/json',
-                   'Authorization':authorization}
+        global errorVar
+        try: 
+            messageArr = []
+            messageArr.append("++++++++++++ Program Creation ++++++++++++")
+            # program creation url 
+            programCreationurl =  internal_kong_ip + programcreationurl
+            messageArr.append("Pogram Creation URL : " + programCreationurl)
+            # program creation payload
+            payload = json.dumps({
+            "externalId": externalId,
+            "name": pName,
+            "description": pDescription,
+            "resourceType": [
+                "program"
+            ],
+            "language": [
+                "English"
+            ],
+            "keywords": keywords,
+            "concepts": [],
+            "createdFor": orgIds,
+            "rootOrganisations": orgIds,
+            "startDate": startDateOfProgram,
+            "endDate": endDateOfProgram,
+            "imageCompression": {
+                "quality": 10
+            },
+            "creator": creatorName,
+            "owner": creatorKeyCloakId,
+            "author": creatorKeyCloakId,
+            "scope": {
+                "entityType": scopeEntityType,
+                "entities": entitiesPGMID,
+                "roles": roles
+            },
+            # "metaInformation": {
+            #     "state":entitiesPGM.split(","),
+            #     "roles": mainRole.split(",")
+            #     },
+            #     "requestForPIIConsent":True
+            })
+            messageArr.append("Body : " + str(payload))
+            headers = {'X-authenticated-user-token': accessToken,
+                    'internal-access-token': internal_access_token,
+                    'Content-Type': 'application/json',
+                    'Authorization':authorization}
 
-        # program creation 
-        responsePgmCreate = requests.request("POST", programCreationurl, headers=headers, data=(payload))
-        messageArr.append("Program Creation Status Code : " + str(responsePgmCreate.status_code))
-        messageArr.append("Program Creation Response : " + str(responsePgmCreate.text))
-        messageArr.append("Program body : " + str(payload))
+            # program creation 
+            responsePgmCreate = requests.request("POST", programCreationurl, headers=headers, data=(payload))
+            messageArr.append("Program Creation Status Code : " + str(responsePgmCreate.status_code))
+            messageArr.append("Program Creation Response : " + str(responsePgmCreate.text))
+            messageArr.append("Program body : " + str(payload))
 
-        # save logs 
-        # createAPILog(parentFolder, messageArr)
-        # # check status 
-        # fileheader = [pName, ('Program Sheet Validation'), ('Passed')]
-        # createAPILog(parentFolder, messageArr)
-        # apicheckslog(parentFolder, fileheader)
-        print(responsePgmCreate.text,responsePgmCreate)
-        if responsePgmCreate.status_code == 200:
-            responsePgmCreateResp = responsePgmCreate.json()
-        else:
-            # terminate execution
-            print("Program creation API failed. Please check logs.")
+            # save logs 
+            # createAPILog(parentFolder, messageArr)
+            # # check status 
+            # fileheader = [pName, ('Program Sheet Validation'), ('Passed')]
+            # createAPILog(parentFolder, messageArr)
+            # apicheckslog(parentFolder, fileheader)
+            print(responsePgmCreate.text,responsePgmCreate)
+            if responsePgmCreate.status_code == 200:
+                responsePgmCreateResp = responsePgmCreate.json()
+                return True
+            else:
+                error_message = ""
+                if responsePgmCreate.status_code in [400, 401, 403, 404, 422]:
+                    error_message = f"PgmCreate-Client Error {responsePgmCreate.status_code}: {responsePgmCreate.text}"
+                elif responsePgmCreate.status_code in [500, 502, 503, 504]:
+                    error_message = f"PgmCreate-Server Error {responsePgmCreate.status_code}: {responsePgmCreate.text}"
+                else:
+                    error_message = f"PgmCreate-Unexpected Error {responsePgmCreate.status_code}: {responsePgmCreate.text}"
+                errorVar = error_message
+                # terminate execution
+                print("Program creation API failed. Please check logs.")
+                return errorVar
+        except Exception as e:
+            errorVar = str(e)
+            print(errorVar)
 
 
     def programmappingpdpmsheetcreation(MainFilePath,accessToken, program_file,programexternalId,parentFolder):
@@ -207,11 +222,24 @@ class Helpers:
                     dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
                                       for
                                       col_index_env in range(detailsEnvSheet.ncols)}
-                    programNameInp = dictDetailsEnv['Title of the Program'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Title of the Program'] else Helpers.terminatingMessage("\"Title of the Program\" must not be Empty in \"Program details\" sheet")
+                    if dictDetailsEnv.get('Title of the Program'):
+                        programNameInp = dictDetailsEnv['Title of the Program'].encode('utf-8').decode('utf-8')
+                    else:
+                        errorVar = "\"Title of the Program\" must not be Empty in \"Program details\" sheet"
+                        raise errorVar
+                    # programNameInp = dictDetailsEnv['Title of the Program'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Title of the Program'] else errorVar = "\"Title of the Program\" must not be Empty in \"Program details\" sheet"
 
-                extIdPGM = dictDetailsEnv['Program ID'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Program ID'] else Helpers.terminatingMessage("\"Program ID\" must not be Empty in \"Program details\" sheet")
-
-                programdesigner = dictDetailsEnv['Diksha username/user id/email id/phone no. of Program Designer'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Program ID'] else Helpers.terminatingMessage("\"Diksha username/user id/email id/phone no. of Program Designer\" must not be Empty in \"Program details\" sheet")
+                if dictDetailsEnv.get('Program ID'):
+                    extIdPGM = dictDetailsEnv['Program ID'].encode('utf-8').decode('utf-8')
+                else:
+                    errorVar = "\"Program ID\" must not be Empty in \"Program details\" sheet"
+                    raise errorVar
+                
+                if dictDetailsEnv.get('Username/user id/email id/phone no. of the Program Designer'):
+                    programdesigner = dictDetailsEnv['Username/user id/email id/phone no. of the Program Designer'].encode('utf-8').decode('utf-8')
+                else:
+                    errorVar = "\"Username/user id/email id/phone no. of the Program Designer\" must not be Empty in \"Program details\" sheet"
+                    raise errorVar
                 userDetails = Helpers.fetchUserDetails(accessToken, programdesigner)
 
                 creatorKeyCloakId = userDetails[0]
@@ -241,13 +269,28 @@ class Helpers:
                                       col_index_env in range(detailsEnvSheet.ncols)}
 
                     if str(dictDetailsEnv['Is a SSO user?']).strip() == "YES":
-                        programmanagername2 = dictDetailsEnv['Diksha user id ( profile ID)'] if dictDetailsEnv['Diksha user id ( profile ID)'] else Helpers.terminatingMessage("\"Diksha user id ( profile ID)\" must not be Empty in \"Program details\" sheet")
+                        if dictDetailsEnv.get('user id ( profile ID)'):
+                            programmanagername2 = dictDetailsEnv['user id ( profile ID)']
+                        else:
+                            errorVar = "\"user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
+                            raise errorVar
+                        # programmanagername2 = dictDetailsEnv['user id ( profile ID)'] if dictDetailsEnv['user id ( profile ID)'] else errorVar = "\"user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
                     else:
                         try :
-                            programmanagername2 = dictDetailsEnv['Login ID on DIKSHA'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Login ID on DIKSHA'] else Helpers.terminatingMessage("\"Login ID on DIKSHA\" must not be Empty in \"Program details\" sheet")
+                            if dictDetailsEnv.get('Username/user id/email id/phone no. of the Program Manager'):
+                                programmanagername2 = dictDetailsEnv['Username/user id/email id/phone no. of the Program Manager'].encode('utf-8').decode('utf-8')
+                            else:
+                                errorVar = "\"Username/user id/email id/phone no. of the Program Manager\" must not be Empty in \"Program details\" sheet"
+                                raise errorVar
+                            # programmanagername2 = dictDetailsEnv['Username/user id/email id/phone no. of the Program Manager'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Username/user id/email id/phone no. of the Program Manager'] else errorVar = "\"Username/user id/email id/phone no. of the Program Manager\" must not be Empty in \"Program details\" sheet"
                             userDetails = Helpers.fetchUserDetails(accessToken, programmanagername2)
                         except :
-                            programmanagername2 = dictDetailsEnv['Diksha user id ( profile ID)'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Diksha user id ( profile ID)'] else Helpers.terminatingMessage("\"Diksha user id ( profile ID)\" must not be Empty in \"Program details\" sheet")
+                            if dictDetailsEnv.get('user id ( profile ID)'):
+                                programmanagername2 = dictDetailsEnv['user id ( profile ID)'].encode('utf-8').decode('utf-8')
+                            else:
+                                errorVar = "\"user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
+                                raise errorVar
+                            # programmanagername2 = dictDetailsEnv['user id ( profile ID)'].encode('utf-8').decode('utf-8') if dictDetailsEnv['user id ( profile ID)'] else errorVar = "\"user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
                             userDetails = Helpers.fetchUserDetails(accessToken, programmanagername2)
 
                     userDetails = Helpers.fetchUserDetails(accessToken, programmanagername2)
@@ -468,13 +511,14 @@ class Helpers:
                                 messageArr.append("programDescription : " + str(programDescription))
                                 messageArr.append("isAPrivateProgram : " + str(isAPrivateProgram))
                             Helpers.createAPILog(solutionName_for_folder_path, messageArr)
+                    return True
             else:
                 print("Program search API failed...")
                 messageArr.append("Program search API failed...")
                 Helpers.createAPILog(solutionName_for_folder_path, messageArr)
-                Helpers.terminatingMessage("Response Code : " + str(responseProgramSearch.status_code))
+                # Helpers.terminatingMessage("Response Code : " + str(responseProgramSearch.status_code))
                 errorVar = str(responseProgramSearch.text)
-            return True
+                return False
         except Exception as e:
             print(f"Error occurred: {str(e)}")
             errorVar
@@ -534,7 +578,7 @@ class Helpers:
                 messageArr = ["Error in Location search",str(responseFetchEntityListApi.status_code)]
                 errorvar = str(responseFetchEntityListApi.text)
                 Helpers.createAPILog(solutionName_for_folder_path, messageArr)
-                Helpers.terminatingMessage("---> Error in location search.")
+                print("---> Error in location search.")
         except Exception as e:
             print(f"Error occurred: {str(e)}")
             errorVar
@@ -544,20 +588,19 @@ class Helpers:
         program_file = filePathAddPgm
         # open excel file 
         wbPgm = xlrd.open_workbook(filePathAddPgm, on_demand=True)
-        global programNameInp
+        global programNameInp,errorVar,entitiesPGM
         sheetNames = wbPgm.sheet_names()
-        # list of sheets in the program sheet 
         pgmSheets = ["Instructions", "Program Details", "Resource Details","Program Manager Details"]
-
+        # list of sheets in the program sheet 
         # checking the sheets in the program sheet 
         if (len(sheetNames) == len(pgmSheets)) and ((set(sheetNames) == set(pgmSheets))):
             print("--->Program Template detected.<---")
             # iterate through the sheets 
             for sheetEnv in sheetNames:
-
+                print("sheetEnv",sheetEnv)
                 if sheetEnv == "Instructions":
-                    # skip Instructions sheet 
                     pass
+                
                 elif sheetEnv.strip().lower() == 'program details':
                     print("--->Checking Program details sheet...")
                     detailsEnvSheet = wbPgm.sheet_by_name(sheetEnv)
@@ -567,12 +610,25 @@ class Helpers:
                         dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
                                           for
                                           col_index_env in range(detailsEnvSheet.ncols)}
-                        programNameInp = dictDetailsEnv['Title of the Program'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Title of the Program'] else Helpers.terminatingMessage("\"Title of the Program\" must not be Empty in \"Program details\" sheet")
-                        extIdPGM = dictDetailsEnv['Program ID'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Program ID'] else Helpers.terminatingMessage("\"Program ID\" must not be Empty in \"Program details\" sheet")
+                        if dictDetailsEnv.get('Title of the Program'):
+                            programNameInp = dictDetailsEnv['Title of the Program'].encode('utf-8').decode('utf-8')
+                        else:
+                            errorVar = "\"Title of the Program\" must not be Empty in \"Program details\" sheet"
+                        
+                        if dictDetailsEnv.get('Program ID'):
+                            extIdPGM = dictDetailsEnv['Program ID'].encode('utf-8').decode('utf-8')
+                        else:
+                            errorVar = "\"Program ID\" must not be Empty in \"Program details\" sheet"
                         returnvalues = []
-                        global entitiesPGM
-                        entitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Targeted state at program level'] else Helpers.terminatingMessage("\"Targeted state at program level\" must not be Empty in \"Program details\" sheet")
+                        
+                        if dictDetailsEnv.get('Targeted state at program level'):
+                            entitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8')
+                        else:
+                            errorVar = "\"Targeted state at program level\" must not be Empty in \"Program details\" sheet"
+                        
                         districtentitiesPGM = dictDetailsEnv['Targeted district at program level'].encode('utf-8').decode('utf-8')
+                        blockentitiesPGM = dictDetailsEnv['Targeted block at program level'].encode('utf-8').decode('utf-8')
+                        clusterentitiesPGM = dictDetailsEnv['Targeted cluster at program level'].encode('utf-8').decode('utf-8')
                         global startDateOfProgram, endDateOfProgram
                         startDateOfProgram = dictDetailsEnv['Start date of program']
                         endDateOfProgram = dictDetailsEnv['End date of program']
@@ -584,15 +640,24 @@ class Helpers:
                         # taking the end date of program from program template and converting YYYY-MM-DD 00:00:00 format
 
                         endDateArr = str(endDateOfProgram).split("-")
+                        # print(endDateArr,"647")
                         endDateOfProgram = endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"
 
                         global scopeEntityType
                         scopeEntityType = "state"
 
+                        if clusterentitiesPGM:
+                            entitiesPGM = clusterentitiesPGM
+                            EntityType = "cluster"
 
-                        if districtentitiesPGM:
+                        elif blockentitiesPGM:
+                            entitiesPGM = blockentitiesPGM
+                            EntityType = "block"
+
+                        elif districtentitiesPGM:
                             entitiesPGM = districtentitiesPGM
                             EntityType = "district"
+
                         else:
                             entitiesPGM = entitiesPGM
                             EntityType = "state"
@@ -617,8 +682,18 @@ class Helpers:
                             keywordsPGM = dictDetailsEnv['Keywords'].encode('utf-8').decode('utf-8')
                             entitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8') 
                             districtentitiesPGM = dictDetailsEnv['Targeted district at program level'].encode('utf-8').decode('utf-8')
+                            blockentitiesPGM = dictDetailsEnv['Targeted block at program level'].encode('utf-8').decode('utf-8')
+                            clusterentitiesPGM = dictDetailsEnv['Targeted cluster at program level'].encode('utf-8').decode('utf-8')
                             # selecting entity type based on the users input 
-                            if districtentitiesPGM:
+                            if clusterentitiesPGM:
+                                entitiesPGM = clusterentitiesPGM
+                                EntityType = "cluster"
+
+                            elif blockentitiesPGM:
+                                entitiesPGM = blockentitiesPGM
+                                EntityType = "block"
+
+                            elif districtentitiesPGM:
                                 entitiesPGM = districtentitiesPGM
                                 EntityType = "district"
                             else:
@@ -635,7 +710,7 @@ class Helpers:
 
                             if "teacher" in mainRole.strip().lower():
                                 rolesPGM = str(rolesPGM).strip() + ",TEACHER"
-                            userDetails = Helpers.fetchUserDetails(accessToken, dictDetailsEnv['Diksha username/user id/email id/phone no. of Program Designer'])
+                            userDetails = Helpers.fetchUserDetails(accessToken, dictDetailsEnv['Username/user id/email id/phone no. of the Program Designer'])
                             OrgName=userDetails[4]
                             # print(OrgName,"OrgName")
                             orgIds=Helpers.fetchOrgId(accessToken, parentFolder, OrgName)
@@ -658,8 +733,9 @@ class Helpers:
                             # sys.exit()
 
                             # call function to create program 
-                            Helpers.programCreation(accessToken, parentFolder, extIdPGM, programNameInp, descriptionPGM,keywordsPGM.lstrip().rstrip().split(","), entitiesPGMID, rolesPGMID, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM)
-                            # sys.exit()
+                            if not Helpers.programCreation(accessToken, parentFolder, extIdPGM, programNameInp, descriptionPGM,keywordsPGM.lstrip().rstrip().split(","), entitiesPGMID, rolesPGMID, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM):
+                                return False
+                            # sys.exit()programCreation
                             Helpers.programmappingpdpmsheetcreation(MainFilePath, accessToken, program_file, extIdPGM,parentFolder)
 
                             # map PM / PD to the program 
@@ -670,6 +746,7 @@ class Helpers:
                                 print("Program Created SuccessFully.")
                             else :
                                 print("Program creation failed! Please check logs.")
+                                return False
 
                 elif sheetEnv.strip().lower() == 'resource details':
                     # checking Resource details sheet 
@@ -682,10 +759,26 @@ class Helpers:
                         dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
                                           for
                                           col_index_env in range(detailsEnvSheet.ncols)}
-                        resourceNamePGM = dictDetailsEnv['Name of resources in program'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Name of resources in program'] else Helpers.terminatingMessage("\"Name of resources in program\" must not be Empty in \"Resource Details\" sheet")
-                        resourceTypePGM = dictDetailsEnv['Type of resources'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Type of resources'] else Helpers.terminatingMessage("\"Type of resources\" must not be Empty in \"Resource Details\" sheet")
-                        resourceLinkOrExtPGM = dictDetailsEnv['Resource Link']
-                        resourceStatusOrExtPGM = dictDetailsEnv['Resource Status'] if dictDetailsEnv['Resource Status'] else Helpers.terminatingMessage("\"Resource Status\" must not be Empty in \"Resource Details\" sheet")
+                        if dictDetailsEnv.get('Name of resources in program'):
+                            resourceNamePGM = dictDetailsEnv['Name of resources in program'].encode('utf-8').decode('utf-8')
+                        else:
+                            errorVar = "\"Name of resources in program\" must not be Empty in \"Program details\" sheet"
+
+                        if dictDetailsEnv.get('Type of resources'):
+                            resourceTypePGM = dictDetailsEnv['Type of resources'].encode('utf-8').decode('utf-8')
+                        else:
+                            errorVar = "\"Type of resources\" must not be Empty in \"Program details\" sheet"
+
+                        if dictDetailsEnv.get('Resource Link'):
+                            resourceLinkOrExtPGM = dictDetailsEnv['Resource Link'].encode('utf-8').decode('utf-8')
+                        else:
+                            errorVar = "\"Resource Link\" must not be Empty in \"Program details\" sheet"
+
+                        if dictDetailsEnv.get('Resource Status'):
+                            resourceStatusOrExtPGM = dictDetailsEnv['Resource Status']
+                        else:
+                            errorVar = "\"Resource Status\" must not be Empty in \"Program details\" sheet"
+                        
                         # setting start and end dates globally. 
                         global startDateOfResource, endDateOfResource
                         startDateOfResource = dictDetailsEnv['Start date of resource']
@@ -701,9 +794,11 @@ class Helpers:
                         #         endDateArr = str(endDateOfResource).split("-")
                         #         bodySolutionUpdate = {
                         #             "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                        #         solutionUpdate(parentFolder, accessToken, coursemapping, bodySolutionUpdate)
-                        
-
+                        #         solutionUpdate(parentFolder, accessToken, coursemapping, bodySolutionUpdate)       
+            if errorVar == "":
+                return True
+            else:
+                return False
 
 # Function create File structure for Solutions
     def createFileStruct(MainFilePath, addSolutionFile):
@@ -887,7 +982,6 @@ class Helpers:
 
                 learningResource_count += 1
         learningResource_count = int(learningResource_count) / 2
-
         lr_count = 1
         for lr in range(0, int(learningResource_count)):
             projectColnames1.append("learningResources" + str(lr_count) + "-name")
@@ -919,8 +1013,7 @@ class Helpers:
                     categories_final = categories_final + "," + str(
                         (get_close_matches(cat.strip().lower().replace(" ", ""), categories_list)[0]))
             global projectCreator, projectAuthor
-
-            projectAuthor = str(dictProjectDetails["Diksha_loginId"]).encode('utf-8').decode('utf-8').strip()
+            projectAuthor = str(dictProjectDetails["Username/user id/email id/phone no. of the Content creator"]).encode('utf-8').decode('utf-8').strip()
             recommendedFor = str(dictProjectDetails["recommendedFor"]).encode('utf-8').decode('utf-8').strip()
             objective = str(dictProjectDetails["objective"]).encode('utf-8').decode('utf-8').strip()
             entityType = None
@@ -953,11 +1046,9 @@ class Helpers:
                             "categories,recommendedFor,primaryAudience,successIndicators,risks,approaches")
                     else:
                         project_values.append("")
-
             with open(projectFilePath + 'projectUpload.csv','a',encoding='utf-8') as file:
                 writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
                 writer.writerows([project_values])
-
         tasksDetailsSheet = wbproject.sheet_by_name('Tasks upload')
         keysTasks = [tasksDetailsSheet.cell(1, col_index_env).value for col_index_env in
                      range(tasksDetailsSheet.ncols)]
@@ -965,7 +1056,6 @@ class Helpers:
                         "parentTaskValue",
                         "parentTaskId", "solutionType", "solutionSubType", "solutionId", "isDeletable"]
         taskLearningResource_count = 0
-
         for tasksHeader in keysTasks:
             if str(tasksHeader).startswith('learningResources'):
                 taskLearningResource_count += 1
@@ -979,7 +1069,6 @@ class Helpers:
             taskslr_count += 1
         taskColumns1.append("minNoOfSubmissionsRequired")
         taskColumns1.append("sequenceNumber")
-
         with open(taskFilePath + 'taskUpload.csv', 'w',encoding='utf-8') as file:
             writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
             writer.writerows([taskColumns1])
@@ -991,82 +1080,83 @@ class Helpers:
             subtaskname = str(dictTasksDetails["Subtask"]).encode('utf-8').decode('utf-8').strip()
 
             if dictTasksDetails['TaskId'] :
-               taskId = str(dictTasksDetails["TaskId"]).encode('utf-8').decode('utf-8').strip() + "-" + str(millisecond)
-               taskminNoOfSubmissionsRequired = str(dictTasksDetails["Number of submissions for observation"]).strip()
-               sequenceNumber = sequenceNumber + 1
-               taskSolutionType = ""
-               try:
-                   taskDescription = str(dictTasksDetails["description"]).strip()
-               except:
+                taskId = str(dictTasksDetails["TaskId"]).encode('utf-8').decode('utf-8').strip() + "-" + str(millisecond)
+                taskminNoOfSubmissionsRequired = str(dictTasksDetails["Number of submissions for observation"]).strip()
+                sequenceNumber = sequenceNumber + 1
+                taskSolutionType = ""
+                try:
+                    taskDescription = str(dictTasksDetails["description"]).strip()
+                except:
                    taskDescription = ""
-               if dictTasksDetails["observation Name"] != "":
+                if dictTasksDetails["observation Name"] != "":
                    taskType = "observation"
-               elif dictTasksDetails["learningResources1-name"] != "" and dictTasksDetails["learningResources1-link"] != "":
+                elif dictTasksDetails["learningResources1-name"] != "" and dictTasksDetails["learningResources1-link"] != "":
                    taskType = "content"
-               else:
+                else:
                    taskType = "simple"
 
-               hasAParentTask = "NO"
-               parentTaskOperator = ""
-               parentTaskValue = ""
-               parentTaskId = ""
+                hasAParentTask = "NO"
+                parentTaskOperator = ""
+                parentTaskValue = ""
+                parentTaskId = ""
 
-               if dictTasksDetails["observation Name"] != "":
-                   solutionNameOrId = dictTasksDetails["observation Name"].encode('utf-8').decode('utf-8')
-                   taskSolutionType = "observation"
-                   solutionDetailsInTask = Helpers.checkEntityOfSolution(projectName_for_folder_path, solutionNameOrId, accessToken)
-                   solutionSubType = solutionDetailsInTask[0]
-                   solutionId = solutionDetailsInTask[1]
+                if dictTasksDetails["observation Name"] != "":
+                    solutionNameOrId = dictTasksDetails["observation Name"].encode('utf-8').decode('utf-8')
+                    taskSolutionType = "observation"
+                    solutionDetailsInTask = Helpers.checkEntityOfSolution(projectName_for_folder_path, solutionNameOrId, accessToken)
+                    solutionSubType = solutionDetailsInTask[0]
+                    solutionId = solutionDetailsInTask[1]
 
-                   projectUpload = pd.read_csv(projectFilePath + "projectUpload.csv")
-                   # updating the column value/data
-                   projectUpload.loc[0, 'entityType'] = solutionDetailsInTask[0]
+                    projectUpload = pd.read_csv(projectFilePath + "projectUpload.csv")
+                    # updating the column value/data
+                    projectUpload.loc[0, 'entityType'] = solutionDetailsInTask[0]
 
                    # writing into the file
-                   projectUpload.to_csv(projectFilePath + "projectUpload.csv", index=False)
-               else:
+                    projectUpload.to_csv(projectFilePath + "projectUpload.csv", index=False)
+                else:
                    solutionId = ""
                    taskSolutionType = ""
                    solutionSubType = ""
-
-               if str(dictTasksDetails["Mandatory task(Yes or No)"]).strip().strip().lower() == "no":
+                
+                if str(dictTasksDetails["Mandatory task(Yes or No)"]).strip().strip().lower() == "no":
                    isDeletable = "TRUE"
-               else:
+                else:
                    isDeletable = "FALSE"
-               task_values = [taskName, taskId, taskDescription, taskType, hasAParentTask, parentTaskOperator, parentTaskValue,
+                task_values = [taskName, taskId, taskDescription, taskType, hasAParentTask, parentTaskOperator, parentTaskValue,
                               parentTaskId, taskSolutionType, solutionSubType, solutionId, isDeletable]
-               task_lr_value_count = 1
-               for task_lr in range(0, int(taskLearningResource_count)):
-                   task_lr_name = str(dictTasksDetails["learningResources" + str(task_lr_value_count) + "-name"]).strip()
-                   task_lr_link = str(dictTasksDetails["learningResources" + str(task_lr_value_count) + "-link"]).strip()
-                   if task_lr_name == "" and task_lr_link == "":
-                       task_values.append("")
-                       task_values.append("")
-                       task_values.append("")
-                       task_values.append("")
-                       task_lr_value_count += 1
-                   else:
-                       task_values.append(task_lr_name)
-                       task_lr_link_id = task_lr_link.split("/")[-1]
-                       task_values.append(task_lr_link)
-                       task_values.append("Diksha")
-                       task_values.append(task_lr_link_id)
-                       task_lr_value_count += 1
-               task_values.append(taskminNoOfSubmissionsRequired)
-               task_values.append(sequenceNumber)
-
-               # To check weather the previous-task and the curent-task Taskname & Taskid is same 
-               if str(taskName) == str(PreviousTaskname) and str(taskId) == str(PreviousTaskid):
+                task_lr_value_count = 1
+                for task_lr in range(0, int(taskLearningResource_count)):
+                    task_lr_name = str(dictTasksDetails["learningResources" + str(task_lr_value_count) + "-name"]).strip()
+                    task_lr_link = str(dictTasksDetails["learningResources" + str(task_lr_value_count) + "-link"]).strip()
+                    if task_lr_name == "" and task_lr_link == "":
+                        task_values.append("")
+                        task_values.append("")
+                        task_values.append("")
+                        task_values.append("")
+                        task_lr_value_count += 1
+                    else:
+                        task_values.append(task_lr_name)
+                        task_lr_link_id = task_lr_link.split("/")[-1]
+                        task_values.append(task_lr_link)
+                        task_values.append("Diksha")
+                        task_values.append(task_lr_link_id)
+                        task_lr_value_count += 1
+                task_values.append(taskminNoOfSubmissionsRequired)
+                task_values.append(sequenceNumber)
+                
+                # To check weather the previous-task and the curent-task Taskname & Taskid is same 
+                if str(taskName) == str(PreviousTaskname) and str(taskId) == str(PreviousTaskid):
                     print("true")
-               else:
-                   print("false")
-                   with open(taskFilePath + 'taskUpload.csv','a',encoding='utf-8') as file:
-                    writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
-                    writer.writerows([task_values])
-               subtaskname2 = str(dictTasksDetails["Subtask"]).encode('utf-8').decode('utf-8').strip()
-               PreviousTaskname = taskName
-               PreviousTaskid = taskId
-
+                else:
+                    print("false")
+                    with open(taskFilePath + 'taskUpload.csv','a',encoding='utf-8') as file:
+                        writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
+                        writer.writerows([task_values])
+                
+                subtaskname2 = str(dictTasksDetails["Subtask"]).encode('utf-8').decode('utf-8').strip()
+                PreviousTaskname = taskName
+                PreviousTaskid = taskId
+        
         c = 0
         for row_index_env in range(2, tasksDetailsSheet.nrows):
             dictTasksDetails = {keysTasks[col_index_env]: tasksDetailsSheet.cell(row_index_env, col_index_env).value
@@ -1126,7 +1216,6 @@ class Helpers:
                 with open(taskFilePath + 'taskUpload.csv', 'a',encoding='utf-8') as file:
                     writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
                     writer.writerows([subtaskvalues])
-
 
             if dictTasksDetails["Subtask"] and not dictTasksDetails['TaskTitle']:
                 if dictTasksDetails["Subtask"] != "":
@@ -1445,7 +1534,7 @@ class Helpers:
 
 
             if prosheet.strip().lower() == 'Certificate details'.lower():
-                print("--->Checking Certificate details  sheet...")
+                print("--->Checking Certificate details sheet...")
                 detailsColCheck = wbproject.sheet_by_name(prosheet)
                 keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
                         range(detailsColCheck.ncols)]
@@ -1459,10 +1548,17 @@ class Helpers:
                             keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
                             for
                             col_index_env in range(detailsEnvSheet.ncols)}
-                    certificateissuer = dictDetailsEnv['Certificate issuer'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Certificate issuer'] else Helpers.terminatingMessage("\"Certificate issuer\" must not be Empty in \"Certificate details\" sheet")
+                    if dictDetailsEnv.get('Certificate issuer'):
+                        certificateissuer = dictDetailsEnv['Certificate issuer'].encode('utf-8').decode('utf-8')
+                    else:
+                        errorVar = "\"Certificate issuer\" must not be Empty in \"Certificate details\" sheet"
+                        raise errorVar
                     payload["issuer"]["name"] = certificateissuer
-
-                    Typeofcertificate = dictDetailsEnv['Type of certificate'] if dictDetailsEnv['Type of certificate'] in ["One Logo - One Signature", "One Logo - Two Signature", "Two Logo - One Signature","Two Logo - Two Signature"] else Helpers.terminatingMessage("\"Type of certificate\" must not be Empty in \"Certificate details\" sheet")
+                    if dictDetailsEnv.get('Type of certificate') in ["One Logo - One Signature", "One Logo - Two Signature", "Two Logo - One Signature", "Two Logo - Two Signature"]:
+                        Typeofcertificate = dictDetailsEnv['Type of certificate']
+                    else:
+                        errorVar = "\"Type of certificate\" must not be Empty or invalid in \"Certificate details\" sheet"
+                        raise ValueError(errorVar)
 
                     payload["baseTemplateId"]=baseTemplate_id
 
@@ -1862,6 +1958,7 @@ class Helpers:
             if responsedbFindApi.status_code == 200:
                 responseaddcetificate = responsedbFindApi.json()
                 result_list = responseaddcetificate['result']
+                print(result_list,"result_list")
                 baseTemplateLookup = {}
                 for i in result_list:
                     baseTemplateLookup[i['code']] = i['_id']
@@ -1914,9 +2011,16 @@ class Helpers:
                         keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
                         for
                         col_index_env in range(detailsEnvSheet.ncols)}
-                    certificateissuer = dictDetailsEnv['Certificate issuer'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Certificate issuer'] else Helpers.terminatingMessage("\"Certificate issuer\" must not be Empty in \"Certificate details\" sheet")
-
-                    typeOfCertificate = dictDetailsEnv['Type of certificate'] if dictDetailsEnv['Type of certificate'] else Helpers.terminatingMessage("\"Type of certificate\" must not be Empty in \"Certificate details\" sheet")
+                    if dictDetailsEnv.get('Certificate issuer'):
+                        certificateissuer = dictDetailsEnv['Certificate issuer'].encode('utf-8').decode('utf-8')
+                    else:
+                        errorVar = "\"Certificate issuer\" must not be Empty in \"Program details\" sheet"
+                        raise errorVar
+                    if dictDetailsEnv.get('Type of certificate'):
+                        typeOfCertificate = dictDetailsEnv['Type of certificate']
+                    else:
+                        errorVar = "\"Type of certificate\" must not be Empty in \"Program details\" sheet"
+                        raise errorVar
 
                     if typeOfCertificate == 'One Logo - One Signature':
                        Logo1 = dictDetailsEnv['Logo - 1']
@@ -2594,7 +2698,7 @@ class Helpers:
     #                 surveySolutionCreationReqBody["externalId"] = surveySolutionExternalId
     #                 # if dictDetailsEnv['creator_username'].encode('utf-8').decode('utf-8') == "":
     #                 #     exceptionHandlingFlag = True
-    #                 #     print('survey_creator_username column should not be empty in the details sheet')
+    #                 #     print('Username/user id/email id/phone no. of the Content creator column should not be empty in the details sheet')
     #                 #     sys.exit()
     #                 # else:
     #                 #     surveySolutionCreationReqBody['creator'] = dictDetailsEnv['Name_of_the_creator'].encode('utf-8').decode('utf-8')
@@ -2698,9 +2802,9 @@ class Helpers:
 
         threading.Thread(target=delete_file, daemon=True).start()
 
-    def terminatingMessage(msg):
-        print(msg)
-        sys.exit()
+    # def terminatingMessage(msg):
+    #     print(msg)
+    #     sys.exit()
 
     def checkEntityOfSolution(projectName_for_folder_path, solutionNameOrId, accessToken):
         try:
@@ -2762,10 +2866,10 @@ class Helpers:
                             "Response : " + str(searchSolutionresponse.text)]
                         Helpers.createAPILog(projectName_for_folder_path, messageArr)
                         errorVar = str(searchSolutionresponse.text)
-                        Helpers.terminatingMessage("FetchSolutionDocApi is failed")
+                        print("FetchSolutionDocApi is failed")
 
             else:
-                Helpers.terminatingMessage("search solution api is failed")
+                print("search solution api is failed")
             return [solutionEntityType, solutionExternalId]
         except Exception as e:
             print(f"Error occurred: {str(e)}")
@@ -2846,7 +2950,7 @@ class Helpers:
         else:
             typeofSolutin = 0
             print(typeofSolutin)
-            Helpers.terminatingMessage("Please check the Input sheet.")
+            errorVar = ("Please check the Input sheet.")
         return typeofSolutin
 
     def projectValidate(filePathAddObs, accessToken, parentFolder):
@@ -2858,7 +2962,7 @@ class Helpers:
             project_sheet_names = ['Instructions', 'Project upload', 'Tasks upload','Certificate details']
             if (len(project_sheet_names) == len(sheetNames1)) and ((set(project_sheet_names) == set(sheetNames1))):
                 print("--->Project file detected.<---")
-            projectDetailsCols = ["title", "projectId", "is a SSO user?", "Diksha_loginId", "categories",
+            projectDetailsCols = ["title", "projectId", "is a SSO user?", "Username/user id/email id/phone no. of the Content creator", "categories",
                                 "objective","duration","recommendedFor","keywords"]
             detailsColCheck = wbObservation1.sheet_by_name('Project upload')
             keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
@@ -2922,10 +3026,10 @@ class Helpers:
                             projectSSOuser = dictDetailsEnv['is a SSO user?']
                         else:
                             errorVar = "validation failed :is a SSO user? column must not be Empty in Project Upload sheet"
-                        if dictDetailsEnv['Diksha_loginId']:
-                            projectDikshaloginid = dictDetailsEnv['Diksha_loginId'].encode('utf-8').decode('utf-8')
+                        if dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']:
+                            Dikshaloginid = dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'].encode('utf-8').decode('utf-8')
                         else:
-                            errorVar = "validation failed :Diksha_loginId column must not be Empty in Project Upload sheet"
+                            errorVar = "validation failed :Username/user id/email id/phone no. of the Content creator column must not be Empty in Project Upload sheet"
                         if dictDetailsEnv['duration']:
                             projectDuration = dictDetailsEnv['duration'].encode('utf-8').decode('utf-8')
                         else:
@@ -3054,7 +3158,7 @@ class Helpers:
                 else:
                     errorVar = 'Sheet Names in excel file is wrong , Sheet Names are details,questions'
 
-            detailsColNames = ["survey_solution_name", "survey_solution_description", "Name_of_the_creator","survey_creator_username", "survey_start_date", "survey_end_date"]
+            detailsColNames = ["survey_solution_name", "survey_solution_description", "Name_of_the_creator","Username/user id/email id/phone no. of the Content creator", "survey_start_date", "survey_end_date"]
             questionsColNames = ["question_sequence", "question_id", "section_header", "instance_parent_question_id",
                                 "parent_question_id", "show_when_parent_question_value_is", "parent_question_value",
                                 "page", "question_number", "question_language1", "question_language2", "question_tip",
@@ -3099,10 +3203,10 @@ class Helpers:
                             Nameofthecreator = dictDetailsEnv['Name_of_the_creator']
                         else:
                             errorVar = "validation failed :Name_of_the_creator column must not be Empty in details sheet"
-                        if dictDetailsEnv['survey_creator_username']:
-                            surveycreatorusername = dictDetailsEnv['survey_creator_username']
+                        if dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']:
+                            surveycreatorusername = dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']
                         else:
-                            errorVar = "validation failed :survey_creator_username column must not be Empty in details sheet"
+                            errorVar = "validation failed :Username/user id/email id/phone no. of the Content creator column must not be Empty in details sheet"
                         if dictDetailsEnv['survey_start_date']:
                             surveystartdate = dictDetailsEnv['survey_start_date']
                         else:
@@ -3173,7 +3277,7 @@ class Helpers:
             questionsequenceArr =[]
             # Point based value set as null by default for observation without rubrics
             criteria_id_arr = []
-            detailsColNames = ['observation_solution_name', 'observation_solution_description', 'Diksha_loginId','language', 'keywords', 'entity_type', "scope_entity"]
+            detailsColNames = ['observation_solution_name', 'observation_solution_description', 'Username/user id/email id/phone no. of the Content creator','language', 'keywords', 'entity_type', "scope_entity"]
             criteriaColNames = ['criteria_id', 'criteria_name']
             questionsColNames = ["criteria_id","question_sequence","question_id","instance_parent_question_id","parent_question_id","show_when_parent_question_value_is","parent_question_value","page","question_number","question_primary_language","question_secondory_language","question_tip","question_hint","instance_identifier","question_response_type","date_auto_capture","response_required","min_number_value","max_number_value","file_upload","show_remarks","response(R1)","response(R1)_hint","response(R2)","response(R2)_hint","response(R3)","response(R3)_hint","response(R4)","response(R4)_hint","response(R5)","response(R5)_hint","response(R6)","response(R6)_hint","response(R7)","response(R7)_hint","response(R8)","response(R8)_hint","response(R9)","response(R9)_hint","response(R10)","response(R10)_hint","response(R11)","response(R11)_hint","response(R12)","response(R12)_hint","response(R13)","response(R13)_hint","response(R14)","response(R14)_hint","response(R15)","response(R15)_hint","response(R16)","response(R16)_hint","response(R17)","response(R17)_hint","response(R18)","response(R18)_hint","response(R19)","response(R19)_hint","response(R20)","response(R20)_hint","question_weightage","section_header"]
             for sheetColCheck in sheetNames1:
@@ -3216,10 +3320,10 @@ class Helpers:
                                 solutionDescription = dictDetailsEnv['observation_solution_description'].encode('utf-8').decode('utf-8')
                             else:
                                 errorVar = "validation failed :observation_solution_description column must not be Empty in details sheet"
-                            if dictDetailsEnv['Diksha_loginId']:
-                                dikshaLoginId = dictDetailsEnv['Diksha_loginId'].encode('utf-8').decode('utf-8')
+                            if dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']:
+                                dikshaLoginId = dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'].encode('utf-8').decode('utf-8')
                             else:
-                                errorVar = "validation failed :Diksha_loginId column must not be Empty in details sheet"
+                                errorVar = "validation failed :Username/user id/email id/phone no. of the Content creator column must not be Empty in details sheet"
                             if dictDetailsEnv['Name_of_the_creator']:
                                 creator = dictDetailsEnv['Name_of_the_creator'].encode('utf-8').decode('utf-8')
                             else:
@@ -3238,7 +3342,7 @@ class Helpers:
                                 errorVar = "validation failed :entity_type column, please select from the given drop down in details sheet"
                             ccUserDetails = Helpers.fetchUserDetails(accessToken, dikshaLoginId)
                             if not "CONTENT_CREATOR" in ccUserDetails[3]:
-                                errorVar = "---> "+dikshaLoginId +" is not a CONTENT_CREATOR in Diksha " + environment
+                                errorVar = "---> "+dikshaLoginId +" is not a CONTENT_CREATOR " + environment
                             ccRootOrgName = ccUserDetails[4]
                             ccRootOrgId = ccUserDetails[5]
                             Helpers.getProgramInfo(accessToken, parentFolder, programNameInp)
@@ -3352,7 +3456,7 @@ class Helpers:
                 else:
                     if sheetEnv.strip().lower() == 'details':
                         print("--->Checking details sheet...")
-                        detailsCols = ["observation_solution_name", "observation_solution_description", "Diksha_loginId","Name_of_the_creator", "language", "allow_multiple_submissions", "keywords","scoring_system", "entity_type"]
+                        detailsCols = ["observation_solution_name", "observation_solution_description", "Username/user id/email id/phone no. of the Content creator","Name_of_the_creator", "language", "allow_multiple_submissions", "keywords","scoring_system", "entity_type"]
                         detailsEnvSheet = wbObservation1.sheet_by_name(sheetEnv)
                         keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
                                 range(detailsEnvSheet.ncols)]
@@ -3366,10 +3470,10 @@ class Helpers:
                                 solutionName = dictDetailsEnv['observation_solution_name'].encode('utf-8').decode('utf-8')
                             else:
                                 errorVar = "validation failed :observation_solution_name column must not be Empty in details sheet"
-                            if dictDetailsEnv['Diksha_loginId']:
-                                dikshaLoginId = dictDetailsEnv['Diksha_loginId'].encode('utf-8').decode('utf-8')
+                            if dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']:
+                                dikshaLoginId = dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'].encode('utf-8').decode('utf-8')
                             else:
-                                errorVar = "validation failed :Diksha_loginId column must not be Empty in details sheet"
+                                errorVar = "validation failed :Username/user id/email id/phone no. of the Content creator column must not be Empty in details sheet"
                             if dictDetailsEnv['observation_solution_description']:
                                 solutionDescription = dictDetailsEnv['observation_solution_description'].encode('utf-8').decode('utf-8')
                             else:
@@ -3392,14 +3496,14 @@ class Helpers:
                                 errorVar = "validation failed :entity_type column must not be Empty in details sheet"
                             ccUserDetails = Helpers.fetchUserDetails(accessToken, dikshaLoginId)
                             if not "CONTENT_CREATOR" in ccUserDetails[3]:
-                                errorVar = "---> "+dikshaLoginId +" is not a CONTENT_CREATOR in Diksha " + environment
+                                errorVar = "---> "+dikshaLoginId +" is not a CONTENT_CREATOR " + environment
                             ccRootOrgName = ccUserDetails[4]
                             ccRootOrgId = ccUserDetails[5]
                             pointBasedValue = str(dictDetailsEnv['scoring_system']).encode('utf-8').decode('utf-8') 
                             if dictDetailsEnv['scoring_system']:
                                 scoring_system = dictDetailsEnv['scoring_system'].encode('utf-8').decode('utf-8')
                             else :
-                                Helpers.terminatingMessage("\"scoring_system\" must not be Empty in \"details\" sheet")
+                                errorVar = "\"scoring_system\" must not be Empty in \"details\" sheet"
                             # print(pointBasedValue,"<---------------------------------------pointBasedValue=======")
                             allow_multiple_submissions = dictDetailsEnv['allow_multiple_submissions']
                                             
@@ -3417,7 +3521,7 @@ class Helpers:
                                 print("it is done here")
 
                     elif sheetEnv.strip().lower() == 'framework':
-                        print("entered the framework valid")
+                        # print("entered the framework valid")
                         frameworkCols = ["Domain ID", "Domain Name", "Criteria ID", "criteria_name", "L1 description","L2 description", "L3 description"]
                         print("--->Checking frameworks sheet...")
                         detailsEnvSheet = wbObservation1.sheet_by_name(sheetEnv)
@@ -3498,7 +3602,12 @@ class Helpers:
                                 errorVar = "criteria_id cannot be empty in questions sheet."
                             if not dictDetailsEnv['criteria_id'].lower() in criteriaExternalIds:
                                 errorVar = "Criteria ID : " + dictDetailsEnv['criteria_id'] + " in question sheet not present in criteria sheet."
-                            question_sequence = dictDetailsEnv['question_sequence'] if dictDetailsEnv['question_sequence'] else Helpers.terminatingMessage("\"question_sequence\" must not be Empty in \"questions\" sheet")
+                            if dictDetailsEnv.get('question_sequence'):
+                                question_sequence = dictDetailsEnv['question_sequence']
+                            else:
+                                errorVar = "\"question_sequence\" must not be Empty in \"questions\" sheet"
+                                raise errorVar
+                            # question_sequence = dictDetailsEnv['question_sequence'] if dictDetailsEnv['question_sequence'] else errorVar = "\"question_sequence\" must not be Empty in \"questions\" sheet"
 
                             questionsequenceArr.append(question_sequence)
                             question_sequence_arr = questionsequenceArr
@@ -3642,7 +3751,7 @@ class Helpers:
     #             else:
     #                 if sheetEnv.strip().lower() == 'details':
     #                     print("--->Checking details sheet...")
-    #                     detailsCols = ["observation_solution_name", "observation_solution_description", "Diksha_loginId","Name_of_the_creator", "language", "allow_multiple_submissions", "keywords","scoring_system", "entity_type"]
+    #                     detailsCols = ["observation_solution_name", "observation_solution_description", "Username/user id/email id/phone no. of the Content creator","Name_of_the_creator", "language", "allow_multiple_submissions", "keywords","scoring_system", "entity_type"]
     #                     detailsEnvSheet = wbObservation1.sheet_by_name(sheetEnv)
     #                     keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
     #                             range(detailsEnvSheet.ncols)]
@@ -3652,7 +3761,7 @@ class Helpers:
     #                             col_index_env in range(detailsEnvSheet.ncols)}
     #                         if set(detailsCols) == set(dictDetailsEnv.keys()):
     #                             solutionName = dictDetailsEnv['observation_solution_name'].encode('utf-8').decode('utf-8') if dictDetailsEnv['observation_solution_name'] else Helpers.terminatingMessage("\"observation_solution_name\" must not be Empty in \"details\" sheet")
-    #                             dikshaLoginId = dictDetailsEnv['Diksha_loginId'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Diksha_loginId'] else Helpers.terminatingMessage("\"Diksha_loginId\" must not be Empty in \"details\" sheet")
+    #                             dikshaLoginId = dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'] else Helpers.terminatingMessage("\"Username/user id/email id/phone no. of the Content creator\" must not be Empty in \"details\" sheet")
     #                             ccUserDetails = Helpers.fetchUserDetails( accessToken, dikshaLoginId)
     #                             if not "CONTENT_CREATOR" in ccUserDetails[3]:
     #                                 Helpers.terminatingMessage("---> "+dikshaLoginId +" is not a CONTENT_CREATOR in Diksha " + environment)
@@ -3850,7 +3959,7 @@ class Helpers:
     def mainFunc(MainFilePath, programFile, millisecond, isProgramnamePresent, isCourse,scopeEntityType=scopeEntityType):
         # print(addObservationSolution,"addObservationSolution 2693")
         scopeEntityType = scopeEntityType
-        global surveySolutionlink, solutionlink, ObsSolutionLink, ObsRubricSolutionLink, errorVar, dikshaLoginId,pointBasedValue,solutionDescription
+        global surveySolutionlink, solutionlink, ObsSolutionLink, ObsRubricSolutionLink, errorVar, dikshaLoginId,pointBasedValue,solutionDescription,programName,entitiesPGM
         surveySolutionlink = None
         errorVar = ""
         ObsSolutionLink = None
@@ -3862,7 +3971,11 @@ class Helpers:
         typeofSolution = Helpers.typeofresource(addObservationSolution, accessToken, parentFolder)
         wbObservation = xlrd.open_workbook(addObservationSolution, on_demand=True)
         # print("wbObservation",wbObservation)
-        Helpers.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath)
+        print("checking for Programs" )
+        if not Helpers.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath):
+            print("---> no program found / unable to create program....")
+            result = {programName : errorVar}
+            return result
         wbprogram = xlrd.open_workbook(programFile, on_demand=True)
         programSheetNames = wbprogram.sheet_names()
         wbproject = xlrd.open_workbook(addObservationSolution, on_demand=True)
@@ -3885,7 +3998,12 @@ class Helpers:
                     else:
                         isProgramnamePresent = True
                     scopeEntityType = scopeEntityType
-                    userEntity = dictProgramDetails['Targeted state at program level'].encode('utf-8').decode('utf-8').lstrip().rstrip().split(",") if dictProgramDetails['Targeted state at program level'] else Helpers.terminatingMessage("\"scope_entity\" must not be Empty in \"details\" sheet")
+
+                    if dictProgramDetails.get('Targeted state at program level'):
+                        userEntity = dictProgramDetails['Targeted state at program level'].encode('utf-8').decode('utf-8')
+                    else:
+                        errorVar = "\"Targeted state at program level\" must not be Empty in \"details\" sheet"
+                    # userEntity = dictProgramDetails['Targeted state at program level'].encode('utf-8').decode('utf-8').lstrip().rstrip().split(",") if dictProgramDetails['Targeted state at program level'] else errorVar = "\"scope_entity\" must not be Empty in \"details\" sheet"
         
                     
         for sheets in projectSheetNames:
@@ -3901,7 +4019,6 @@ class Helpers:
                         finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                         return finalObsRubricSolutionLink   
                     print("validation successful")
-                    print("3904",pointBasedValue)
                     def addObsWRFunc(parentFolder, wbObservation, millisecond, accessToken):
                         impLedObsFlag = True if typeofSolution == 5 else False
                         if not Helpers.criteriaUpload(parentFolder, wbObservation, millisecond, accessToken, "framework", impLedObsFlag):
@@ -3914,7 +4031,6 @@ class Helpers:
                             finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                             return finalObsRubricSolutionLink
                         matchedShikshalokamLoginId = userDetails[0]
-                        print("3916",pointBasedValue)
                         frameworkExternalId = Helpers.frameWorkUpload(parentFolder, matchedShikshalokamLoginId, wbObservation, millisecond, accessToken)
                         if not frameworkExternalId:
                             finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
@@ -4078,7 +4194,7 @@ class Helpers:
                             return ObsWORSolutionLink
                         print("-------------> criteria upload done")
                         
-                        # Step 2: Process user details for Diksha_loginId
+                        # Step 2: Process user details for Username/user id/email id/phone no. of the Content creator
                         detailsEnvSheet = wbproject.sheet_by_name(sheets)
                         keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in range(detailsEnvSheet.ncols)]
                         
@@ -4087,8 +4203,8 @@ class Helpers:
                                 keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
                                 for col_index_env in range(detailsEnvSheet.ncols)
                             }
-                            if 'Diksha_loginId' in dictDetailsEnv:
-                                userDetails = Helpers.fetchUserDetails(accessToken, dictDetailsEnv['Diksha_loginId'])
+                            if 'Username/user id/email id/phone no. of the Content creator' in dictDetailsEnv:
+                                userDetails = Helpers.fetchUserDetails(accessToken, dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'])
                                 if userDetails:
                                     matchedShikshalokamLoginId = userDetails[0]
                                     print(f"Matched login ID: {matchedShikshalokamLoginId}")
@@ -4776,10 +4892,11 @@ class Helpers:
         else:
             frameworkDocInsertObj['scoringSystem'] = None
             frameworkDocInsertObj['isRubricDriven'] = False
-        
+        print("Reached here")
+        print(entitiesPGM,"== entitiesPGM")
         fetchentitytypeid = Helpers.fetchEntityId(solutionName_for_folder_path, accessToken,
                                                       entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
-    
+        print("Passes here")
         frameworkDocInsertObj['entityTypeId'] = fetchentitytypeid
         frameworkDocInsertObj['entityType'] = solutionEntityType
         frameworkDocInsertObj['type'] = 'observation'
@@ -6226,13 +6343,13 @@ class Helpers:
                     surveySolutionCreationReqBody["externalId"] = surveySolutionExternalId
                     if dictDetailsEnv['Name_of_the_creator']== "":
                         exceptionHandlingFlag = True
-                        print('survey_creator_username column should not be empty in the details sheet')
+                        print('Username/user id/email id/phone no. of the Content creator column should not be empty in the details sheet')
                         # sys.exit()
                     else:
                         surveySolutionCreationReqBody['creator'] = dictDetailsEnv['Name_of_the_creator']
 
 
-                    userDetails = Helpers.fetchUserDetails( accessToken, dictDetailsEnv['survey_creator_username'])
+                    userDetails = Helpers.fetchUserDetails( accessToken, dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'])
                     surveySolutionCreationReqBody['author'] = userDetails[0]
                     if dictDetailsEnv["survey_start_date"]:
                         if type(dictDetailsEnv["survey_start_date"]) == str:
