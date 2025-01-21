@@ -539,10 +539,10 @@ class Helpers:
                     "filters": {
                         "type": scopeEntityType
                     },
-                    "limit": 1000
+                    "limit": 10000
                 }
             }
-            responseFetchEntityListApi = requests.post(url=urlFetchEntityListApi, headers=headerFetchEntityListApi,data=json.dumps(payload))
+            # responseFetchEntityListApi = requests.post(url=urlFetchEntityListApi, headers=headerFetchEntityListApi,data=json.dumps(payload))
             # print(responseFetchEntityListApi,"responseFetchEntityListApi")
 
             messageArr = ["Entities List Fetch API executed.", "URL  : " + str(urlFetchEntityListApi),
@@ -2823,7 +2823,6 @@ class Helpers:
                         "URL : " + str(searchSolutionurl),
                         "Status Code : " + str(searchSolutionresponse.status_code),
                         "Response : " + str(searchSolutionresponse.text)]
-
             if searchSolutionresponse.status_code == 200:
                 searchSolutionjson = searchSolutionresponse.json()
                 
