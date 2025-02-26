@@ -17,7 +17,7 @@ class SurveyCreate:
         header_keyclock_user = {'Content-Type': keyclockapicontent_type}
         try:
             response = requests.post(
-                url=host + keyclockapiurl,
+                url=elevateprojecthost + userlogin,
                 headers=header_keyclock_user,
                 data=keyclockapibody
             )
@@ -33,7 +33,7 @@ class SurveyCreate:
     def fetch_solution_id(self, access_token, resourceType):
         if not access_token:
             return None
-        solution_update_api = f"{internal_kong_ip}{dbfindapi_url}solutions"
+        solution_update_api = f"{elevateprojecthost}{dbfindapi}solutions"
         headers = {
             'Content-Type': 'application/json',
             'Authorization': authorization,
@@ -147,7 +147,7 @@ class SurveyCreate:
         print(resurceType,"resurceType")
         if not access_token:
             return None
-        solution_update_api = f"{internal_kong_ip}{dbfindapi_url}solutions"
+        solution_update_api = f"{elevateprojecthost}{dbfindapi}solutions"
         headers = {
             'Content-Type': 'application/json',
             'Authorization': authorization,

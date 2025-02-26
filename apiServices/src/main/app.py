@@ -29,7 +29,8 @@ sys.path.append('../../..')
 sys.path.append('../../../backend/src/main/modules/')
 from backend.src.main.modules.xlsxObject import xlsxObject
 from backend.src.main.modules.survey import SurveyCreate
-from backend.src.main.modules.helper import Helpers
+# from backend.src.main.modules.helper import Helpers
+from backend.src.main.modules.project import Elevateproject
 # from backend.src.main.modules.commom_config import config.ini
 # from backend.src.main.modules import main
 
@@ -504,16 +505,19 @@ def validate():
     req_body = request.get_json()
     templateFolderPath = req_body["request"]["templatePath"]
     templateCode = req_body["request"]["templateCode"]
-
+    print(templateCode,"templatecode 509")
     # Token validation
     auth = request.headers.get("Authorization")
+    print(auth,"auth")
     signing_key = os.environ.get("SECRET_KEY")
+    print(signing_key,"signing_key")
     payload = False
     if(not auth):
         return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : ""}}
     else:
         try:
             payload = jwt.decode(auth, signing_key, algorithms=['HS256'])
+            print(payload,"payload")
         except Exception as e:
             print(e)
 
@@ -524,9 +528,10 @@ def validate():
     basicErrors = xlsxObject(templateCode, templateFolderPath)
     print
     # main
-
+    print(basicErrors,"basicerrors")
     if basicErrors.success:
         valErr = basicErrors.basicCondition()
+        print(valErr,"valerr")
         advValErr = basicErrors.customCondition()
         return addComments(templateFolderPath,{"status" : 200,"code" : "OK" , "result" : {"basicErrors" : valErr,"advancedErrors" : advValErr}})
     else:
@@ -933,8 +938,8 @@ def fetchSurveySolutions_Csv():
 def create():
     req = request.get_json()
     # print(req,"req")
-    helperInstance = Helpers
-    programFile=helperInstance.loadSurveyFile(req['file'])
+    projectInstance = Elevateproject
+    programFile=projectInstance.loadSurveyFile(req['file'])
     # print(programFile,"programFile 870")
     # print(f"Type of programFile: {type(programFile)}")
     
