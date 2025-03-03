@@ -1,5 +1,5 @@
 connectionUrl= "mongodb://127.0.0.1:27017"
-databaseName = "ElevateOBS"
+databaseName = "templateValidationElevate"
 collectionName = "validation"
 conditionCollection = "conditions"
 hostUrl = "https://project-qa.elevate-apis.shikshalokam.org/"
