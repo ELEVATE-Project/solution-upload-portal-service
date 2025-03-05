@@ -86,7 +86,7 @@ mapsolutiontoproject = "project/templates/importProjectTemplate/"
 fetchsolutiondoc = "solutions/getDetails/"
 
 # Endpoint for creating a program
-programcreationurl = "programs/create"
+programcreationurlpro = "programs/create"
 programcreationurlobs = "v1/programs/create"
 
 # Endpoint for performing a database find operation for certificate base templates

@@ -475,7 +475,7 @@ class Elevateproject:
         messageArr.append("++++++++++++ Program Creation ++++++++++++")
         # program creation url 
         try: 
-            programCreationurl = elevateentityhost + programCreationurl
+            programCreationurl = elevateprojecthost + programcreationurlpro
             messageArr.append("Program Creation URL : " + programCreationurl)
 
             # adding state entities
@@ -536,6 +536,8 @@ class Elevateproject:
             Elevateproject.apicheckslog(parentFolder, fileheader)
             if responsePgmCreate.status_code == 200:
                 responsePgmCreateResp = responsePgmCreate.json()
+                print("program created successful....")
+                return True
             else:
                 error_message = ""
                 if responsePgmCreate.status_code in [400, 401, 403, 404, 422]:
@@ -599,10 +601,10 @@ class Elevateproject:
                     
                 # extIdPGM = dictDetailsEnv['Program ID'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Program ID'] else Elevateproject.terminatingMessage("\"Program ID\" must not be Empty in \"Program details\" sheet")
                 
-                if dictDetailsEnv.get('projectService username/user id/email id/phone no. of Program Designer'):
-                    programdesigner = dictDetailsEnv['projectService username/user id/email id/phone no. of Program Designer'].encode('utf-8').decode('utf-8')
+                if dictDetailsEnv.get('Elevate username/user id/email id/phone no. of Program Designer'):
+                    programdesigner = dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'].encode('utf-8').decode('utf-8')
                 else:
-                    errorVar = "\"projectService username/user id/email id/phone no. of Program Designer\" must not be Empty in \"Program details\" sheet"
+                    errorVar = "\"Elevate username/user id/email id/phone no. of Program Designer\" must not be Empty in \"Program details\" sheet"
                     
                 # programdesigner = dictDetailsEnv['projectService username/user id/email id/phone no. of Program Designer'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Program ID'] else Elevateproject.terminatingMessage("\"projectService username/user id/email id/phone no. of Program Designer\" must not be Empty in \"Program details\" sheet")
                 userDetails = Elevateproject.fetchUserDetails(environment, accessToken, programdesigner)
@@ -633,33 +635,34 @@ class Elevateproject:
                     dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
                                     for
                                     col_index_env in range(detailsEnvSheet.ncols)}
-
                     if str(dictDetailsEnv['Is a SSO user?']).strip() == "YES":
-                        if dictDetailsEnv.get('projectService user id ( profile ID)'):
-                            programmanagername2 = dictDetailsEnv['projectService user id ( profile ID)']
+                        if dictDetailsEnv.get('Elevate user id ( profile ID)'):
+                            programmanagername2 = dictDetailsEnv['Elevate user id ( profile ID)']
                         else:
-                            errorVar = "\"projectService user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
+                            errorVar = "\"Elevate user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
                             
                         # programmanagername2 = dictDetailsEnv['projectService user id ( profile ID)'] if dictDetailsEnv['projectService user id ( profile ID)'] else Elevateproject.terminatingMessage("\"projectService user id ( profile ID)\" must not be Empty in \"Program details\" sheet")
                     else:
                         try :
-                            if dictDetailsEnv.get('Login ID on projectService'):
-                                programmanagername2 = dictDetailsEnv['Login ID on projectService'].encode('utf-8').decode('utf-8')
+                            if dictDetailsEnv.get('Login ID on Elevate'):
+                                programmanagername2 = dictDetailsEnv['Login ID on Elevate'].encode('utf-8').decode('utf-8')
                             else:
-                                errorVar = "\"Login ID on projectService\" must not be Empty in \"Program details\" sheet"
+                                errorVar = "\"Login ID on Elevate\" must not be Empty in \"Program details\" sheet"
                                 
                             # programmanagername2 = dictDetailsEnv['Login ID on projectService'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Login ID on projectService'] else Elevateproject.terminatingMessage("\"Login ID on projectService\" must not be Empty in \"Program details\" sheet")
                             userDetails = Elevateproject.fetchUserDetails(environment, accessToken, programmanagername2)
                         except :
-                            if dictDetailsEnv.get('projectService user id ( profile ID)'):
-                                programmanagername2 = dictDetailsEnv['projectService user id ( profile ID)'].encode('utf-8').decode('utf-8')
+                            if dictDetailsEnv.get('Elevate user id ( profile ID)'):
+                                programmanagername2 = dictDetailsEnv['Elevate user id ( profile ID)'].encode('utf-8').decode('utf-8')
                             else:
-                                errorVar = "\"projectService user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
+                                errorVar = "\"Elevate user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
                                 
                             # programmanagername2 = dictDetailsEnv['projectService user id ( profile ID)'].encode('utf-8').decode('utf-8') if dictDetailsEnv['projectService user id ( profile ID)'] else Elevateproject.terminatingMessage("\"projectService user id ( profile ID)\" must not be Empty in \"Program details\" sheet")
                             userDetails = Elevateproject.fetchUserDetails(environment, accessToken, programmanagername2)
                     creatorKeyCloakId = userDetails[0]
                     creatorName = userDetails[1]
+                    print("ineme therillaaa")
+                    print(userDetails,"userDetails")
                     if "program_manager" in userDetails[4]:
                         creatorKeyCloakId = userDetails[0]
                         creatorName = userDetails[1]
@@ -672,14 +675,15 @@ class Elevateproject:
                         writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
                         writer.writerows([pdpmcolo1])
                     messageArr = ""
-                    messageArr.append("Response : " + str(pdpmcolo1))
+                    messageArr = ("Response : " + str(pdpmcolo1))
                     Elevateproject.createAPILog(parentFolder, messageArr)
-
                     fileheader = [creatorName,"program manager mapped succesfully","Passed"]
                     Elevateproject.apicheckslog(parentFolder,fileheader)
         if errorVar == "":
+            print(errorVar)
             return True
         else:
+            print(errorVar,"enama neenga ipudi pandringale ma")
             return False
         
 
@@ -747,9 +751,11 @@ class Elevateproject:
                         else:
                             errorVar = "\"Targeted state at program level\" must not be Empty in \"Program details\" sheet"
                         # stateEntitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8')
-                        global startDateOfProgram, endDateOfProgram
+                        global startDateOfProgram, endDateOfProgram, ReffstartDateOfProgram, ReffendDateOfProgram
                         startDateOfProgram = dictDetailsEnv['Start date of program']
                         endDateOfProgram = dictDetailsEnv['End date of program']
+                        ReffstartDateOfProgram = dictDetailsEnv['Start date of program']
+                        ReffendDateOfProgram = dictDetailsEnv['End date of program']
                         # taking the start date of program from program template and converting YYYY-MM-DD 00:00:00 format
                         
                         startDateArr = str(startDateOfProgram).split("-")
@@ -812,7 +818,7 @@ class Elevateproject:
                             # rolesPGM = dictDetailsEnv['Targeted subrole at program level'] if dictDetailsEnv['Targeted subrole at program level'] else Elevateproject.terminatingMessage("\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet")
                             if "teacher" in mainRole.strip().lower():
                                 rolesPGM = str(rolesPGM).strip() + ",TEACHER"
-                            userDetails = Elevateproject.fetchUserDetails(environment, accessToken, dictDetailsEnv['projectService username/user id/email id/phone no. of Program Designer'])
+                            userDetails = Elevateproject.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
                             userId = userDetails[0]
                             messageArr = []
 
@@ -991,7 +997,17 @@ class Elevateproject:
             print(f"Error occurred: {str(e)}")
             errorVar
             print(errorVar,"---> API-Error")
-    
+
+    def validate_identifier(identifier, field_name="Field"):
+        global errorVar
+        pattern = r'^[A-Za-z0-9_-]+$'
+        if not re.match(pattern, identifier):
+            errorVar = (f"Invalid {field_name}: '{identifier}'. Only A-Z, a-z, 0-9, '-', and '_' are allowed.")
+            return False
+        else:
+            print(f"{field_name} '{identifier}' is valid.")
+            return True
+
     def typeofresource(filePathAddObs, accessToken, parentFolder):
         global criteriaLevelsReport, scopeRoles, criteriaLevels, scopeEntityType , ccRootOrgName , ccRootOrgId, errorVar
         wbObservation1 = xlrd.open_workbook(filePathAddObs, on_demand=True)
@@ -1036,7 +1052,7 @@ class Elevateproject:
             criteria_id_arr = list()
             wbObservation1 = xlrd.open_workbook(filePathAddObs, on_demand=True)
             sheetNames1 = wbObservation1.sheet_names()
-            projectDetailsCols = ["title", "projectId", "is a SSO user?", "projectService_loginId", "categories",
+            projectDetailsCols = ["title", "projectId", "is a SSO user?", "Elevate_loginId", "categories",
                                 "objective","duration","recommendedFor","keywords"]
             detailsColCheck = wbObservation1.sheet_by_name('Project upload')
             keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
@@ -1110,6 +1126,8 @@ class Elevateproject:
                             projectId = dictDetailsEnv['projectId']
                         else:
                             errorVar = "validation failed :projectId must not be Empty in Project Upload sheet"
+                        if not Elevateproject.validate_identifier(projectId):
+                            errorVar = "ProjectID should be alpha numeric."
                         if dictDetailsEnv['categories']:
                             projectCategories = dictDetailsEnv['categories'].encode('utf-8').decode('utf-8')
                         else:
@@ -1122,10 +1140,10 @@ class Elevateproject:
                             projectSSOuser = dictDetailsEnv['is a SSO user?']
                         else:
                             errorVar = "validation failed :is a SSO user? column must not be Empty in Project Upload sheet"
-                        if dictDetailsEnv['projectService_loginId']:
-                            projectprojectServiceloginid = dictDetailsEnv['projectService_loginId'].encode('utf-8').decode('utf-8')
+                        if dictDetailsEnv['Elevate_loginId']:
+                            projectprojectServiceloginid = dictDetailsEnv['Elevate_loginId'].encode('utf-8').decode('utf-8')
                         else:
-                            errorVar = "validation failed :projectService_loginId column must not be Empty in Project Upload sheet"
+                            errorVar = "validation failed :Elevate_loginId column must not be Empty in Project Upload sheet"
                         if dictDetailsEnv['duration']:
                             projectDuration = dictDetailsEnv['duration'].encode('utf-8').decode('utf-8')
                         else:
@@ -1331,7 +1349,7 @@ class Elevateproject:
                         (get_close_matches(cat.strip().lower().replace(" ", ""), categories_list)[0]))
             global projectCreator, projectAuthor
 
-            projectAuthor = str(dictProjectDetails["projectService_loginId"]).encode('utf-8').decode('utf-8').strip()
+            projectAuthor = str(dictProjectDetails["Elevate_loginId"]).encode('utf-8').decode('utf-8').strip()
             recommendedFor = str(dictProjectDetails["recommendedFor"]).encode('utf-8').decode('utf-8').strip()
             objective = str(dictProjectDetails["objective"]).encode('utf-8').decode('utf-8').strip()
             entityType = None
@@ -1755,17 +1773,19 @@ class Elevateproject:
                                     Elevateproject.solutionUpdate(projectName_for_folder_path, accessToken, solutionId, bodySolutionUpdate)
                                     # Below script will convert date DD-MM-YYYY TO YYYY-MM-DD 00:00:00 to match the code syntax
                                     print(solutionDetails[1],solutionDetails[2],"solutionDetails[1]")
-                                    if solutionDetails[1]:
-                                        startDateArr = str(solutionDetails[1]).split("-")
-                                        bodySolutionUpdate = {
-                                            "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
-                                        Elevateproject.solutionUpdate(projectName_for_folder_path, accessToken, solutionId, bodySolutionUpdate)
-                                    if solutionDetails[2]:
-                                        endDateArr = str(solutionDetails[2]).split("-")
-                                        bodySolutionUpdate = {
-                                            "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                                        Elevateproject.solutionUpdate(projectName_for_folder_path, accessToken, solutionId, bodySolutionUpdate)
+                                    if ReffstartDateOfProgram <= solutionDetails[1] <= ReffendDateOfProgram and ReffstartDateOfProgram <= solutionDetails[2] <= ReffendDateOfProgram:
+                                        if solutionDetails[1]:
+                                            startDateArr = str(solutionDetails[1]).split("-")
+                                            bodySolutionUpdate = {
+                                                "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
+                                            Elevateproject.solutionUpdate(projectName_for_folder_path, accessToken, solutionId, bodySolutionUpdate)
+                                        if solutionDetails[2]:
+                                            endDateArr = str(solutionDetails[2]).split("-")
+                                            bodySolutionUpdate = {
+                                                "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
+                                            Elevateproject.solutionUpdate(projectName_for_folder_path, accessToken, solutionId, bodySolutionUpdate)
                                     else:
+                                        errorVar = "Date mismatching!"
                                         print(errorVar)
                                         return False
                                 else:
@@ -2698,10 +2718,6 @@ class Elevateproject:
             if typeofSolution == 0:
                 result = {}
                 return result
-            if not Elevateproject.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath):
-                print(solutionLink)
-                finalprojectSolutionLink = {ProjectName: errorVar}
-                return finalprojectSolutionLink
             
             # sys.exit()
             wbObservation = xlrd.open_workbook(addObservationSolution, on_demand=True)
@@ -2743,7 +2759,10 @@ class Elevateproject:
 
                             ProjectName = projectDetails["title"].encode('utf-8').decode('utf-8')
                             entityType = "school"
-
+                if not Elevateproject.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath):
+                    # print(solutionLink)
+                    finalprojectSolutionLink = {ProjectName: errorVar}
+                    return finalprojectSolutionLink
                 try:
 
                     # Adds a project by processing the input file, creating necessary folders,copying files, and preparing project and task sheets.
@@ -2812,7 +2831,7 @@ class Elevateproject:
                                             return finalprojectsolutionlink
                                         ProjectSolutionExternalId = ProjectSolutionResp[0]
                                         ProjectSolutionId = ProjectSolutionResp[1]
-                                        print("reached here")
+                                        # print("reached here")
                                         solutionLink = Elevateproject.prepareProgramSuccessSheet(MainFilePath, projectName_for_folder_path, programFile,
                                                                 ProjectSolutionExternalId,
                                                                 ProjectSolutionId, accessToken)

@@ -681,7 +681,7 @@ class ElevateObservation:
                         # rolesPGM = dictDetailsEnv['Targeted subrole at program level'] if dictDetailsEnv['Targeted subrole at program level'] else ElevateObservation.terminatingMessage("\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet")  
                         global rolesPGMID
                         rolesPGMID=rolesPGM.lstrip().rstrip().split(",")
-                        global startDateOfProgram, endDateOfProgram
+                        global startDateOfProgram, endDateOfProgram, ReffstartDateOfProgram, ReffendDateOfProgram
                         if dictDetailsEnv.get('Start date of program'):
                             startDateOfProgram = dictDetailsEnv['Start date of program']
                         else:
@@ -691,6 +691,8 @@ class ElevateObservation:
                             endDateOfProgram = dictDetailsEnv['End date of program']
                         else:
                             errorVar = "\"End date of program\" must not be Empty in \"Program details\" sheet"
+                        ReffstartDateOfProgram = dictDetailsEnv['Start date of program']
+                        ReffendDateOfProgram = dictDetailsEnv['End date of program']
                         # endDateOfProgram = dictDetailsEnv['End date of program']
                         # taking the start date of program from program template and converting YYYY-MM-DD 00:00:00 format
                         
@@ -3282,25 +3284,25 @@ class ElevateObservation:
                             if not ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
                                 finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                 return finalObsRubricSolutionLink
-                            solutionDetails = ElevateObservation.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionId, accessToken)
-                            if not solutionDetails:
-                                finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
-                                return finalObsRubricSolutionLink
-                            if solutionDetails[1]:
-                                startDateArr = str(solutionDetails[1]).split("-")
-                                bodySolutionUpdate = {
-                                    "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
-                                if not ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
-                                    finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
-                                    return finalObsRubricSolutionLink
-                            if solutionDetails[2]:
-                                print(solutionDetails[2],"this is 5294")
-                                endDateArr = str(solutionDetails[2]).split("-")
-                                bodySolutionUpdate = {
-                                    "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                                if not ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
-                                    finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
-                                    return finalObsRubricSolutionLink
+                            # solutionDetails = ElevateObservation.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionId, accessToken)
+                            # if not solutionDetails:
+                            #     finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
+                            #     return finalObsRubricSolutionLink
+                            # if solutionDetails[1]:
+                            #     startDateArr = str(solutionDetails[1]).split("-")
+                            #     bodySolutionUpdate = {
+                            #         "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
+                            #     if not ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
+                            #         finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
+                            #         return finalObsRubricSolutionLink
+                            # if solutionDetails[2]:
+                            #     print(solutionDetails[2],"this is 5294")
+                            #     endDateArr = str(solutionDetails[2]).split("-")
+                            #     bodySolutionUpdate = {
+                            #         "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
+                            #     if not ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
+                            #         finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
+                            #         return finalObsRubricSolutionLink
                             if isProgramnamePresent:
                                 childId = ElevateObservation.createChild(parentFolder, observationExternalId, accessToken)
                                 if not childId:
@@ -3332,21 +3334,26 @@ class ElevateObservation:
                                     if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
                                         finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                         return finalObsRubricSolutionLink
-                                    if solutionDetails[1]:
-                                        startDateArr = str(solutionDetails[1]).split("-")
-                                        bodySolutionUpdate = {
-                                            "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[
-                                                0] + " 00:00:00"}
-                                        if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
-                                            finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
-                                            return finalObsRubricSolutionLink
-                                    if solutionDetails[2]:
-                                        endDateArr = str(solutionDetails[2]).split("-")
-                                        bodySolutionUpdate = {
-                                            "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                                        if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
-                                            finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
-                                            return finalObsRubricSolutionLink
+                                    if ReffstartDateOfProgram <= solutionDetails[1] <= ReffendDateOfProgram and ReffstartDateOfProgram <= solutionDetails[2] <= ReffendDateOfProgram:
+                                        if solutionDetails[1]:
+                                            startDateArr = str(solutionDetails[1]).split("-")
+                                            bodySolutionUpdate = {
+                                                "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[
+                                                    0] + " 00:00:00"}
+                                            if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
+                                                finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
+                                                return finalObsRubricSolutionLink
+                                        if solutionDetails[2]:
+                                            endDateArr = str(solutionDetails[2]).split("-")
+                                            bodySolutionUpdate = {
+                                                "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
+                                            if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
+                                                finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
+                                                return finalObsRubricSolutionLink
+                                    else:
+                                        errorVar = "Date Mismatched! Creation Stopped."
+                                        finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
+                                        return finalObsRubricSolutionLink
                                     ObsRubricSolutionLink = ElevateObservation.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, childId[1], childId[0],
                                                             accessToken)
                                     if not ObsRubricSolutionLink:
@@ -3446,28 +3453,30 @@ class ElevateObservation:
                                 ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                                 return ObsWORSolutionLink
 
-                            solutionDetails = ElevateObservation.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionId, accessToken)
-                            # Below script will convert date DD-MM-YYYY TO YYYY-MM-DD 00:00:00 to match the code syntax
-                            if not solutionDetails:
-                                ObsWORSolutionLink = {ObsWORResourceName: errorVar}
-                                return ObsWORSolutionLink
-                            if solutionDetails[1]:
-                                startDateArr = str(solutionDetails[1]).split("-")
-                                bodySolutionUpdate = {
-                                    "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
-                                if not ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
-                                    ObsWORSolutionLink = {ObsWORResourceName: errorVar}
-                                return ObsWORSolutionLink
-                            if solutionDetails[2]:
-                                endDateArr = str(solutionDetails[2]).split("-")
-                                bodySolutionUpdate = {
-                                    "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                                if not ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
-                                    ObsWORSolutionLink = {ObsWORResourceName: errorVar}
-                                return ObsWORSolutionLink
+                            # solutionDetails = ElevateObservation.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionId, accessToken)
+                            # # Below script will convert date DD-MM-YYYY TO YYYY-MM-DD 00:00:00 to match the code syntax
+                            # if not solutionDetails:
+                            #     ObsWORSolutionLink = {ObsWORResourceName: errorVar}
+                            #     return ObsWORSolutionLink
+                            # if solutionDetails[1]:
+                            #     startDateArr = str(solutionDetails[1]).split("-")
+                            #     bodySolutionUpdate = {
+                            #         "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
+                            #     if not ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
+                            #         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
+                            #     return ObsWORSolutionLink                            #     endDateArr = str(solutionDetails[2]).split("-")
+
+                            # print(solutionDetails[2],"solutionDetails[2]")
+                            # if solutionDetails[2]:
+                            #     bodySolutionUpdate = {
+                            #         "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
+                            #     if not ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
+                            #         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
+                            #     return ObsWORSolutionLink
                             if isProgramnamePresent:
                                 childId = ElevateObservation.createChild(parentFolder, observationExternalId, accessToken)
                                 if not childId:
+                                    print("testtststststsstt")
                                     finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                     return finalObsRubricSolutionLink
                                 if childId[0]:
@@ -3496,21 +3505,26 @@ class ElevateObservation:
                                     if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
                                         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                                         return ObsWORSolutionLink
-                                    if solutionDetails[1]:
-                                        startDateArr = str(solutionDetails[1]).split("-")
-                                        bodySolutionUpdate = {
-                                            "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[
-                                                0] + " 00:00:00"}
-                                        if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
-                                            ObsWORSolutionLink = {ObsWORResourceName: errorVar}
-                                            return ObsWORSolutionLink
-                                    if solutionDetails[2]:
-                                        endDateArr = str(solutionDetails[2]).split("-")
-                                        bodySolutionUpdate = {
-                                            "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                                        if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
-                                            ObsWORSolutionLink = {ObsWORResourceName: errorVar}
-                                            return ObsWORSolutionLink
+                                    if ReffstartDateOfProgram <= solutionDetails[1] <= ReffendDateOfProgram and ReffstartDateOfProgram <= solutionDetails[2] <= ReffendDateOfProgram:
+                                        if solutionDetails[1]:
+                                            startDateArr = str(solutionDetails[1]).split("-")
+                                            bodySolutionUpdate = {
+                                                "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[
+                                                    0] + " 00:00:00"}
+                                            if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
+                                                ObsWORSolutionLink = {ObsWORResourceName: errorVar}
+                                                return ObsWORSolutionLink
+                                        if solutionDetails[2]:
+                                            endDateArr = str(solutionDetails[2]).split("-")
+                                            bodySolutionUpdate = {
+                                                "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
+                                            if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
+                                                ObsWORSolutionLink = {ObsWORResourceName: errorVar}
+                                                return ObsWORSolutionLink
+                                    else:
+                                        errorVar = "Date Mismatched! Creation Stopped."
+                                        ObsWORSolutionLink = {ObsWORResourceName: errorVar}
+                                        return ObsWORSolutionLink
                                     ObsSolutionLink = ElevateObservation.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, childId[1], childId[0],
                                                             accessToken)
                                     if not ObsSolutionLink:
