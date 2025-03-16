@@ -114,7 +114,7 @@ class Helpers:
             messageArr = []
             messageArr.append("++++++++++++ Program Creation ++++++++++++")
             # program creation url 
-            programCreationurl =  internal_kong_ip + programcreationurl
+            programCreationurl =  internal_kong_ip_core + programcreationurl
             messageArr.append("Pogram Creation URL : " + programCreationurl)
             # program creation payload
             payload = json.dumps({
@@ -316,7 +316,7 @@ class Helpers:
 
     # this function is used for call the api and map the pdpm roles which we created
     def Programmappingapicall(MainFilePath,accessToken, program_file,parentFolder):
-        urlpdpmapi = internal_kong_ip + pdpmurl
+        urlpdpmapi = internal_kong_ip_survey + pdpmurl
         headerpdpmApi = {
             'Authorization':authorization,
             'X-authenticated-user-token': accessToken,
@@ -383,7 +383,7 @@ class Helpers:
         return returnPathStr
     
     def fetchScopeRole(solutionName_for_folder_path, accessToken, roleNameList):
-        urlFetchRolesListApi = internal_kong_ip + listofrolesapi
+        urlFetchRolesListApi = internal_kong_ip_survey + listofrolesapi
         headerFetchRolesListApi = {
             'Content-Type':  content_type,
             'Authorization': authorization,
@@ -445,7 +445,7 @@ class Helpers:
         try:
             global programID, programExternalId, programDescription, isProgramnamePresent, programName
             programName = programNameInp
-            programUrl = internal_kong_ip + fetchprograminfoapiurl
+            programUrl = internal_kong_ip_core + fetchprograminfoapiurl
             # print(programUrl)
             payload = json.dumps({
                 "query": {
@@ -627,8 +627,8 @@ class Helpers:
                             errorVar = "\"Targeted state at program level\" must not be Empty in \"Program details\" sheet"
                         
                         districtentitiesPGM = dictDetailsEnv['Targeted district at program level'].encode('utf-8').decode('utf-8')
-                        blockentitiesPGM = dictDetailsEnv['Targeted block at program level'].encode('utf-8').decode('utf-8')
-                        clusterentitiesPGM = dictDetailsEnv['Targeted cluster at program level'].encode('utf-8').decode('utf-8')
+                        # blockentitiesPGM = dictDetailsEnv['Targeted block at program level'].encode('utf-8').decode('utf-8')
+                        # clusterentitiesPGM = dictDetailsEnv['Targeted cluster at program level'].encode('utf-8').decode('utf-8')
                         global startDateOfProgram, endDateOfProgram
                         startDateOfProgram = dictDetailsEnv['Start date of program']
                         endDateOfProgram = dictDetailsEnv['End date of program']
@@ -646,15 +646,15 @@ class Helpers:
                         global scopeEntityType
                         scopeEntityType = "state"
 
-                        if clusterentitiesPGM:
-                            entitiesPGM = clusterentitiesPGM
-                            EntityType = "cluster"
+                        # if clusterentitiesPGM:
+                        #     entitiesPGM = clusterentitiesPGM
+                        #     EntityType = "cluster"
 
-                        elif blockentitiesPGM:
-                            entitiesPGM = blockentitiesPGM
-                            EntityType = "block"
+                        # elif blockentitiesPGM:
+                        #     entitiesPGM = blockentitiesPGM
+                        #     EntityType = "block"
 
-                        elif districtentitiesPGM:
+                        if districtentitiesPGM:
                             entitiesPGM = districtentitiesPGM
                             EntityType = "district"
 
@@ -666,9 +666,9 @@ class Helpers:
 
                         global entitiesPGMID
                         # print(entitiesPGMID,"entitiesPGMID")
-                        entitiesPGMID = Helpers.fetchEntityId(parentFolder, accessToken,
-                                                      entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
-                        print(entitiesPGMID)
+                        # entitiesPGMID = Helpers.fetchEntityId(parentFolder, accessToken,
+                                                    #   entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
+                        # print(entitiesPGMID)
                         global orgIds
 
 
@@ -682,18 +682,18 @@ class Helpers:
                             keywordsPGM = dictDetailsEnv['Keywords'].encode('utf-8').decode('utf-8')
                             entitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8') 
                             districtentitiesPGM = dictDetailsEnv['Targeted district at program level'].encode('utf-8').decode('utf-8')
-                            blockentitiesPGM = dictDetailsEnv['Targeted block at program level'].encode('utf-8').decode('utf-8')
-                            clusterentitiesPGM = dictDetailsEnv['Targeted cluster at program level'].encode('utf-8').decode('utf-8')
+                            # blockentitiesPGM = dictDetailsEnv['Targeted block at program level'].encode('utf-8').decode('utf-8')
+                            # clusterentitiesPGM = dictDetailsEnv['Targeted cluster at program level'].encode('utf-8').decode('utf-8')
                             # selecting entity type based on the users input 
-                            if clusterentitiesPGM:
-                                entitiesPGM = clusterentitiesPGM
-                                EntityType = "cluster"
+                            # if clusterentitiesPGM:
+                            #     entitiesPGM = clusterentitiesPGM
+                            #     EntityType = "cluster"
 
-                            elif blockentitiesPGM:
-                                entitiesPGM = blockentitiesPGM
-                                EntityType = "block"
+                            # elif blockentitiesPGM:
+                            #     entitiesPGM = blockentitiesPGM
+                            #     EntityType = "block"
 
-                            elif districtentitiesPGM:
+                            if districtentitiesPGM:
                                 entitiesPGM = districtentitiesPGM
                                 EntityType = "district"
                             else:
@@ -722,7 +722,7 @@ class Helpers:
 
                             scopeEntityType = EntityType
                             # fetch entity details 
-                            entitiesPGMID = Helpers.fetchEntityId(parentFolder, accessToken,entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
+                            # entitiesPGMID = Helpers.fetchEntityId(parentFolder, accessToken,entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
                             # print(entitiesPGMID,"entitiesPGMID")
 
                             # sys.exit()
@@ -736,10 +736,10 @@ class Helpers:
                             if not Helpers.programCreation(accessToken, parentFolder, extIdPGM, programNameInp, descriptionPGM,keywordsPGM.lstrip().rstrip().split(","), entitiesPGMID, rolesPGMID, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM):
                                 return False
                             # sys.exit()programCreation
-                            Helpers.programmappingpdpmsheetcreation(MainFilePath, accessToken, program_file, extIdPGM,parentFolder)
+                            # Helpers.programmappingpdpmsheetcreation(MainFilePath, accessToken, program_file, extIdPGM,parentFolder)
 
                             # map PM / PD to the program 
-                            Helpers.Programmappingapicall(MainFilePath, accessToken, program_file,parentFolder)
+                            # Helpers.Programmappingapicall(MainFilePath, accessToken, program_file,parentFolder)
 
                             # check if program is created or not 
                             if Helpers.getProgramInfo(accessToken, parentFolder, programNameInp):
@@ -1252,7 +1252,7 @@ class Helpers:
         global errorVar
         error_message = ""
         try:
-            urlProjectUploadApi = internal_kong_ip + projectuploadapi
+            urlProjectUploadApi = internal_kong_ip_project + projectuploadapi
             headerProjectUploadApi = {
                 'Authorization': authorization,
                 'X-authenticated-user-token': accessToken,
@@ -1316,7 +1316,7 @@ class Helpers:
                 projectExternalId = projectInternal["externalId"]
                 project_id = projectInternal["_SYSTEM_ID"]
                 if str(project_id).strip() == "Could not pushed to kafka":
-                    fetchProjectIdApi = internal_kong_ip + fetchprojectlist
+                    fetchProjectIdApi = internal_kong_ip_project + fetchprojectlist
                     headerfetchProjectIdApi = {
                         'Authorization': authorization,
                         'X-authenticated-user-token': accessToken,
@@ -1354,7 +1354,7 @@ class Helpers:
                         Helpers.createAPILog(projectName_for_folder_path, messageArr) 
                         return False 
 
-                urlTasksUploadApi = internal_kong_ip + taskuploadapi + project_id
+                urlTasksUploadApi = internal_kong_ip_project + taskuploadapi + project_id
                 headerTasksUploadApi = {
                     'Authorization': authorization,
                     'X-authenticated-user-token': accessToken,
@@ -1465,7 +1465,7 @@ class Helpers:
             if not os.path.exists(addcetificateFilePath):
                 os.mkdir(addcetificateFilePath)
 
-            urladdcertificate = internal_kong_ip + addcertificatetemplate
+            urladdcertificate = internal_kong_ip_core + addcertificatetemplate
             headeraddcertificateApi = {
                 'Authorization': authorization,
                 'X-authenticated-user-token': accessToken,
@@ -1663,7 +1663,7 @@ class Helpers:
                 # Helpers.createAPILog(projectName_for_folder_path, messageArr)
                 # sys.exit()
 
-            urluploadcertificatepi =internal_kong_ip + uploadcertificatetosvg + certificatetemplateid
+            urluploadcertificatepi =internal_kong_ip_core + uploadcertificatetosvg + certificatetemplateid
 
             headeruploadcertificateApi = {
                 'Authorization': authorization,
@@ -1684,7 +1684,7 @@ class Helpers:
                 responseeditsvg = responseDownloadsvgApi.json()
                 svgid = responseeditsvg['result']['data']['templateId']
 
-                urlsolutionupdateapi = internal_kong_ip + updatecertificatesolu + solutionId
+                urlsolutionupdateapi = internal_kong_ip_core + updatecertificatesolu + solutionId
 
                 headersolutionupdateApi = {
                     'Authorization': authorization,
@@ -1723,7 +1723,7 @@ class Helpers:
                     # print("error in updating solution")
                     # sys.exit()
 
-                urlprojecttemplateapi = internal_kong_ip + updateprojecttemplate + projectTemplateId
+                urlprojecttemplateapi = internal_kong_ip_project + updateprojecttemplate + projectTemplateId
                 headerprojectrtemplateupdateApi = {
                     'Authorization': authorization,
                     'X-authenticated-user-token': accessToken,
@@ -1877,7 +1877,7 @@ class Helpers:
                             payload['signatureTitleDesignation2'] = authrigeddesignation2
                             baseTemplateId=baseTemplate_id
 
-                        urleditnigsvgApi =  internal_kong_ip + editsvgtemp + baseTemplateId
+                        urleditnigsvgApi =  internal_kong_ip_core + editsvgtemp + baseTemplateId
                         headereditingsvgApi = {
                             'Authorization': authorization,
                             'X-authenticated-user-token': accessToken,
@@ -1940,7 +1940,7 @@ class Helpers:
 
                         typeOfCertificate = dictDetailsEnv["Type of certificate"]
                         print(typeOfCertificate)
-            urldbFind = internal_kong_ip + dbfindapi
+            urldbFind = internal_kong_ip_core + dbfindapi
             headerdbFindApi = {
                 'Authorization':  authorization,
                 'X-authenticated-user-token': accessToken,
@@ -2170,7 +2170,7 @@ class Helpers:
         global solutionRolesArray, solutionStartDate, solutionEndDate, errorVar
         error_message = ""
         try:
-            urlFetchSolutionApi = internal_kong_ip + fetchsolutiondoc + solutionId
+            urlFetchSolutionApi = internal_kong_ip_core + fetchsolutiondoc + solutionId
             # print(urlFetchSolutionApi)
             headerFetchSolutionApi = {
                 'Content-Type': 'application/json',
@@ -2272,7 +2272,7 @@ class Helpers:
             solutionExternalId = projectExternalId + "-PROJECT-SOLUTION"
             
             try:
-                urlCreateProjectSolutionApi = internal_kong_ip + projectsolutioncreationapi
+                urlCreateProjectSolutionApi = internal_kong_ip_project + projectsolutioncreationapi
                 headerCreateSolutionApi = {
                     'Content-Type': content_type,
                     'Authorization': authorization,
@@ -2299,7 +2299,7 @@ class Helpers:
                     print("ProjectSolutionCreationApi Success")
                     duplicateTemplateExtId = projectExternalId + '_IMPORTED'
                     queryparamsMapProjectSolutionApi = projectExternalId + '?solutionId=' + solutionExternalId
-                    urlMapProjectSolutionApi = internal_kong_ip + mapsolutiontoproject
+                    urlMapProjectSolutionApi = internal_kong_ip_project + mapsolutiontoproject
                     headerMapSolutionProject = {
                         'Content-Type': content_type,
                         'Authorization': authorization,
@@ -2407,7 +2407,7 @@ class Helpers:
         error_message = ""
         try: 
             # print("reached here...........///////////")
-            urlFetchSolutionApi = internal_kong_ip + fetchsolutiondoc + solutionId
+            urlFetchSolutionApi = internal_kong_ip_core + fetchsolutiondoc + solutionId
             headerFetchSolutionApi = {
                 'Authorization': authorization,
                 'X-authenticated-user-token': accessToken,
@@ -2431,7 +2431,7 @@ class Helpers:
                 print('Fetch solution Api Success')
                 print("2320",responseFetchSolutionApi.text)
                 solutionName = responseFetchSolutionJson["result"]["name"]
-                urlFetchSolutionLinkApi = internal_kong_ip + fetchlink + solutionId
+                urlFetchSolutionLinkApi = internal_kong_ip_core + fetchlink + solutionId
                 headerFetchSolutionLinkApi = {
                     'Authorization': authorization,
                     'X-authenticated-user-token': accessToken,
@@ -2642,7 +2642,7 @@ class Helpers:
         global errorVar
         error_message = ""
         try:
-            solutionUpdateApi = internal_kong_ip + solutionupdateapi + str(solutionId)
+            solutionUpdateApi = internal_kong_ip_core + solutionupdateapi + str(solutionId)
             # print("solutionUpdateApi:",solutionUpdateApi)
             headerUpdateSolutionApi = {
                 'Content-Type': 'application/json',
@@ -2808,7 +2808,7 @@ class Helpers:
 
     def checkEntityOfSolution(projectName_for_folder_path, solutionNameOrId, accessToken):
         try:
-            searchSolutionurl = internal_kong_ip + fetchsolutiondetails + "observation&page=1&limit=100&search=" + solutionNameOrId
+            searchSolutionurl = internal_kong_ip_core + fetchsolutiondetails + "observation&page=1&limit=100&search=" + solutionNameOrId
 
             searchSolutionpayload = {}
             searchSolutionheaders = {
@@ -2831,7 +2831,7 @@ class Helpers:
                     messageArr.append("solution found : " + str(solution_id))
                     Helpers.createAPILog(projectName_for_folder_path, messageArr)
                     print("searchSolutionApi Success")
-                    solutionDetailsurl = internal_kong_ip + fetchsolutiondoc + solution_id
+                    solutionDetailsurl = internal_kong_ip_core + fetchsolutiondoc + solution_id
 
                     solutionDetailspayload = {}
                     solutionDetailsheaders = {
@@ -4728,7 +4728,7 @@ class Helpers:
                         writerCriteriaUpload.writeheader()
                     writerCriteriaUpload.writerow(dictCriteria)
         try:
-            urlCriteriaUploadApi = internal_kong_ip + criteriauploadapiurl
+            urlCriteriaUploadApi = internal_kong_ip_survey + criteriauploadapiurl
             headerCriteriaUploadApi = {
                 'Authorization': authorization,
                 'X-authenticated-user-token': accessToken,
@@ -4926,7 +4926,7 @@ class Helpers:
         frameworkDocInsertObj['license']['licenseDetails']['description'] = "For details see below:"
     
         try:
-            urlCreateFrameworkApi = internal_kong_ip + frameworkcreationapi
+            urlCreateFrameworkApi = internal_kong_ip_survey + frameworkcreationapi
             frameworkFilePath = solutionName_for_folder_path + '/framework/'
             file_exists_framework = os.path.isfile(solutionName_for_folder_path + '/framework/uploadFile.json')
             if not os.path.exists(frameworkFilePath):
@@ -5025,7 +5025,7 @@ class Helpers:
                     writerthemeUpload.writerow(themesUploadCsv)
 
         try:
-            urlThemesUploadApi = internal_kong_ip + themeuploadapiurl + frameworkExternalId
+            urlThemesUploadApi = internal_kong_ip_survey + themeuploadapiurl + frameworkExternalId
             headerThemesUploadApi = {'Authorization': authorization,
                                     'X-authenticated-user-token': accessToken,
                                     'X-Channel-id': x_channel_id}
@@ -5065,7 +5065,7 @@ class Helpers:
         global errorVar
         error_message = ""
         try:
-            urlCreateSolutionApi = internal_kong_ip + solutioncreationapiurl
+            urlCreateSolutionApi = internal_kong_ip_survey + solutioncreationapiurl
             headerCreateSolutionApi = {
                 'Content-Type': content_type,
                 'Authorization': authorization,
@@ -5840,10 +5840,11 @@ class Helpers:
         bodySolutionUpdate = {"questionSequenceByEcm": questionSeqByEcmDict}
         if Helpers.solutionUpdate(solutionName_for_folder_path, accessToken, solutionId, bodySolutionUpdate):
             try:
-                urlQuestionsUploadApi = internal_kong_ip + questionuploadapiurl
+                urlQuestionsUploadApi = internal_kong_ip_survey + questionuploadapiurl
                 headerQuestionUploadApi = {'Authorization': authorization,
                                         'X-authenticated-user-token': accessToken,
-                                        'X-Channel-id': x_channel_id}
+                                        'X-Channel-id': x_channel_id,
+                                        'internal-access-token': internal_access_token}
                 filesQuestion = {
                     'questions': open(solutionName_for_folder_path + '/questionUpload/uploadSheet.csv', 'rb')
                 }
@@ -5960,7 +5961,7 @@ class Helpers:
                     writerQuestionUpload.writerow(criteriaRubricUpload)
 
         try:
-            urlCriteriaRubricUploadApi = internal_kong_ip + criteriarubricuploadapiurl + frameworkExternalId + "-OBSERVATION-TEMPLATE"
+            urlCriteriaRubricUploadApi = internal_kong_ip_survey + criteriarubricuploadapiurl + frameworkExternalId + "-OBSERVATION-TEMPLATE"
             headerCriteriaRubricUploadApi = {
                 'Authorization': authorization,
                 'X-authenticated-user-token': accessToken,
@@ -6004,7 +6005,7 @@ class Helpers:
         global errorVar
         error_message = ""
         try:
-            url = internal_kong_ip + ferchsolutioncriteria + observationId
+            url = internal_kong_ip_survey + ferchsolutioncriteria + observationId
 
             headers = {
                 'Authorization': authorization,
@@ -6100,7 +6101,7 @@ class Helpers:
                 themeRubricUpload['L1'] = '0<=SCORE<=100000'
                 writerThemeRubricsUpload.writerow(themeRubricUpload)
         try:
-            urlThemeRubricUploadApi = internal_kong_ip + themerubricuploadapiurl + frameworkExternalId + "-OBSERVATION-TEMPLATE"
+            urlThemeRubricUploadApi = internal_kong_ip_survey + themerubricuploadapiurl + frameworkExternalId + "-OBSERVATION-TEMPLATE"
             headerThemeRubricUploadApi = {
                 'Authorization': authorization,
                 'X-authenticated-user-token': accessToken,
@@ -6268,7 +6269,7 @@ class Helpers:
             print(entityType)
             print(solutionName)
             print(solutionDescription)
-            urlSol_prog_mapping = internal_kong_ip + solutiontoprogrammappingapiurl + "?solutionId=" + observationExternalId + "&entityType=" + entityType
+            urlSol_prog_mapping = internal_kong_ip_survey + solutiontoprogrammappingapiurl + "?solutionId=" + observationExternalId + "&entityType=" + entityType
             
             payloadSol_prog_mapping = {
                 "externalId": childObservationExternalId,
@@ -6376,7 +6377,7 @@ class Helpers:
                                 surveySolutionCreationReqBody["endDate"] = ""
                             enDt = surveySolutionCreationReqBody["endDate"]
                             try: 
-                                urlCreateSolutionApi = internal_kong_ip+ surveysolutioncreationapiurl
+                                urlCreateSolutionApi = internal_kong_ip_survey+ surveysolutioncreationapiurl
                                 headerCreateSolutionApi = {
                                     'Content-Type': content_type,
                                     'Authorization': authorization,
@@ -6397,7 +6398,7 @@ class Helpers:
                                 Helpers.apicheckslog(parentFolder,fileheader)
                                 if responseCreateSolutionApi.status_code == 200:
                                     responseCreateSolutionApi = responseCreateSolutionApi.json()
-                                    urlSearchSolution = internal_kong_ip + fetchsolutiondetails + "survey&page=1&limit=10&search=" + str(surveySolutionExternalId)
+                                    urlSearchSolution = internal_kong_ip_core + fetchsolutiondetails + "survey&page=1&limit=10&search=" + str(surveySolutionExternalId)
                                     responseSearchSolution = requests.request("POST", urlSearchSolution,
                                                                             headers=headerCreateSolutionApi)
                                     messageArr = ["********* Search Survey Solution *********", "URL : " + urlSearchSolution,
@@ -6712,7 +6713,7 @@ class Helpers:
                                 questionFileObj['questionNumber'] = ques['question_number']
                         writerQuestionUpload.writerow(questionFileObj)
                 try:        
-                    urlQuestionsUploadApi = internal_kong_ip + questionuploadapiurl
+                    urlQuestionsUploadApi = internal_kong_ip_survey + questionuploadapiurl
                     headerQuestionUploadApi = {
                         'Authorization': authorization,
                         'X-authenticated-user-token': accessToken,
@@ -6736,7 +6737,7 @@ class Helpers:
 
                         with open(parentFolder + '/questionUpload/uploadInternalIdsSheet.csv', 'w+',encoding='utf-8') as questionRes:
                             questionRes.write(responseQuestionUploadApi.text)
-                        urlImportSoluTemplate = internal_kong_ip + importsurveysolutiontemplateurl + str(surTempSolID) + "?appName=manage-learn"
+                        urlImportSoluTemplate = internal_kong_ip_survey + importsurveysolutiontemplateurl + str(surTempSolID) + "?appName=manage-learn"
                         headerImportSoluTemplateApi = {
                             'Authorization': authorization,
                             'X-authenticated-user-token': accessToken,
@@ -6753,7 +6754,7 @@ class Helpers:
                             Helpers.createAPILog(parentFolder, messageArr)
                             responseImportSoluTemplateApi = responseImportSoluTemplateApi.json()
                             solutionIdSuc = responseImportSoluTemplateApi["result"]["solutionId"]
-                            urlSurveyProgramMapping = internal_kong_ip + importsurveysolutiontoprogramurl + str(solutionIdSuc) + "?programId=" + programExternalId.lstrip().rstrip()
+                            urlSurveyProgramMapping = internal_kong_ip_survey + importsurveysolutiontoprogramurl + str(solutionIdSuc) + "?programId=" + programExternalId.lstrip().rstrip()
                             headeSurveyProgramMappingApi = {
                                 'Authorization': authorization,
                                 'X-authenticated-user-token': accessToken,

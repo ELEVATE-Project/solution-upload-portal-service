@@ -1,11 +1,13 @@
-host =  "" # add your host ip
-internal_kong_ip = "" # add your kong ip
-keyclockapibody = "" # add key clock body
-authorization = "" #add bearer token
-authorizationforhost = "" # add bearer for host
-appname = "sunbirdsaas"
-x_channel_id = "0125747659358699520"
-internal_access_token = "" # add internal access token
+host = ""
+internal_kong_ip_core = ""
+internal_kong_ip_project = ""# Add Internal kong Ip address followed by a slash / 
+internal_kong_ip_survey = ""
+keyclockapibody = client_id=""
+authorization = "Bearer "# ADD_YOUR_TOKEN_HERE
+authorizationforhost = ""
+appname = "diksha"
+x_channel_id = ""
+internal_access_token = ""
 keyclockapicontent_type = "application/x-www-form-urlencoded"
 content_type = "application/json"
 keyclockapiurl = "auth/realms/sunbird/protocol/openid-connect/token"
