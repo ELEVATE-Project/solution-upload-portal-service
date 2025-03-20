@@ -235,10 +235,10 @@ class Helpers:
                     errorVar = "\"Program ID\" must not be Empty in \"Program details\" sheet"
                     raise errorVar
                 
-                if dictDetailsEnv.get('Username/user id/email id/phone no. of the Program Designer'):
-                    programdesigner = dictDetailsEnv['Username/user id/email id/phone no. of the Program Designer'].encode('utf-8').decode('utf-8')
+                if dictDetailsEnv.get('Diksha username/user id/email id/phone no. of Program Designer'):
+                    programdesigner = dictDetailsEnv['Diksha username/user id/email id/phone no. of Program Designer'].encode('utf-8').decode('utf-8')
                 else:
-                    errorVar = "\"Username/user id/email id/phone no. of the Program Designer\" must not be Empty in \"Program details\" sheet"
+                    errorVar = "\"Diksha username/user id/email id/phone no. of Program Designer\" must not be Empty in \"Program details\" sheet"
                     raise errorVar
                 userDetails = Helpers.fetchUserDetails(accessToken, programdesigner)
 
@@ -269,26 +269,26 @@ class Helpers:
                                       col_index_env in range(detailsEnvSheet.ncols)}
 
                     if str(dictDetailsEnv['Is a SSO user?']).strip() == "YES":
-                        if dictDetailsEnv.get('user id ( profile ID)'):
-                            programmanagername2 = dictDetailsEnv['user id ( profile ID)']
+                        if dictDetailsEnv.get('Diksha user id ( profile ID)'):
+                            programmanagername2 = dictDetailsEnv['Diksha user id ( profile ID)']
                         else:
-                            errorVar = "\"user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
+                            errorVar = "\"Diksha user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
                             raise errorVar
                         # programmanagername2 = dictDetailsEnv['user id ( profile ID)'] if dictDetailsEnv['user id ( profile ID)'] else errorVar = "\"user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
                     else:
                         try :
-                            if dictDetailsEnv.get('Username/user id/email id/phone no. of the Program Manager'):
-                                programmanagername2 = dictDetailsEnv['Username/user id/email id/phone no. of the Program Manager'].encode('utf-8').decode('utf-8')
+                            if dictDetailsEnv.get('Login ID on DIKSHA'):
+                                programmanagername2 = dictDetailsEnv['Login ID on DIKSHA'].encode('utf-8').decode('utf-8')
                             else:
-                                errorVar = "\"Username/user id/email id/phone no. of the Program Manager\" must not be Empty in \"Program details\" sheet"
+                                errorVar = "\"Login ID on DIKSHA\" must not be Empty in \"Program details\" sheet"
                                 raise errorVar
-                            # programmanagername2 = dictDetailsEnv['Username/user id/email id/phone no. of the Program Manager'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Username/user id/email id/phone no. of the Program Manager'] else errorVar = "\"Username/user id/email id/phone no. of the Program Manager\" must not be Empty in \"Program details\" sheet"
+                            # programmanagername2 = dictDetailsEnv['Login ID on DIKSHA'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Login ID on DIKSHA'] else errorVar = "\"Login ID on DIKSHA\" must not be Empty in \"Program details\" sheet"
                             userDetails = Helpers.fetchUserDetails(accessToken, programmanagername2)
                         except :
-                            if dictDetailsEnv.get('user id ( profile ID)'):
-                                programmanagername2 = dictDetailsEnv['user id ( profile ID)'].encode('utf-8').decode('utf-8')
+                            if dictDetailsEnv.get('Diksha user id ( profile ID)'):
+                                programmanagername2 = dictDetailsEnv['Diksha user id ( profile ID)'].encode('utf-8').decode('utf-8')
                             else:
-                                errorVar = "\"user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
+                                errorVar = "\"Diksha user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
                                 raise errorVar
                             # programmanagername2 = dictDetailsEnv['user id ( profile ID)'].encode('utf-8').decode('utf-8') if dictDetailsEnv['user id ( profile ID)'] else errorVar = "\"user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
                             userDetails = Helpers.fetchUserDetails(accessToken, programmanagername2)
@@ -710,7 +710,7 @@ class Helpers:
 
                             if "teacher" in mainRole.strip().lower():
                                 rolesPGM = str(rolesPGM).strip() + ",TEACHER"
-                            userDetails = Helpers.fetchUserDetails(accessToken, dictDetailsEnv['Username/user id/email id/phone no. of the Program Designer'])
+                            userDetails = Helpers.fetchUserDetails(accessToken, dictDetailsEnv['Diksha username/user id/email id/phone no. of Program Designer'])
                             OrgName=userDetails[4]
                             # print(OrgName,"OrgName")
                             orgIds=Helpers.fetchOrgId(accessToken, parentFolder, OrgName)
@@ -1013,7 +1013,7 @@ class Helpers:
                     categories_final = categories_final + "," + str(
                         (get_close_matches(cat.strip().lower().replace(" ", ""), categories_list)[0]))
             global projectCreator, projectAuthor
-            projectAuthor = str(dictProjectDetails["Username/user id/email id/phone no. of the Content creator"]).encode('utf-8').decode('utf-8').strip()
+            projectAuthor = str(dictProjectDetails["Diksha_loginId"]).encode('utf-8').decode('utf-8').strip()
             recommendedFor = str(dictProjectDetails["recommendedFor"]).encode('utf-8').decode('utf-8').strip()
             objective = str(dictProjectDetails["objective"]).encode('utf-8').decode('utf-8').strip()
             entityType = None
@@ -2961,7 +2961,7 @@ class Helpers:
             project_sheet_names = ['Instructions', 'Project upload', 'Tasks upload','Certificate details']
             if (len(project_sheet_names) == len(sheetNames1)) and ((set(project_sheet_names) == set(sheetNames1))):
                 print("--->Project file detected.<---")
-            projectDetailsCols = ["title", "projectId", "is a SSO user?", "Username/user id/email id/phone no. of the Content creator", "categories",
+            projectDetailsCols = ["title", "projectId", "is a SSO user?", "Diksha_loginId", "categories",
                                 "objective","duration","recommendedFor","keywords"]
             detailsColCheck = wbObservation1.sheet_by_name('Project upload')
             keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
@@ -3025,10 +3025,10 @@ class Helpers:
                             projectSSOuser = dictDetailsEnv['is a SSO user?']
                         else:
                             errorVar = "validation failed :is a SSO user? column must not be Empty in Project Upload sheet"
-                        if dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']:
-                            Dikshaloginid = dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'].encode('utf-8').decode('utf-8')
+                        if dictDetailsEnv['Diksha_loginId']:
+                            Dikshaloginid = dictDetailsEnv['Diksha_loginId'].encode('utf-8').decode('utf-8')
                         else:
-                            errorVar = "validation failed :Username/user id/email id/phone no. of the Content creator column must not be Empty in Project Upload sheet"
+                            errorVar = "validation failed :Diksha_loginId column must not be Empty in Project Upload sheet"
                         if dictDetailsEnv['duration']:
                             projectDuration = dictDetailsEnv['duration'].encode('utf-8').decode('utf-8')
                         else:
@@ -3157,7 +3157,7 @@ class Helpers:
                 else:
                     errorVar = 'Sheet Names in excel file is wrong , Sheet Names are details,questions'
 
-            detailsColNames = ["survey_solution_name", "survey_solution_description", "Name_of_the_creator","Username/user id/email id/phone no. of the Content creator", "survey_start_date", "survey_end_date"]
+            detailsColNames = ["survey_solution_name", "survey_solution_description", "Name_of_the_creator","Diksha_loginId", "survey_start_date", "survey_end_date"]
             questionsColNames = ["question_sequence", "question_id", "section_header", "instance_parent_question_id",
                                 "parent_question_id", "show_when_parent_question_value_is", "parent_question_value",
                                 "page", "question_number", "question_language1", "question_language2", "question_tip",
@@ -3202,10 +3202,10 @@ class Helpers:
                             Nameofthecreator = dictDetailsEnv['Name_of_the_creator']
                         else:
                             errorVar = "validation failed :Name_of_the_creator column must not be Empty in details sheet"
-                        if dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']:
-                            surveycreatorusername = dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']
+                        if dictDetailsEnv['Diksha_loginId']:
+                            surveycreatorusername = dictDetailsEnv['Diksha_loginId']
                         else:
-                            errorVar = "validation failed :Username/user id/email id/phone no. of the Content creator column must not be Empty in details sheet"
+                            errorVar = "validation failed :Diksha_loginId column must not be Empty in details sheet"
                         if dictDetailsEnv['survey_start_date']:
                             surveystartdate = dictDetailsEnv['survey_start_date']
                         else:
@@ -3276,7 +3276,7 @@ class Helpers:
             questionsequenceArr =[]
             # Point based value set as null by default for observation without rubrics
             criteria_id_arr = []
-            detailsColNames = ['observation_solution_name', 'observation_solution_description', 'Username/user id/email id/phone no. of the Content creator','language', 'keywords', 'entity_type', "scope_entity"]
+            detailsColNames = ['observation_solution_name', 'observation_solution_description', 'Diksha_loginId','language', 'keywords', 'entity_type', "scope_entity"]
             criteriaColNames = ['criteria_id', 'criteria_name']
             questionsColNames = ["criteria_id","question_sequence","question_id","instance_parent_question_id","parent_question_id","show_when_parent_question_value_is","parent_question_value","page","question_number","question_primary_language","question_secondory_language","question_tip","question_hint","instance_identifier","question_response_type","date_auto_capture","response_required","min_number_value","max_number_value","file_upload","show_remarks","response(R1)","response(R1)_hint","response(R2)","response(R2)_hint","response(R3)","response(R3)_hint","response(R4)","response(R4)_hint","response(R5)","response(R5)_hint","response(R6)","response(R6)_hint","response(R7)","response(R7)_hint","response(R8)","response(R8)_hint","response(R9)","response(R9)_hint","response(R10)","response(R10)_hint","response(R11)","response(R11)_hint","response(R12)","response(R12)_hint","response(R13)","response(R13)_hint","response(R14)","response(R14)_hint","response(R15)","response(R15)_hint","response(R16)","response(R16)_hint","response(R17)","response(R17)_hint","response(R18)","response(R18)_hint","response(R19)","response(R19)_hint","response(R20)","response(R20)_hint","question_weightage","section_header"]
             for sheetColCheck in sheetNames1:
@@ -3319,10 +3319,10 @@ class Helpers:
                                 solutionDescription = dictDetailsEnv['observation_solution_description'].encode('utf-8').decode('utf-8')
                             else:
                                 errorVar = "validation failed :observation_solution_description column must not be Empty in details sheet"
-                            if dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']:
-                                dikshaLoginId = dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'].encode('utf-8').decode('utf-8')
+                            if dictDetailsEnv['Diksha_loginId']:
+                                dikshaLoginId = dictDetailsEnv['Diksha_loginId'].encode('utf-8').decode('utf-8')
                             else:
-                                errorVar = "validation failed :Username/user id/email id/phone no. of the Content creator column must not be Empty in details sheet"
+                                errorVar = "validation failed :Diksha_loginId column must not be Empty in details sheet"
                             if dictDetailsEnv['Name_of_the_creator']:
                                 creator = dictDetailsEnv['Name_of_the_creator'].encode('utf-8').decode('utf-8')
                             else:
@@ -3455,7 +3455,7 @@ class Helpers:
                 else:
                     if sheetEnv.strip().lower() == 'details':
                         print("--->Checking details sheet...")
-                        detailsCols = ["observation_solution_name", "observation_solution_description", "Username/user id/email id/phone no. of the Content creator","Name_of_the_creator", "language", "allow_multiple_submissions", "keywords","scoring_system", "entity_type"]
+                        detailsCols = ["observation_solution_name", "observation_solution_description", "Diksha_loginId","Name_of_the_creator", "language", "allow_multiple_submissions", "keywords","scoring_system", "entity_type"]
                         detailsEnvSheet = wbObservation1.sheet_by_name(sheetEnv)
                         keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
                                 range(detailsEnvSheet.ncols)]
@@ -3469,10 +3469,10 @@ class Helpers:
                                 solutionName = dictDetailsEnv['observation_solution_name'].encode('utf-8').decode('utf-8')
                             else:
                                 errorVar = "validation failed :observation_solution_name column must not be Empty in details sheet"
-                            if dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']:
-                                dikshaLoginId = dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'].encode('utf-8').decode('utf-8')
+                            if dictDetailsEnv['Diksha_loginId']:
+                                dikshaLoginId = dictDetailsEnv['Diksha_loginId'].encode('utf-8').decode('utf-8')
                             else:
-                                errorVar = "validation failed :Username/user id/email id/phone no. of the Content creator column must not be Empty in details sheet"
+                                errorVar = "validation failed :Diksha_loginId column must not be Empty in details sheet"
                             if dictDetailsEnv['observation_solution_description']:
                                 solutionDescription = dictDetailsEnv['observation_solution_description'].encode('utf-8').decode('utf-8')
                             else:
@@ -4202,8 +4202,8 @@ class Helpers:
                                 keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
                                 for col_index_env in range(detailsEnvSheet.ncols)
                             }
-                            if 'Username/user id/email id/phone no. of the Content creator' in dictDetailsEnv:
-                                userDetails = Helpers.fetchUserDetails(accessToken, dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'])
+                            if 'Diksha_loginId' in dictDetailsEnv:
+                                userDetails = Helpers.fetchUserDetails(accessToken, dictDetailsEnv['Diksha_loginId'])
                                 if userDetails:
                                     matchedShikshalokamLoginId = userDetails[0]
                                     print(f"Matched login ID: {matchedShikshalokamLoginId}")
@@ -6343,13 +6343,13 @@ class Helpers:
                     surveySolutionCreationReqBody["externalId"] = surveySolutionExternalId
                     if dictDetailsEnv['Name_of_the_creator']== "":
                         exceptionHandlingFlag = True
-                        print('Username/user id/email id/phone no. of the Content creator column should not be empty in the details sheet')
+                        print('Diksha_loginId column should not be empty in the details sheet')
                         # sys.exit()
                     else:
                         surveySolutionCreationReqBody['creator'] = dictDetailsEnv['Name_of_the_creator']
 
 
-                    userDetails = Helpers.fetchUserDetails( accessToken, dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'])
+                    userDetails = Helpers.fetchUserDetails( accessToken, dictDetailsEnv['Diksha_loginId'])
                     surveySolutionCreationReqBody['author'] = userDetails[0]
                     if dictDetailsEnv["survey_start_date"]:
                         if type(dictDetailsEnv["survey_start_date"]) == str:
