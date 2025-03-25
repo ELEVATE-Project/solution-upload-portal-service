@@ -629,9 +629,11 @@ class Helpers:
                         districtentitiesPGM = dictDetailsEnv['Targeted district at program level'].encode('utf-8').decode('utf-8')
                         blockentitiesPGM = dictDetailsEnv['Targeted block at program level'].encode('utf-8').decode('utf-8')
                         clusterentitiesPGM = dictDetailsEnv['Targeted cluster at program level'].encode('utf-8').decode('utf-8')
-                        global startDateOfProgram, endDateOfProgram
+                        global startDateOfProgram, endDateOfProgram, ReffstartDateOfProgram, ReffendDateOfProgram
                         startDateOfProgram = dictDetailsEnv['Start date of program']
                         endDateOfProgram = dictDetailsEnv['End date of program']
+                        ReffstartDateOfProgram = dictDetailsEnv['Start date of program']
+                        ReffendDateOfProgram = dictDetailsEnv['End date of program']
                         # taking the start date of program from program template and converting YYYY-MM-DD 00:00:00 format
 
                         startDateArr = str(startDateOfProgram).split("-")
@@ -1452,7 +1454,7 @@ class Helpers:
                         minNoOfEvidence = dictDetailsEnv["Minimum No. of Evidence"]
 
                         if taskLevelEvidence == "yes":
-                            tasksLevelEvidance.append(dictDetailsEnv["TaskTitle"])
+                            tasksLevelEvidance.append(dictDetailsEnv["TaskTitle"].encode('utf-8').decode('utf-8').strip())
                             if minNoOfEvidence == "":
                                 minNoOfEvidence = 1  # Set default value to 1
                                 taskMinNooEvide.append(minNoOfEvidence)
@@ -2347,7 +2349,6 @@ class Helpers:
                                         "creator": projectCreator, "author": matchedShikshalokamLoginId}
                                     if Helpers.solutionUpdate(projectName_for_folder_path, accessToken, solutionId, bodySolutionUpdate):
                                     # Below script will convert date DD-MM-YYYY TO YYYY-MM-DD 00:00:00 to match the code syntax
-
                                         if solutionDetails[1]:
                                             startDateArr = str(solutionDetails[1]).split("-")
                                             bodySolutionUpdate = {
@@ -2875,6 +2876,16 @@ class Helpers:
             errorVar
             print(errorVar,"---> API-Error")
 
+    def validate_identifier(identifier, field_name="Field"):
+        global errorVar
+        pattern = r'^[A-Za-z0-9_-]+$'
+        if not re.match(pattern, identifier):
+            errorVar = (f"Invalid {field_name}: '{identifier}'. Only A-Z, a-z, 0-9, '-', and '_' are allowed.")
+            return False
+        else:
+            print(f"{field_name} '{identifier}' is valid.")
+            return True
+
     def check_sequence(arr):
         for i in range(1, len(arr)):
             if arr[i] != arr[i - 1] + 1:
@@ -3013,6 +3024,8 @@ class Helpers:
                             projectId = dictDetailsEnv['projectId']
                         else:
                             errorVar = "validation failed :projectId must not be Empty in Project Upload sheet"
+                        if not Helpers.validate_identifier(projectId):
+                            errorVar = "ProjectID should be alpha numeric."
                         if dictDetailsEnv['categories']:
                             projectCategories = dictDetailsEnv['categories'].encode('utf-8').decode('utf-8')
                         else:
@@ -3065,7 +3078,7 @@ class Helpers:
                         else:
                             errorVar = "validation failed :TaskId column must not be Empty in Task Upload sheet"
                         if dictDetailsEnv['TaskTitle']:
-                            projectTaskTitle = dictDetailsEnv['TaskTitle'].encode('utf-8').decode('utf-8')
+                            projectTaskTitle = dictDetailsEnv['TaskTitle'].encode('utf-8').decode('utf-8').strip()
                         else:
                             errorVar = "validation failed :TaskTitle column must not be Empty in Task Upload sheet"
                         if dictDetailsEnv['Mandatory task(Yes or No)']:
@@ -4108,14 +4121,14 @@ class Helpers:
                         if not solutionDetails:
                             finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                             return finalObsRubricSolutionLink
-                        if solutionDetails[1]:
-                            startDateArr = str(solutionDetails[1]).split("-")
-                            bodySolutionUpdate = {"startDate": f"{startDateArr[2]}-{startDateArr[1]}-{startDateArr[0]} 00:00:00"}
-                            Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
-                        if solutionDetails[2]:
-                            endDateArr = str(solutionDetails[2]).split("-")
-                            bodySolutionUpdate = {"endDate": f"{endDateArr[2]}-{endDateArr[1]}-{endDateArr[0]} 23:59:59"}
-                            Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
+                        # if solutionDetails[1]:
+                        #     startDateArr = str(solutionDetails[1]).split("-")
+                        #     bodySolutionUpdate = {"startDate": f"{startDateArr[2]}-{startDateArr[1]}-{startDateArr[0]} 00:00:00"}
+                        #     Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
+                        # if solutionDetails[2]:
+                        #     endDateArr = str(solutionDetails[2]).split("-")
+                        #     bodySolutionUpdate = {"endDate": f"{endDateArr[2]}-{endDateArr[1]}-{endDateArr[0]} 23:59:59"}
+                        #     Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
                         # If program name exists, handle child creation and linking
                         if isProgramnamePresent:
                             childId = Helpers.createChild(parentFolder, observationExternalId, accessToken)
@@ -4260,22 +4273,22 @@ class Helpers:
                         if not solutionDetails:
                             ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                             return ObsWORSolutionLink
-                        if solutionDetails[1]:
-                            startDateArr = str(solutionDetails[1]).split("-")
-                            bodySolutionUpdate = {
-                                "startDate": f"{startDateArr[2]}-{startDateArr[1]}-{startDateArr[0]} 00:00:00"
-                            }
-                            if not Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
-                                ObsWORSolutionLink = {ObsWORResourceName: errorVar}
-                                return ObsWORSolutionLink
-                        if solutionDetails[2]:
-                            endDateArr = str(solutionDetails[2]).split("-")
-                            bodySolutionUpdate = {
-                                "endDate": f"{endDateArr[2]}-{endDateArr[1]}-{endDateArr[0]} 23:59:59"
-                            }
-                            if not Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
-                                ObsWORSolutionLink = {ObsWORResourceName: errorVar}
-                                return ObsWORSolutionLink
+                        # if solutionDetails[1]:
+                        #     startDateArr = str(solutionDetails[1]).split("-")
+                        #     bodySolutionUpdate = {
+                        #         "startDate": f"{startDateArr[2]}-{startDateArr[1]}-{startDateArr[0]} 00:00:00"
+                        #     }
+                        #     if not Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
+                        #         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
+                        #         return ObsWORSolutionLink
+                        # if solutionDetails[2]:
+                        #     endDateArr = str(solutionDetails[2]).split("-")
+                        #     bodySolutionUpdate = {
+                        #         "endDate": f"{endDateArr[2]}-{endDateArr[1]}-{endDateArr[0]} 23:59:59"
+                        #     }
+                        #     if not Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
+                        #         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
+                        #         return ObsWORSolutionLink
                         # Step 9: Handle program name
                         if isProgramnamePresent:
                             childId = Helpers.createChild(parentFolder, observationExternalId, accessToken)
@@ -4305,7 +4318,7 @@ class Helpers:
                                     if not Helpers.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
                                         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                                         return ObsWORSolutionLink
-                                    
+
                                 ObsSolutionLink = Helpers.prepareProgramSuccessSheet(
                                     MainFilePath, parentFolder, programFile, childId[1], childId[0], accessToken)
                                 if not ObsSolutionLink:
@@ -6350,110 +6363,88 @@ class Helpers:
 
                     userDetails = Helpers.fetchUserDetails( accessToken, dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'])
                     surveySolutionCreationReqBody['author'] = userDetails[0]
-                    if dictDetailsEnv["survey_start_date"]:
-                        if type(dictDetailsEnv["survey_start_date"]) == str:
-                            startDateArr = None
-                            startDateArr = (dictDetailsEnv["survey_start_date"]).split("-")
-                            surveySolutionCreationReqBody["startDate"] = startDateArr[2] + "-" + startDateArr[1] + "-" + \
-                                                                        startDateArr[0] + " 00:00:00"
-                        elif type(dictDetailsEnv["survey_start_date"]) == float:
-                            surveySolutionCreationReqBody["startDate"] = (
-                                xlrd.xldate.xldate_as_datetime(dictDetailsEnv["survey_start_date"],
-                                                            wbSurvey.datemode)).strftime("%Y/%m/%d")
-                        else:
-                            surveySolutionCreationReqBody["startDate"] = ""
-                        if dictDetailsEnv["survey_end_date"]:
-                            if type(dictDetailsEnv["survey_end_date"]) == str:
-                                endDateArr = None
-                                endDateArr = (dictDetailsEnv["survey_end_date"]).split("-")
-                                surveySolutionCreationReqBody["endDate"] = endDateArr[2] + "-" + endDateArr[1] + "-" + \
-                                                                        endDateArr[0] + "T23:59:59.000Z"
-                            elif type(dictDetailsEnv["survey_end_date"]) == float:
-                                surveySolutionCreationReqBody["endDate"] = (
-                                    xlrd.xldate.xldate_as_datetime(dictDetailsEnv["survey_end_date"],
-                                                                wbSurvey.datemode)).strftime("%Y/%m/%d")
+                    global SurveyTemplateStartDate, SurveyTemplateEndDate
+                    SurveyTemplateStartDate = dictDetailsEnv["survey_start_date"]
+                    SurveyTemplateEndDate = dictDetailsEnv["survey_end_date"]
+                    try: 
+                        urlCreateSolutionApi = internal_kong_ip+ surveysolutioncreationapiurl
+                        headerCreateSolutionApi = {
+                            'Content-Type': content_type,
+                            'Authorization': authorization,
+                            'X-authenticated-user-token': accessToken,
+                            'X-Channel-id': x_channel_id,
+                            'appName': appname
+                        }
+                        responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi,
+                                                                headers=headerCreateSolutionApi,
+                                                                data=json.dumps(surveySolutionCreationReqBody))
+                        responseInText = responseCreateSolutionApi.text
+                        messageArr = ["********* Create Survey Solution *********", "URL : " + urlCreateSolutionApi,
+                                    "BODY : " + str(surveySolutionCreationReqBody),
+                                    "Status code : " + str(responseCreateSolutionApi.status_code),
+                                    "Response : " + responseCreateSolutionApi.text]
+                        fileheader = [surveySolutionCreationReqBody['name'].encode('utf-8').decode('utf-8'),'Program Sheet Validation'," "]
+                        Helpers.createAPILog(parentFolder, messageArr)
+                        Helpers.apicheckslog(parentFolder,fileheader)
+                        if responseCreateSolutionApi.status_code == 200:
+                            responseCreateSolutionApi = responseCreateSolutionApi.json()
+                            urlSearchSolution = internal_kong_ip + fetchsolutiondetails + "survey&page=1&limit=10&search=" + str(surveySolutionExternalId)
+                            responseSearchSolution = requests.request("POST", urlSearchSolution,
+                                                                    headers=headerCreateSolutionApi)
+                            messageArr = ["********* Search Survey Solution *********", "URL : " + urlSearchSolution,
+                                        "Status code : " + str(responseSearchSolution.status_code),
+                                        "Response : " + responseSearchSolution.text]
+                            Helpers.createAPILog(parentFolder, messageArr)
+                            Helpers.apicheckslog(parentFolder, messageArr)
+                            if responseSearchSolution.status_code == 200:
+                                responseSearchSolutionApi = responseSearchSolution.json()
+                                surveySolutionExternalId = None
+                                surveySolutionExternalId = responseSearchSolutionApi['result']['data'][0]['externalId']
+                                # return True
                             else:
-                                surveySolutionCreationReqBody["endDate"] = ""
-                            enDt = surveySolutionCreationReqBody["endDate"]
-                            try: 
-                                urlCreateSolutionApi = internal_kong_ip+ surveysolutioncreationapiurl
-                                headerCreateSolutionApi = {
-                                    'Content-Type': content_type,
-                                    'Authorization': authorization,
-                                    'X-authenticated-user-token': accessToken,
-                                    'X-Channel-id': x_channel_id,
-                                    'appName': appname
-                                }
-                                responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi,
-                                                                        headers=headerCreateSolutionApi,
-                                                                        data=json.dumps(surveySolutionCreationReqBody))
-                                responseInText = responseCreateSolutionApi.text
-                                messageArr = ["********* Create Survey Solution *********", "URL : " + urlCreateSolutionApi,
-                                            "BODY : " + str(surveySolutionCreationReqBody),
-                                            "Status code : " + str(responseCreateSolutionApi.status_code),
-                                            "Response : " + responseCreateSolutionApi.text]
-                                fileheader = [surveySolutionCreationReqBody['name'].encode('utf-8').decode('utf-8'),'Program Sheet Validation'," "]
-                                Helpers.createAPILog(parentFolder, messageArr)
-                                Helpers.apicheckslog(parentFolder,fileheader)
-                                if responseCreateSolutionApi.status_code == 200:
-                                    responseCreateSolutionApi = responseCreateSolutionApi.json()
-                                    urlSearchSolution = internal_kong_ip + fetchsolutiondetails + "survey&page=1&limit=10&search=" + str(surveySolutionExternalId)
-                                    responseSearchSolution = requests.request("POST", urlSearchSolution,
-                                                                            headers=headerCreateSolutionApi)
-                                    messageArr = ["********* Search Survey Solution *********", "URL : " + urlSearchSolution,
-                                                "Status code : " + str(responseSearchSolution.status_code),
-                                                "Response : " + responseSearchSolution.text]
-                                    Helpers.createAPILog(parentFolder, messageArr)
-                                    Helpers.apicheckslog(parentFolder, messageArr)
-                                    if responseSearchSolution.status_code == 200:
-                                        responseSearchSolutionApi = responseSearchSolution.json()
-                                        surveySolutionExternalId = None
-                                        surveySolutionExternalId = responseSearchSolutionApi['result']['data'][0]['externalId']
-                                        # return True
-                                    else:
-                                        error_message = ""
-                                        if responseSearchSolution.status_code in [400, 401, 403, 404, 422]:
-                                            error_message = f"SearchSolution-Client Error {responseSearchSolution.status_code}: {responseSearchSolution.text}"
-                                        elif responseSearchSolution.status_code in [500, 502, 503, 504]:
-                                            error_message = f"SearchSolution-Server Error {responseSearchSolution.status_code}: {responseSearchSolution.text}"
-                                        else:
-                                            error_message = f"SearchSolution-Unexpected Error {responseSearchSolution.status_code}: {responseSearchSolution.text}"
-
-                                        errorVar = error_message
-                                        print(error_message)
-                                        messageArr.append(f"Error Response: {error_message}")
-                                        Helpers.createAPILog(messageArr) 
-                                        # return False 
-
-                                    solutionId = None
-                                    solutionId = responseCreateSolutionApi["result"]["solutionId"]
-                                    bodySolutionUpdate = {"creator": dictDetailsEnv['Name_of_the_creator'].encode('utf-8').decode('utf-8')}
-                                    if Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
-                                        return [solutionId, surveySolutionExternalId]
-                                    else:
-                                        print("solution update failed...")
-                                        print(errorVar)
-                                        return errorVar
+                                error_message = ""
+                                if responseSearchSolution.status_code in [400, 401, 403, 404, 422]:
+                                    error_message = f"SearchSolution-Client Error {responseSearchSolution.status_code}: {responseSearchSolution.text}"
+                                elif responseSearchSolution.status_code in [500, 502, 503, 504]:
+                                    error_message = f"SearchSolution-Server Error {responseSearchSolution.status_code}: {responseSearchSolution.text}"
                                 else:
-                                    error_message = ""
-                                    if responseCreateSolutionApi.status_code in [400, 401, 403, 404, 422]:
-                                        error_message = f"CreateSolutionApi-Client Error {responseCreateSolutionApi.status_code}: {responseCreateSolutionApi.text}"
-                                    elif responseCreateSolutionApi.status_code in [500, 502, 503, 504]:
-                                        error_message = f"CreateSolutionApi-Server Error {responseCreateSolutionApi.status_code}: {responseCreateSolutionApi.text}"
-                                    else:
-                                        error_message = f"CreateSolutionApi-Unexpected Error {responseCreateSolutionApi.status_code}: {responseCreateSolutionApi.text}"
-
-                                    errorVar = error_message
-                                    print(error_message)
-                                    messageArr.append(f"Error Response: {error_message}")
-                                    Helpers.createAPILog(messageArr) 
-                                    return False 
-            
-                            except Exception as e:
+                                    error_message = f"SearchSolution-Unexpected Error {responseSearchSolution.status_code}: {responseSearchSolution.text}"
                                 errorVar = error_message
-                                print(error_message,"5591")
-                                print(errorVar,"5592")
-                                Helpers.createAPILog([f"Exception: {str(e)}"])
+                                print(error_message)
+                                messageArr.append(f"Error Response: {error_message}")
+                                Helpers.createAPILog(messageArr) 
+                                # return False
+                            solutionId = None
+                            solutionId = responseCreateSolutionApi["result"]["solutionId"]
+                            bodySolutionUpdate = {"creator": dictDetailsEnv['Name_of_the_creator'].encode('utf-8').decode('utf-8')}
+                            if Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
+                                return [solutionId, surveySolutionExternalId]
+                            else:
+                                print("solution update failed...")
+                                print(errorVar)
+                                return errorVar
+                        else:
+                            error_message = ""
+                            if responseCreateSolutionApi.status_code in [400, 401, 403, 404, 422]:
+                                error_message = f"CreateSolutionApi-Client Error {responseCreateSolutionApi.status_code}: {responseCreateSolutionApi.text}"
+                            elif responseCreateSolutionApi.status_code in [500, 502, 503, 504]:
+                                error_message = f"CreateSolutionApi-Server Error {responseCreateSolutionApi.status_code}: {responseCreateSolutionApi.text}"
+                            else:
+                                error_message = f"CreateSolutionApi-Unexpected Error {responseCreateSolutionApi.status_code}: {responseCreateSolutionApi.text}"
+                            errorVar = error_message
+                            print(error_message)
+                            messageArr.append(f"Error Response: {error_message}")
+                            Helpers.createAPILog(messageArr) 
+                            return False 
+    
+                    except Exception as e:
+                        errorVar = error_message
+                        print(error_message,"5591")
+                        print(errorVar,"5592")
+                        Helpers.createAPILog([f"Exception: {str(e)}"])
+
+    def convert_to_date(date_str):
+        return datetime.strptime(date_str, "%d-%m-%Y")
 
     # upload survey questions 
     def uploadSurveyQuestions(MainFilePath, parentFolder, wbSurvey, addObservationSolution, accessToken, surTempExtID, surTempSolID, millisecond, programFile):
@@ -6776,16 +6767,34 @@ class Helpers:
                                 print("Survey Child Id : " + str(solutionExtIdSuc))
                                 solutionDetails = Helpers.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionIdSuc,
                                                                                     accessToken)
-                                scopeEntities = entitiesPGMID
-                                scopeRoles = solutionDetails[0]
-                                surveyScopeBody = {
-                                    "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-                                Helpers.solutionUpdate(parentFolder, accessToken, solutionIdSuc, surveyScopeBody)
-                                surveySolutionlink = Helpers.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, solutionExtIdSuc,
+                                solutionStartDate1 = Helpers.convert_to_date(solutionDetails[1])
+                                solutionEndDate1 = Helpers.convert_to_date(solutionDetails[2])
+                                SurveyTemplateStartDate1 = Helpers.convert_to_date(SurveyTemplateStartDate)
+                                SurveyTemplateEndDate1 = Helpers.convert_to_date(SurveyTemplateEndDate)
+                                if SurveyTemplateStartDate1 == solutionStartDate1 and SurveyTemplateEndDate1 == solutionEndDate1:
+                                    scopeEntities = entitiesPGMID
+                                    scopeRoles = solutionDetails[0]
+                                    surveyScopeBody = {
+                                        "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
+                                    Helpers.solutionUpdate(parentFolder, accessToken, solutionIdSuc, surveyScopeBody)
+                                    if solutionDetails[1]:
+                                        startDateArr = str(solutionDetails[1]).split("-")
+                                        bodySolutionUpdate = {
+                                            "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
+                                        Helpers.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
+                                    if solutionDetails[2]:
+                                        endDateArr = str(solutionDetails[2]).split("-")
+                                        bodySolutionUpdate = {
+                                            "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
+                                        Helpers.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
+                                    surveySolutionlink = Helpers.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, solutionExtIdSuc,
                                                         solutionIdSuc, accessToken)
                                 
-                                print('Survey Successfully Added')
-                                print(surveySolutionlink)
+                                    print('Survey Successfully Added')
+                                    print(surveySolutionlink)
+                                else:
+                                    errorVar = "The survey Template start date and end date do not match the start date and end date at the Program Template."
+                                    return errorVar
                             else:
                                 print('Program Mapping Failed')
                                 error_message = ""
