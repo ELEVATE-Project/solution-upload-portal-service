@@ -235,82 +235,82 @@ class Helpers:
                     errorVar = "\"Program ID\" must not be Empty in \"Program details\" sheet"
                     raise errorVar
                 
-                if dictDetailsEnv.get('Diksha username/user id/email id/phone no. of Program Designer'):
-                    programdesigner = dictDetailsEnv['Diksha username/user id/email id/phone no. of Program Designer'].encode('utf-8').decode('utf-8')
-                else:
-                    errorVar = "\"Diksha username/user id/email id/phone no. of Program Designer\" must not be Empty in \"Program details\" sheet"
-                    raise errorVar
-                userDetails = Helpers.fetchUserDetails(accessToken, programdesigner)
+                # if dictDetailsEnv.get('Diksha username/user id/email id/phone no. of Program Designer'):
+                #     programdesigner = dictDetailsEnv['Diksha username/user id/email id/phone no. of Program Designer'].encode('utf-8').decode('utf-8')
+                # else:
+                #     errorVar = "\"Diksha username/user id/email id/phone no. of Program Designer\" must not be Empty in \"Program details\" sheet"
+                #     raise errorVar
+                # userDetails = Helpers.fetchUserDetails(accessToken, programdesigner)
 
-                creatorKeyCloakId = userDetails[0]
-                creatorName = userDetails[1]
-                if "PROGRAM_DESIGNER" in userDetails[3]:
-                    creatorKeyCloakId = userDetails[0]
-                    creatorName = userDetails[1]
-                else :
-                    print("user does't have program designer role")
+                # creatorKeyCloakId = userDetails[0]
+                # creatorName = userDetails[1]
+                # if "PROGRAM_DESIGNER" in userDetails[3]:
+                #     creatorKeyCloakId = userDetails[0]
+                #     creatorName = userDetails[1]
+                # else :
+                #     print("user does't have program designer role")
 
-                pdpmcolo1 = [creatorName, " ", " ", " ", creatorKeyCloakId, " ", " ","ADD","PROGRAM_DESIGNER", extIdPGM, "programs"]
-                with open(pdpmsheet + 'mapping.csv', 'a',encoding='utf-8') as file:
-                    writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
-                    writer.writerows([pdpmcolo1])
-                    fileheader = [creatorName,"program designer mapped successfully","Passed"]
-                    # apicheckslog(parentFolder,fileheader)
+                # pdpmcolo1 = [creatorName, " ", " ", " ", creatorKeyCloakId, " ", " ","ADD","PROGRAM_DESIGNER", extIdPGM, "programs"]
+                # with open(pdpmsheet + 'mapping.csv', 'a',encoding='utf-8') as file:
+                #     writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
+                #     writer.writerows([pdpmcolo1])
+                #     fileheader = [creatorName,"program designer mapped successfully","Passed"]
+                #     # apicheckslog(parentFolder,fileheader)
 
 
-            elif sheetEnv.strip().lower() == 'program manager details':
-                print("--->Program Manager Details...")
-                detailsEnvSheet = wbPgm.sheet_by_name(sheetEnv)
-                keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
-                           range(detailsEnvSheet.ncols)]
-                for row_index_env in range(2, detailsEnvSheet.nrows):
-                    dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
-                                      for
-                                      col_index_env in range(detailsEnvSheet.ncols)}
+            # elif sheetEnv.strip().lower() == 'program manager details':
+            #     print("--->Program Manager Details...")
+            #     detailsEnvSheet = wbPgm.sheet_by_name(sheetEnv)
+            #     keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
+            #                range(detailsEnvSheet.ncols)]
+            #     for row_index_env in range(2, detailsEnvSheet.nrows):
+            #         dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
+            #                           for
+            #                           col_index_env in range(detailsEnvSheet.ncols)}
 
-                    if str(dictDetailsEnv['Is a SSO user?']).strip() == "YES":
-                        if dictDetailsEnv.get('Diksha user id ( profile ID)'):
-                            programmanagername2 = dictDetailsEnv['Diksha user id ( profile ID)']
-                        else:
-                            errorVar = "\"Diksha user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
-                            raise errorVar
-                        # programmanagername2 = dictDetailsEnv['user id ( profile ID)'] if dictDetailsEnv['user id ( profile ID)'] else errorVar = "\"user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
-                    else:
-                        try :
-                            if dictDetailsEnv.get('Login ID on DIKSHA'):
-                                programmanagername2 = dictDetailsEnv['Login ID on DIKSHA'].encode('utf-8').decode('utf-8')
-                            else:
-                                errorVar = "\"Login ID on DIKSHA\" must not be Empty in \"Program details\" sheet"
-                                raise errorVar
-                            # programmanagername2 = dictDetailsEnv['Login ID on DIKSHA'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Login ID on DIKSHA'] else errorVar = "\"Login ID on DIKSHA\" must not be Empty in \"Program details\" sheet"
-                            userDetails = Helpers.fetchUserDetails(accessToken, programmanagername2)
-                        except :
-                            if dictDetailsEnv.get('Diksha user id ( profile ID)'):
-                                programmanagername2 = dictDetailsEnv['Diksha user id ( profile ID)'].encode('utf-8').decode('utf-8')
-                            else:
-                                errorVar = "\"Diksha user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
-                                raise errorVar
-                            # programmanagername2 = dictDetailsEnv['user id ( profile ID)'].encode('utf-8').decode('utf-8') if dictDetailsEnv['user id ( profile ID)'] else errorVar = "\"user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
-                            userDetails = Helpers.fetchUserDetails(accessToken, programmanagername2)
+            #         # if str(dictDetailsEnv['Is a SSO user?']).strip() == "YES":
+            #         #     if dictDetailsEnv.get('Diksha user id ( profile ID)'):
+            #         #         programmanagername2 = dictDetailsEnv['Diksha user id ( profile ID)']
+            #         #     else:
+            #         #         errorVar = "\"Diksha user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
+            #         #         raise errorVar
+            #             # programmanagername2 = dictDetailsEnv['user id ( profile ID)'] if dictDetailsEnv['user id ( profile ID)'] else errorVar = "\"user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
+            #         else:
+            #             try :
+            #                 if dictDetailsEnv.get('Login ID on DIKSHA'):
+            #                     programmanagername2 = dictDetailsEnv['Login ID on DIKSHA'].encode('utf-8').decode('utf-8')
+            #                 else:
+            #                     errorVar = "\"Login ID on DIKSHA\" must not be Empty in \"Program details\" sheet"
+            #                     raise errorVar
+            #                 # programmanagername2 = dictDetailsEnv['Login ID on DIKSHA'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Login ID on DIKSHA'] else errorVar = "\"Login ID on DIKSHA\" must not be Empty in \"Program details\" sheet"
+            #                 userDetails = Helpers.fetchUserDetails(accessToken, programmanagername2)
+            #             except :
+            #                 if dictDetailsEnv.get('Diksha user id ( profile ID)'):
+            #                     programmanagername2 = dictDetailsEnv['Diksha user id ( profile ID)'].encode('utf-8').decode('utf-8')
+            #                 else:
+            #                     errorVar = "\"Diksha user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
+            #                     raise errorVar
+            #                 # programmanagername2 = dictDetailsEnv['user id ( profile ID)'].encode('utf-8').decode('utf-8') if dictDetailsEnv['user id ( profile ID)'] else errorVar = "\"user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
+            #                 userDetails = Helpers.fetchUserDetails(accessToken, programmanagername2)
 
-                    userDetails = Helpers.fetchUserDetails(accessToken, programmanagername2)
-                    creatorKeyCloakId = userDetails[0]
-                    creatorName = userDetails[1]
-                    if "PROGRAM_MANAGER" in userDetails[3]:
-                        creatorKeyCloakId = userDetails[0]
-                        creatorName = userDetails[1]
-                    else:
-                        print("user does't have program manager role")
+            #         userDetails = Helpers.fetchUserDetails(accessToken, programmanagername2)
+            #         creatorKeyCloakId = userDetails[0]
+            #         creatorName = userDetails[1]
+            #         if "PROGRAM_MANAGER" in userDetails[3]:
+            #             creatorKeyCloakId = userDetails[0]
+            #             creatorName = userDetails[1]
+            #         else:
+            #             print("user does't have program manager role")
 
-                    pdpmcolo1 = [creatorName, " ", " ", " ", creatorKeyCloakId, " ", " ","ADD","PROGRAM_MANAGER", extIdPGM, "programs"]
+            #         pdpmcolo1 = [creatorName, " ", " ", " ", creatorKeyCloakId, " ", " ","ADD","PROGRAM_MANAGER", extIdPGM, "programs"]
 
-                    with open(pdpmsheet + 'mapping.csv', 'a',encoding='utf-8') as file:
-                        writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
-                        writer.writerows([pdpmcolo1])
-                    # messageArr.append("Response : " + str(pdpmcolo1))
-                    # Helpers.createAPILog(parentFolder, messageArr)
+            #         with open(pdpmsheet + 'mapping.csv', 'a',encoding='utf-8') as file:
+            #             writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
+            #             writer.writerows([pdpmcolo1])
+            #         # messageArr.append("Response : " + str(pdpmcolo1))
+            #         # Helpers.createAPILog(parentFolder, messageArr)
 
-                    fileheader = [creatorName,"program manager mapped succesfully","Passed"]
+            #         fileheader = [creatorName,"program manager mapped succesfully","Passed"]
                     # apicheckslog(parentFolder,fileheader)
 
 
@@ -710,13 +710,13 @@ class Helpers:
 
                             if "teacher" in mainRole.strip().lower():
                                 rolesPGM = str(rolesPGM).strip() + ",TEACHER"
-                            userDetails = Helpers.fetchUserDetails(accessToken, dictDetailsEnv['Diksha username/user id/email id/phone no. of Program Designer'])
-                            OrgName=userDetails[4]
+                            # userDetails = Helpers.fetchUserDetails(accessToken, dictDetailsEnv['Diksha username/user id/email id/phone no. of Program Designer'])
+                            # OrgName=userDetails[4]
                             # print(OrgName,"OrgName")
                             orgIds=Helpers.fetchOrgId(accessToken, parentFolder, OrgName)
                             print(orgIds,"orgIds")
-                            creatorKeyCloakId = userDetails[0]
-                            creatorName = userDetails[2]
+                            # creatorKeyCloakId = userDetails[0]
+                            # creatorName = userDetails[2]
 
                             messageArr = []
 
@@ -3021,14 +3021,14 @@ class Helpers:
                             projectDescription = dictDetailsEnv['objective'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "validation failed :objective must not be Empty in Project Upload sheet"
-                        if dictDetailsEnv['is a SSO user?']:
-                            projectSSOuser = dictDetailsEnv['is a SSO user?']
-                        else:
-                            errorVar = "validation failed :is a SSO user? column must not be Empty in Project Upload sheet"
-                        if dictDetailsEnv['Diksha_loginId']:
-                            Dikshaloginid = dictDetailsEnv['Diksha_loginId'].encode('utf-8').decode('utf-8')
-                        else:
-                            errorVar = "validation failed :Diksha_loginId column must not be Empty in Project Upload sheet"
+                        # if dictDetailsEnv['is a SSO user?']:
+                        #     projectSSOuser = dictDetailsEnv['is a SSO user?']
+                        # else:
+                        #     errorVar = "validation failed :is a SSO user? column must not be Empty in Project Upload sheet"
+                        # if dictDetailsEnv['Diksha_loginId']:
+                        #     Dikshaloginid = dictDetailsEnv['Diksha_loginId'].encode('utf-8').decode('utf-8')
+                        # else:
+                        #     errorVar = "validation failed :Diksha_loginId column must not be Empty in Project Upload sheet"
                         if dictDetailsEnv['duration']:
                             projectDuration = dictDetailsEnv['duration'].encode('utf-8').decode('utf-8')
                         else:
@@ -3432,7 +3432,7 @@ class Helpers:
 
     def ObsWRValidate(wbObservation1, accessToken, parentFolder,typeofSolution):
         print("Validating Observation temp....")
-        global errorVar, entityType, solutionName, solutionDescription, scopeEntityType, dikshaLoginId, pointBasedValue
+        global errorVar, entityType, solutionName, solutionDescription, scopeEntityType, dikshaLoginId, pointBasedValue, criteriaLevels
         ObsImpFlag = False
         print(typeofSolution)
         try:
@@ -3469,10 +3469,10 @@ class Helpers:
                                 solutionName = dictDetailsEnv['observation_solution_name'].encode('utf-8').decode('utf-8')
                             else:
                                 errorVar = "validation failed :observation_solution_name column must not be Empty in details sheet"
-                            if dictDetailsEnv['Diksha_loginId']:
-                                dikshaLoginId = dictDetailsEnv['Diksha_loginId'].encode('utf-8').decode('utf-8')
-                            else:
-                                errorVar = "validation failed :Diksha_loginId column must not be Empty in details sheet"
+                            # if dictDetailsEnv['Diksha_loginId']:
+                            #     dikshaLoginId = dictDetailsEnv['Diksha_loginId'].encode('utf-8').decode('utf-8')
+                            # else:
+                            #     errorVar = "validation failed :Diksha_loginId column must not be Empty in details sheet"
                             if dictDetailsEnv['observation_solution_description']:
                                 solutionDescription = dictDetailsEnv['observation_solution_description'].encode('utf-8').decode('utf-8')
                             else:
@@ -3493,11 +3493,11 @@ class Helpers:
                                 entityType = dictDetailsEnv['entity_type'].encode('utf-8').decode('utf-8')
                             else:
                                 errorVar = "validation failed :entity_type column must not be Empty in details sheet"
-                            ccUserDetails = Helpers.fetchUserDetails(accessToken, dikshaLoginId)
-                            if not "CONTENT_CREATOR" in ccUserDetails[3]:
-                                errorVar = "---> "+dikshaLoginId +" is not a CONTENT_CREATOR " + environment
-                            ccRootOrgName = ccUserDetails[4]
-                            ccRootOrgId = ccUserDetails[5]
+                            # ccUserDetails = Helpers.fetchUserDetails(accessToken, dikshaLoginId)
+                            # if not "CONTENT_CREATOR" in ccUserDetails[3]:
+                            #     errorVar = "---> "+dikshaLoginId +" is not a CONTENT_CREATOR " + environment
+                            # ccRootOrgName = ccUserDetails[4]
+                            # ccRootOrgId = ccUserDetails[5]
                             pointBasedValue = str(dictDetailsEnv['scoring_system']).encode('utf-8').decode('utf-8') 
                             if dictDetailsEnv['scoring_system']:
                                 scoring_system = dictDetailsEnv['scoring_system'].encode('utf-8').decode('utf-8')
@@ -3651,15 +3651,16 @@ class Helpers:
                         # print(pointBasedValue)
                         # print("error here....>")
                         # print("3553",sheetEnv)
-                        if sheetEnv.strip().lower() == 'Criteria_Rubric-Scoring':
+                        if sheetEnv.strip().lower() == 'criteria_rubric-scoring':
                             print("--->Checking Criteria Rubrics sheet")
                             cR_extIds = list()
                             detailsEnvSheet = wbObservation1.sheet_by_name(sheetEnv)
-                            keysEnv = [detailsEnvSheet.cell(0, col_index_env).value for col_index_env in
+                            keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
                                     range(detailsEnvSheet.ncols)]
                             listOfCRs = ["criteriaId", "weightage"]
                             for cl in criteriaLevels:
-                                listOfCRs.append("L" + str(cl))
+                                listOfCRs.append("L" + str(cl)+" "+"SCORE")
+                            listOfCRs.append("Ln SCORE")
                             for keyys in keysEnv:
                                 if not keyys in listOfCRs:
                                     print("--->" + keyys + " : unwanted column detected...")
@@ -3670,18 +3671,19 @@ class Helpers:
                                     col_index_env in range(detailsEnvSheet.ncols)}
                                 cR_extIds.append(dictDetailsEnv['criteriaId'].lower())
                                 for cl in criteriaLevels:
-                                    if not dictDetailsEnv["L" + str(cl)]:
+                                    if not dictDetailsEnv["L" + str(cl)+" "+"SCORE"]:
                                         errorVar = "L" + str(cl) + " must not be empty in criteria_rubric."
-                                if dictDetailsEnv['criteriaId']:
-                                    errorVar = "criteriaId must be empty in criteria_rubric sheet."
+                                if not dictDetailsEnv['criteriaId']:
+                                    errorVar = "criteriaId must not be empty in criteria_rubric sheet."
                                 if not dictDetailsEnv['weightage']:
                                     errorVar = "weightage cannot be empty in criteria_rubric sheet."
                             if not len(cR_extIds) == len(set(cR_extIds)):
                                 errorVar = "Duplicate externalId detected in criteria_rubric sheet."
-                        if sheetEnv.strip().lower() == 'Domain(theme)_rubric_scoring':
+                        # sys.exit()
+                        if sheetEnv.strip().lower() == 'domain(theme)_rubric_scoring':
                             print("--->Checking Theme Rubrics sheet")
                             detailsEnvSheet = wbObservation1.sheet_by_name(sheetEnv)
-                            keysEnv = [detailsEnvSheet.cell(0, col_index_env).value for col_index_env in
+                            keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
                                     range(detailsEnvSheet.ncols)]
                             for row_index_env in range(1, detailsEnvSheet.nrows):
                                 dictDetailsEnv = {
@@ -3958,7 +3960,7 @@ class Helpers:
     def mainFunc(MainFilePath, programFile, millisecond, isProgramnamePresent, isCourse,scopeEntityType=scopeEntityType):
         # print(addObservationSolution,"addObservationSolution 2693")
         scopeEntityType = scopeEntityType
-        global surveySolutionlink, solutionlink, ObsSolutionLink, ObsRubricSolutionLink, errorVar, dikshaLoginId,pointBasedValue,solutionDescription,programName,entitiesPGM
+        global surveySolutionlink, solutionlink, ObsSolutionLink, ObsRubricSolutionLink, errorVar, dikshaLoginId,pointBasedValue,solutionDescription,programName,entitiesPGM, allow_multiple_submissions
         surveySolutionlink = None
         errorVar = ""
         ObsSolutionLink = None
@@ -4012,6 +4014,7 @@ class Helpers:
                 dictDetailsEnv = {keysEnv[col_index_env]: ResourceSheet.cell(row_index_env, col_index_env).value
                                 for col_index_env in range(ResourceSheet.ncols)}
                 ObsWRResourceName = dictDetailsEnv['observation_solution_name'].encode('utf-8').decode('utf-8')
+                allow_multiple_submissions = dictDetailsEnv['allow_multiple_submissions']
                 try:
                     if not Helpers.ObsWRValidate(wbObservation, accessToken, parentFolder,typeofSolution,):
                         print("Error during validation of Observation with Rubric file ....")
@@ -4024,12 +4027,12 @@ class Helpers:
                             finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                             return finalObsRubricSolutionLink
                         print("Criteria Upload success....")
-                        print(dikshaLoginId)
-                        userDetails = Helpers.fetchUserDetails(accessToken, dikshaLoginId)
-                        if not userDetails:
-                            finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
-                            return finalObsRubricSolutionLink
-                        matchedShikshalokamLoginId = userDetails[0]
+                        # print(dikshaLoginId)
+                        # userDetails = Helpers.fetchUserDetails(accessToken, dikshaLoginId)
+                        # if not userDetails:
+                        #     finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
+                        #     return finalObsRubricSolutionLink
+                        # matchedShikshalokamLoginId = userDetails[0]
                         frameworkExternalId = Helpers.frameWorkUpload(parentFolder, matchedShikshalokamLoginId, wbObservation, millisecond, accessToken)
                         if not frameworkExternalId:
                             finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
@@ -4108,14 +4111,14 @@ class Helpers:
                         if not solutionDetails:
                             finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                             return finalObsRubricSolutionLink
-                        if solutionDetails[1]:
-                            startDateArr = str(solutionDetails[1]).split("-")
-                            bodySolutionUpdate = {"startDate": f"{startDateArr[2]}-{startDateArr[1]}-{startDateArr[0]} 00:00:00"}
-                            Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
-                        if solutionDetails[2]:
-                            endDateArr = str(solutionDetails[2]).split("-")
-                            bodySolutionUpdate = {"endDate": f"{endDateArr[2]}-{endDateArr[1]}-{endDateArr[0]} 23:59:59"}
-                            Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
+                        # if solutionDetails[1]:
+                        #     startDateArr = str(solutionDetails[1]).split("-")
+                        #     bodySolutionUpdate = {"startDate": f"{startDateArr[2]}-{startDateArr[1]}-{startDateArr[0]} 00:00:00"}
+                        #     Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
+                        # if solutionDetails[2]:
+                        #     endDateArr = str(solutionDetails[2]).split("-")
+                        #     bodySolutionUpdate = {"endDate": f"{endDateArr[2]}-{endDateArr[1]}-{endDateArr[0]} 23:59:59"}
+                        #     Helpers.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
                         # If program name exists, handle child creation and linking
                         if isProgramnamePresent:
                             childId = Helpers.createChild(parentFolder, observationExternalId, accessToken)
@@ -5885,7 +5888,7 @@ class Helpers:
 
     def uploadCriteriaRubrics(solutionName_for_folder_path, wbObservation, millisAddObs, accessToken, frameworkExternalId,
                           withRubricsFlag):
-        global errorVar
+        global errorVar, criteriaLevels
         error_message = ""
         if withRubricsFlag:
             criteriaRubricSheet = wbObservation.sheet_by_name('Criteria_Rubric-Scoring')
@@ -5910,9 +5913,10 @@ class Helpers:
 
         if withRubricsFlag:
             for cl in criteriaLevels:
-                criteriaRubricUploadFieldnames.append("L" + str(cl))
+                criteriaRubricUploadFieldnames.append("L" + str(cl)+" SCORE")
         else:
             criteriaRubricUploadFieldnames.append("L1")
+        print(criteriaRubricUploadFieldnames,"criteriaRubricUploadFieldnames")
         criteriaRubricUpload = dict()
         criteriaRubricsFilePath = solutionName_for_folder_path + '/criteriaRubrics/'
         file_exists_ques = os.path.isfile(solutionName_for_folder_path + '/criteriaRubrics/uploadSheet.csv')
@@ -5940,7 +5944,7 @@ class Helpers:
                     criteriaRubricUpload['expressionVariables'] = "SCORE=" + criteriaRubricUpload[
                         'criteriaId'] + ".scoreOfAllQuestionInCriteria()"
                     for cl in criteriaLevels:
-                        criteriaRubricUpload['L' + str(cl)] = dictCriteriaRubric['L' + str(cl) + " SCORE"]
+                        criteriaRubricUpload['L' + str(cl)+ " SCORE"] = dictCriteriaRubric['L' + str(cl) + " SCORE"]
                     writerQuestionUpload.writerow(criteriaRubricUpload)
         else:
             for criteriaIds, criteriaDetails in dictSolCritLookUp.items():
