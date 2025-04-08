@@ -5913,7 +5913,7 @@ class Helpers:
 
         if withRubricsFlag:
             for cl in criteriaLevels:
-                criteriaRubricUploadFieldnames.append("L" + str(cl)+" SCORE")
+                criteriaRubricUploadFieldnames.append("L" + str(cl))
         else:
             criteriaRubricUploadFieldnames.append("L1")
         print(criteriaRubricUploadFieldnames,"criteriaRubricUploadFieldnames")
@@ -5944,7 +5944,7 @@ class Helpers:
                     criteriaRubricUpload['expressionVariables'] = "SCORE=" + criteriaRubricUpload[
                         'criteriaId'] + ".scoreOfAllQuestionInCriteria()"
                     for cl in criteriaLevels:
-                        criteriaRubricUpload['L' + str(cl)+ " SCORE"] = dictCriteriaRubric['L' + str(cl) + " SCORE"]
+                        criteriaRubricUpload['L' + str(cl)] = dictCriteriaRubric['L' + str(cl) + " SCORE"]
                     writerQuestionUpload.writerow(criteriaRubricUpload)
         else:
             for criteriaIds, criteriaDetails in dictSolCritLookUp.items():
