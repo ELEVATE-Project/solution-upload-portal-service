@@ -506,19 +506,15 @@ def validate():
     req_body = request.get_json()
     templateFolderPath = req_body["request"]["templatePath"]
     templateCode = req_body["request"]["templateCode"]
-    print(templateCode,"templatecode 509")
     # Token validation
     auth = request.headers.get("Authorization")
-    print(auth,"auth")
     signing_key = os.environ.get("SECRET_KEY")
-    print(signing_key,"signing_key")
     payload = False
     if(not auth):
         return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : ""}}
     else:
         try:
             payload = jwt.decode(auth, signing_key, algorithms=['HS256'])
-            print(payload,"payload")
         except Exception as e:
             print(e)
 
@@ -527,12 +523,9 @@ def validate():
     
 
     basicErrors = xlsxObject(templateCode, templateFolderPath)
-    print
     # main
-    print(basicErrors,"basicerrors")
     if basicErrors.success:
         valErr = basicErrors.basicCondition()
-        print(valErr,"valerr")
         advValErr = basicErrors.customCondition()
         return addComments(templateFolderPath,{"status" : 200,"code" : "OK" , "result" : {"basicErrors" : valErr,"advancedErrors" : advValErr}})
     else:
@@ -908,7 +901,6 @@ def fetchSurveySolutions():
 
     if(not payload):
         return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : "True"}}
-    print(resourceType,"resurceTyperesurceType")
     survey = SurveyCreate()
     access_token = survey.generate_access_token()
     fetchedSolutionList=survey.fetch_solution_id(access_token,resourceType['resourceType'])
@@ -927,7 +919,6 @@ def fetchSurveySolutions_Csv():
     access_token = survey.generate_access_token()
     csvFilePath=survey.fetch_solution_id_csv(access_token,resurceType['resourceType'])
     ospath = os.environ.get("HOSTIP")+"/template/api/v1/errDownload?templatePath=" + csvFilePath
-    print(csvFilePath,"csvFilePathcsvFilePath")
 
     if csvFilePath:
         return jsonify({"status": 200, "code": "Success", "csvFilePath": ospath})
@@ -938,19 +929,15 @@ def fetchSurveySolutions_Csv():
 @app.route('/template/api/v1/survey/create', methods=['POST'])
 def create():
     req = request.get_json()
-    print(req,"req")
     projectInstance = Elevateproject
     observationInstance = ElevateObservation
     print(req['file'],"req['file']")
     programFile=projectInstance.loadSurveyFile(req['file'])
-    print(programFile,"allalalalalalalallalalalalalla")
     # result = programFile["solutionDict"]
     # print(result)
     programFile = json.loads(programFile) 
-    print(programFile,"programfuile")
     if programFile['solutionDict'] == {}:
         programFile=observationInstance.loadSurveyFile(req['file'])
-    print(programFile,"programFile 870")
     # print(f"Type of programFile: {type(programFile)}")
     
     if isinstance(programFile, str):

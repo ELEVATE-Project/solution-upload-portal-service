@@ -193,8 +193,12 @@ class Elevateproject:
         returnPathStr = os.path.join('programFiles', folderName)
         return returnPathStr
 
-
-
+    def check_sequence(arr):
+        for i in range(1, len(arr)):
+            if arr[i] != arr[i - 1] + 1:
+                return False
+        return True
+    
     def createFileStructre(MainFilePath, addObservationSolution):
         global errorVar
         if not os.path.isdir(MainFilePath + '/SolutionFiles'):
@@ -288,10 +292,9 @@ class Elevateproject:
             programName = programNameInp
             programUrl = elevateprojecthost + fetchprograminfoapiurl + programNameInp.lstrip().rstrip()
             
-            headersProgramSearch = {'Content-Type': content_type,'Authorization':authorization, 'X-auth-token': accessTokenUser,
+            headersProgramSearch = {'Content-Type': content_type,'authorization':authorization, 'X-auth-token': accessTokenUser,
                                     'internal-access-token': internal_access_token}
             
-
             responseProgramSearch = requests.get(url=programUrl, headers=headersProgramSearch)
             messageArr = []
             messageArr.append("Program Search API")
@@ -378,9 +381,9 @@ class Elevateproject:
                 if responseUserSearch['result']:
                     userKeycloak = responseUserSearch['result']['id']
                     userName = responseUserSearch['result']['name']
-                    rootOrgName = responseUserSearch['result']['organization']['name']
-                    rootOrgId = responseUserSearch['result']['organization']['id']
-                    roledetails = [role['title'] for role in responseUserSearch['result']['user_roles']]
+                    rootOrgName = responseUserSearch['result']['organisations'][1]['addedByName']
+                    rootOrgId = responseUserSearch['result']['organisations'][1]['organisationId']
+                    roledetails = responseUserSearch['result']['organisations'][1]['roles']
                 else:
                     print("-->Given username/email is not present in projectService platform<--.")
                     return False
@@ -399,7 +402,6 @@ class Elevateproject:
             print(f"Error occurred: {str(e)}")
             print(errorVar)
             
-
     def fetchEntityId(solutionName_for_folder_path, accessToken, entitiesNameList, scopeEntityType):
         try:
             global errorVar
@@ -475,7 +477,7 @@ class Elevateproject:
         messageArr.append("++++++++++++ Program Creation ++++++++++++")
         # program creation url 
         try: 
-            programCreationurl = elevateprojecthost + programcreationurlpro
+            programCreationurl = elevateprojecthost + programcreationurl
             messageArr.append("Program Creation URL : " + programCreationurl)
 
             # adding state entities
@@ -519,8 +521,8 @@ class Elevateproject:
             messageArr.append("Body : " + str(payload))
             headers = {'X-auth-token': accessToken,
                     'internal-access-token': internal_access_token,
-                    'Content-Type': content_type,
-                    'Authorization': authorization}
+                    'Content-Type': content_type
+                    }
             
             # program creation 
             responsePgmCreate = requests.request("POST", programCreationurl, headers=headers, data=(payload))
@@ -612,11 +614,11 @@ class Elevateproject:
                     return False
                 creatorKeyCloakId = userDetails[0]
                 creatorName = userDetails[1]
-                if "program_designer" in userDetails[4]:
-                    creatorKeyCloakId = userDetails[0]
-                    creatorName = userDetails[1]
-                else :
-                    print("user does't have program designer role")
+                # if "program_designer" in userDetails[4]:
+                #     creatorKeyCloakId = userDetails[0]
+                #     creatorName = userDetails[1]
+                # else :
+                #     print("user does't have program designer role")
 
                 pdpmcolo1 = [creatorName, " ", " ", " ", creatorKeyCloakId, " ", " ","ADD","program_desiginer", extIdPGM, "programs"]
                 with open(pdpmsheet + 'mapping.csv', 'a',encoding='utf-8') as file:
@@ -636,38 +638,36 @@ class Elevateproject:
                                     for
                                     col_index_env in range(detailsEnvSheet.ncols)}
                     if str(dictDetailsEnv['Is a SSO user?']).strip() == "YES":
-                        if dictDetailsEnv.get('Elevate user id ( profile ID)'):
-                            programmanagername2 = dictDetailsEnv['Elevate user id ( profile ID)']
+                        if dictDetailsEnv.get('projectService user id ( profile ID)'):
+                            programmanagername2 = dictDetailsEnv['projectService user id ( profile ID)']
                         else:
-                            errorVar = "\"Elevate user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
+                            errorVar = "\"projectService user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
                             
                         # programmanagername2 = dictDetailsEnv['projectService user id ( profile ID)'] if dictDetailsEnv['projectService user id ( profile ID)'] else Elevateproject.terminatingMessage("\"projectService user id ( profile ID)\" must not be Empty in \"Program details\" sheet")
                     else:
                         try :
-                            if dictDetailsEnv.get('Login ID on Elevate'):
-                                programmanagername2 = dictDetailsEnv['Login ID on Elevate'].encode('utf-8').decode('utf-8')
+                            if dictDetailsEnv.get('Login ID on projectService'):
+                                programmanagername2 = dictDetailsEnv['Login ID on projectService'].encode('utf-8').decode('utf-8')
                             else:
-                                errorVar = "\"Login ID on Elevate\" must not be Empty in \"Program details\" sheet"
+                                errorVar = "\"Login ID on projectService\" must not be Empty in \"Program details\" sheet"
                                 
                             # programmanagername2 = dictDetailsEnv['Login ID on projectService'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Login ID on projectService'] else Elevateproject.terminatingMessage("\"Login ID on projectService\" must not be Empty in \"Program details\" sheet")
                             userDetails = Elevateproject.fetchUserDetails(environment, accessToken, programmanagername2)
                         except :
-                            if dictDetailsEnv.get('Elevate user id ( profile ID)'):
-                                programmanagername2 = dictDetailsEnv['Elevate user id ( profile ID)'].encode('utf-8').decode('utf-8')
+                            if dictDetailsEnv.get('projectService user id ( profile ID)'):
+                                programmanagername2 = dictDetailsEnv['projectService user id ( profile ID)'].encode('utf-8').decode('utf-8')
                             else:
-                                errorVar = "\"Elevate user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
+                                errorVar = "\"projectService user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
                                 
                             # programmanagername2 = dictDetailsEnv['projectService user id ( profile ID)'].encode('utf-8').decode('utf-8') if dictDetailsEnv['projectService user id ( profile ID)'] else Elevateproject.terminatingMessage("\"projectService user id ( profile ID)\" must not be Empty in \"Program details\" sheet")
                             userDetails = Elevateproject.fetchUserDetails(environment, accessToken, programmanagername2)
                     creatorKeyCloakId = userDetails[0]
                     creatorName = userDetails[1]
-                    print("ineme therillaaa")
-                    print(userDetails,"userDetails")
-                    if "program_manager" in userDetails[4]:
-                        creatorKeyCloakId = userDetails[0]
-                        creatorName = userDetails[1]
-                    else:
-                        errorVar = ("user does't have program manager role")
+                    # if "program_manager" in userDetails[4]:
+                    #     creatorKeyCloakId = userDetails[0]
+                    #     creatorName = userDetails[1]
+                    # else:
+                    #     errorVar = ("user does't have program manager role")
 
                     pdpmcolo1 = [creatorName, " ", " ", " ", creatorKeyCloakId, " ", " ","ADD","program_desiginer", extIdPGM, "programs"]
 
@@ -683,10 +683,9 @@ class Elevateproject:
             print(errorVar)
             return True
         else:
-            print(errorVar,"enama neenga ipudi pandringale ma")
+            print(errorVar,"pdpm mapping failure")
             return False
         
-
     def programsFileCheck(filePathAddPgm, accessToken, parentFolder, MainFilePath):
         global errorVar
         program_file = filePathAddPgm
@@ -780,7 +779,6 @@ class Elevateproject:
                                                     entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
                         global orgIds
                         
-
                         if not Elevateproject.getProgramInfo(accessToken, parentFolder, programNameInp.encode('utf-8').decode('utf-8')):
                             if dictDetailsEnv.get('Program ID'):
                                 extIdPGM = dictDetailsEnv['Program ID'].encode('utf-8').decode('utf-8')
@@ -959,26 +957,25 @@ class Elevateproject:
         try:
             global errorVar
             # production search user api - start
-            headerKeyClockUser = {'Content-Type': content_type}
-            print(headerKeyClockUser,"headerKeyClockUser")
+            headerKeyClockUser = {'Content-Type': 'application/x-www-form-urlencoded'}
             # responseKeyClockUser = requests.post(url=config.get(environment, 'elevateuserhost') + config.get(environment, 'userlogin'), headers=headerKeyClockUser,
                                                 #  data=json.dumps(config.get(environment, 'keyclockAPIBody')))
             # Elevateproject.terminatingMessage(type(json.loads(config.get(environment, 'keyclockAPIBody'))))\
             loginBody = {
-                'email' : email,
+                'client_id' : clientId,
+                'client_secret' : clientSecret,
+                'grant_type' : grantType,
+                'username' : username,
                 'password' : password
             }
-            print(loginBody,"loginBody")
-            responseKeyClockUser = requests.post(elevateuserhost + userlogin , headers=headerKeyClockUser, json=loginBody)
-            print(responseKeyClockUser.text,"responseKeyClockUser")
+            responseKeyClockUser = requests.post(elevateuserhost + userlogin , headers=headerKeyClockUser, data=loginBody)
             messageArr = []
             messageArr.append("URL : " + str(userlogin))
             messageArr.append("Body : " + str(keyclockapibody))
             messageArr.append("Status Code : " + str(responseKeyClockUser.status_code))
-            print(responseKeyClockUser.text)
             if responseKeyClockUser.status_code == 200:
                 responseKeyClockUser = responseKeyClockUser.json()
-                accessTokenUser = responseKeyClockUser['result']['access_token']
+                accessTokenUser = responseKeyClockUser['access_token']
                 messageArr.append("Acccess Token : " + str(accessTokenUser))
                 Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
                 fileheader = ["Access Token","Access Token succesfully genarated","Passed"]
@@ -1871,10 +1868,7 @@ class Elevateproject:
                 for i in result_list:
                     baseTemplateLookup[i['code']] = i['_id']
                 typeOfCertificate=typeOfCertificate.lower()
-                print(typeOfCertificate,"typeOfCertificate")
                 typeOfCertificate=typeOfCertificate.replace(" ","")
-                print(typeOfCertificate)
-                print(certificatetypeof[typeOfCertificate])
                 baseTemplateCode= certificatetypeof[typeOfCertificate]
 
                 return baseTemplateLookup[baseTemplateCode]
@@ -2599,14 +2593,12 @@ class Elevateproject:
         messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
         messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
         Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
-        print(responseFetchSolutionLinkApi.text)
         if responseFetchSolutionLinkApi.status_code == 200:
             print('Fetch solution Link Api Success')
             responseProjectUploadJson = responseFetchSolutionLinkApi.json()
             solutionLink = responseProjectUploadJson["result"]
             messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
             Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
-            print(programFile)
             # Ensure programFile is formatted correctly
             programFileBase = str(programFile).replace(".xlsx", "")
             success_file_path = os.path.join(MainFilePath, programFileBase + '-SuccessSheet.xlsx')
