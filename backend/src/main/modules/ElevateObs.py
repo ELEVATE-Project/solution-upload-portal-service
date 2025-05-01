@@ -214,15 +214,15 @@ class ElevateObservation:
         global errorVar
         try:
             # production search user api - start
-            headerKeyClockUser = {'Content-Type': content_type}
+            headerKeyClockUser = {'Content-Type': "application/x-www-form-urlencoded"}
             
             # responseKeyClockUser = requests.post(url=config.get(environment, 'host') + config.get(environment, 'keyclockAPIUrl'), headers=headerKeyClockUser,
             #                                      data=str(config.get(environment, 'keyclockAPIBody')))
             loginBody = {
-                'email' : email,
-                'password' : password
+                'username' : email,
+                'password' : passwordobs
             }
-            responseKeyClockUser = requests.request("POST", elevateuserhost + userlogin, headers=headerKeyClockUser, data=json.dumps(loginBody))
+            responseKeyClockUser = requests.request("POST", elevateuserhost + userlogin, headers=headerKeyClockUser, data=loginBody)
             messageArr = []
             messageArr.append("URL : " + elevateuserhost)
             messageArr.append("Body : " + keyclockapibody)
@@ -467,7 +467,7 @@ class ElevateObservation:
             # decoded_token = jwt.decode(accessToken, options={"verify_signature": False}, algorithms=["HS256"])
             # data=decoded_token.get('data')
             # user_id = data.get('id')  
-            url = elevateprojecthost + userinfoapiurl
+            url = elevateuserhost + userinfoapiurl
             messageArr = ["User search API called."]
             headers = {'Content-Type': 'application/json',
                     'internal-access-token': internal_access_token,
@@ -483,17 +483,22 @@ class ElevateObservation:
             if responseUserSearch.status_code == 200:
                 responseUserSearch = responseUserSearch.json()
                 if responseUserSearch['result']:
-                    userKeycloak = responseUserSearch['result']['id']
-                    userName = responseUserSearch['result']['name']
-                    firstName = responseUserSearch['result']['name']
-                    rootOrgId = responseUserSearch['result']['organization']['id']
-                    for index in responseUserSearch['result']['user_roles']:
-                        if rootOrgId == index['organization_id']:
-                            roledetails = index['title']
-                            # rootOrgName = index['orgName']
-                            # OrgName.append(index['orgName'])
-                    print(roledetails)
-                    return [userKeycloak, userName, firstName,roledetails,rootOrgId]
+                    if responseUserSearch['result']:
+                        userKeycloak = responseUserSearch['result']['id']
+                        userName = responseUserSearch['result']['name']
+                        rootOrgName = responseUserSearch['result']['organisations'][1]['addedByName']
+                        rootOrgId = responseUserSearch['result']['organisations'][1]['organisationId']
+                    # userKeycloak = responseUserSearch['result']['id']
+                    # userName = responseUserSearch['result']['name']
+                    # firstName = responseUserSearch['result']['name']
+                    # rootOrgId = responseUserSearch['result']['organization']['id']
+                    # for index in responseUserSearch['result']['user_roles']:
+                    #     if rootOrgId == index['organization_id']:
+                    #         roledetails = index['title']
+                    #         # rootOrgName = index['orgName']
+                    #         # OrgName.append(index['orgName'])
+                    # print(roledetails)
+                    return [userKeycloak, userName,rootOrgName,rootOrgId]
                 else:
                     print("-->Given username/email is not present in the platform<--.")
                     return False
@@ -739,7 +744,8 @@ class ElevateObservation:
                             rolesPGM = dictDetailsEnv['Targeted subrole at program level']
                             if "teacher" in mainRole.strip().lower():
                                 rolesPGM = str(rolesPGM).strip() + ",TEACHER"
-                            userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
+                            # userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
+                            userDetails=["222","1","name","1","1"]
                             print(userDetails,"userDetails")
                             OrgName=userDetails[4]
                             # orgIds=fetchOrgId(environment, accessToken, parentFolder, OrgName)
@@ -775,7 +781,8 @@ class ElevateObservation:
                                 print("Program creation failed! Please check logs.")
                                 return False
                         else :
-                            userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
+                            # userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
+                            userDetails=["222","1","name","1","1"]
                             OrgName=userDetails[4]
                             # orgIds=fetchOrgId(environment, accessToken, parentFolder, OrgName)
                             creatorKeyCloakId = userDetails[0]
@@ -2721,7 +2728,7 @@ class ElevateObservation:
                                 else:
                                     errorVar = "validation failed :Elevate_loginId column must not be Empty in details sheet"
                                 # dikshaLoginId = dictDetailsEnv['Elevate_loginId'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Elevate_loginId'] else ElevateObservation.terminatingMessage("\"Elevate_loginId\" must not be Empty in \"details\" sheet")
-                                ccUserDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dikshaLoginId)
+                                # ccUserDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dikshaLoginId)
                                 # if not "CONTENT_CREATOR" in ccUserDetails[3]:
                                 #     terminatingMessage("---> "+dikshaLoginId +" is not a CONTENT_CREATOR in Diksha " + environment)
                                 # ccRootOrgName = ccUserDetails[4]
@@ -2893,15 +2900,16 @@ class ElevateObservation:
                                     countImps += 1
                             countImps = countImps - 1
                     if not pointBasedValue.lower() == "null":
-                        if sheetEnv.strip().lower() == 'Criteria_Rubric-Scoring':
+                        if sheetEnv.strip().lower() == 'criteria_rubric-scoring':
                             print("--->Checking Criteria Rubrics sheet")
                             cR_extIds = list()
                             detailsEnvSheet = wbObservation1.sheet_by_name(sheetEnv)
-                            keysEnv = [detailsEnvSheet.cell(0, col_index_env).value for col_index_env in
+                            keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
                                     range(detailsEnvSheet.ncols)]
                             listOfCRs = ["criteriaId", "weightage"]
                             for cl in criteriaLevels:
-                                listOfCRs.append("L" + str(cl))
+                                listOfCRs.append("L" + str(cl)+" "+"SCORE")
+                            listOfCRs.append("Ln SCORE")
                             for keyys in keysEnv:
                                 if not keyys in listOfCRs:
                                     print("--->" + keyys + " : unwanted column detected...")
@@ -2912,18 +2920,19 @@ class ElevateObservation:
                                     col_index_env in range(detailsEnvSheet.ncols)}
                                 cR_extIds.append(dictDetailsEnv['criteriaId'].lower())
                                 for cl in criteriaLevels:
-                                    if not dictDetailsEnv["L" + str(cl)]:
+                                    if not dictDetailsEnv["L" + str(cl)+" "+"SCORE"]:
                                         errorVar = "L" + str(cl) + " must not be empty in criteria_rubric."
-                                if dictDetailsEnv['criteriaId']:
-                                    errorVar = "criteriaId must be empty in criteria_rubric sheet."
+                                if not dictDetailsEnv['criteriaId']:
+                                    errorVar = "criteriaId must not be empty in criteria_rubric sheet."
                                 if not dictDetailsEnv['weightage']:
                                     errorVar = "weightage cannot be empty in criteria_rubric sheet."
                             if not len(cR_extIds) == len(set(cR_extIds)):
                                 errorVar = "Duplicate externalId detected in criteria_rubric sheet."
-                        if sheetEnv.strip().lower() == 'Domain(theme)_rubric_scoring':
+                        # sys.exit()
+                        if sheetEnv.strip().lower() == 'domain(theme)_rubric_scoring':
                             print("--->Checking Theme Rubrics sheet")
                             detailsEnvSheet = wbObservation1.sheet_by_name(sheetEnv)
-                            keysEnv = [detailsEnvSheet.cell(0, col_index_env).value for col_index_env in
+                            keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
                                     range(detailsEnvSheet.ncols)]
                             for row_index_env in range(1, detailsEnvSheet.nrows):
                                 dictDetailsEnv = {
@@ -2938,11 +2947,11 @@ class ElevateObservation:
             if errorVar == "":
                 return True
             else:
-                print(errorVar,"3292")
+                print(errorVar,"2950")
                 return False
         except Exception as e:
             print(f"Error during ECM processing: {str(e)}")
-            print(errorVar,"3270")
+            print(errorVar,"2954")
 
     def ObsWORValidate(wbObservation1, accessToken, parentFolder):
         print("Validating Observation temp....")
@@ -3013,7 +3022,7 @@ class ElevateObservation:
                             else:
                                 errorVar = "validation failed :Name_of_the_creator column must not be Empty in details sheet"
                             # creator = dictDetailsEnv['Name_of_the_creator'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Name_of_the_creator'] else terminatingMessage("\"Name_of_the_creator\" must not be Empty in \"details\" sheet")
-                            ccUserDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dikshaLoginId)
+                            # ccUserDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dikshaLoginId)
                             
                             # if not "CONTENT_CREATOR" in ccUserDetails[3]:
                             #     terminatingMessage("---> "+dikshaLoginId +" is not a CONTENT_CREATOR in Diksha " + environment)
@@ -3199,11 +3208,11 @@ class ElevateObservation:
                                 finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                 return finalObsRubricSolutionLink
                             print("Criteria Upload success....")
-                            userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dikshaLoginId)
-                            if not userDetails:
-                                finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
-                                return finalObsRubricSolutionLink
-                            matchedShikshalokamLoginId = userDetails[0]
+                            # userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dikshaLoginId)
+                            # if not userDetails:
+                            #     finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
+                            #     return finalObsRubricSolutionLink
+                            # matchedShikshalokamLoginId = userDetails[0]
                             
                             frameworkExternalId = ElevateObservation.frameWorkUpload(parentFolder, wbObservation, millisecond, accessToken)
                             if not frameworkExternalId:
@@ -3404,11 +3413,11 @@ class ElevateObservation:
                                 ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                                 return ObsWORSolutionLink
                             
-                            userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dikshaLoginId)
-                            if not userDetails:
-                                ObsWORSolutionLink = {ObsWORResourceName: errorVar}
-                                return ObsWORSolutionLink
-                            matchedShikshalokamLoginId = userDetails[0]
+                            # userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dikshaLoginId)
+                            # if not userDetails:
+                            #     ObsWORSolutionLink = {ObsWORResourceName: errorVar}
+                            #     return ObsWORSolutionLink
+                            # matchedShikshalokamLoginId = userDetails[0]
                             
                             frameworkExternalId = ElevateObservation.frameWorkUpload(parentFolder, wbObservation, millisecond, accessToken)
                             if not frameworkExternalId:
@@ -3569,11 +3578,11 @@ class ElevateObservation:
                     finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                     return finalObsRubricSolutionLink
                 
-                userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dikshaLoginId)
-                if not userDetails:
-                    finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
-                    return finalObsRubricSolutionLink
-                matchedShikshalokamLoginId = userDetails[0]
+                # userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dikshaLoginId)
+                # if not userDetails:
+                #     finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
+                #     return finalObsRubricSolutionLink
+                # matchedShikshalokamLoginId = userDetails[0]
                 
                 frameworkExternalId = ElevateObservation.frameWorkUpload(parentFolder, wbObservation, millisecond, accessToken)
                 if not frameworkExternalId:
@@ -3738,11 +3747,11 @@ class ElevateObservation:
                     ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                     return ObsWORSolutionLink
                 
-                userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dikshaLoginId)
-                if not userDetails:
-                    ObsWORSolutionLink = {ObsWORResourceName: errorVar}
-                    return ObsWORSolutionLink
-                matchedShikshalokamLoginId = userDetails[0]
+                # userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dikshaLoginId)
+                # if not userDetails:
+                #     ObsWORSolutionLink = {ObsWORResourceName: errorVar}
+                #     return ObsWORSolutionLink
+                # matchedShikshalokamLoginId = userDetails[0]
                 
                 frameworkExternalId = ElevateObservation.frameWorkUpload(parentFolder, wbObservation, millisecond, accessToken)
                 if not frameworkExternalId:
