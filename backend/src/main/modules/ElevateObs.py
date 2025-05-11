@@ -33,6 +33,8 @@ from openpyxl.styles import Color, PatternFill, Font, Border
 from openpyxl.styles import colors
 from openpyxl.cell import Cell
 from common_config import *
+# from common_config import elevateuserhost, userlogin, keyclockAPIBody
+
 import threading
 import wget
 import gdown
@@ -242,45 +244,57 @@ class ElevateObservation:
 
     def generateAccessToken(solutionName_for_folder_path):
         global errorVar
+        accessTokenUser = None  # define it upfront
+
         try:
-            # production search user api - start
-            headerKeyClockUser = {'Content-Type': "application/x-www-form-urlencoded"}
-            
-            # responseKeyClockUser = requests.post(url=config.get(environment, 'host') + config.get(environment, 'keyclockAPIUrl'), headers=headerKeyClockUser,
-            #                                      data=str(config.get(environment, 'keyclockAPIBody')))
+            print("Generating Access Token...")
+            headerKeyClockUser = {'Content-Type': "application/json"}
+            print(headerKeyClockUser,"headerKeyClockUser")
+            print(elevateuserhost + userlogin,"elevateuserhost + userlogin")
+
             loginBody = {
-                'username' : email,
-                'password' : password
+                'username': "shikshalokam_test",
+                'password': "Tekdi@123"
             }
-            responseKeyClockUser = requests.request("POST", elevateuserhost + userlogin, headers=headerKeyClockUser, data=loginBody)
+            print(loginBody, "loginBody")
+
+            # ✅ Use loginBody, not keyclockapibody
+            responseKeyClockUser = requests.post(
+                elevateuserhost + userlogin,
+                headers=headerKeyClockUser,
+                json=loginBody
+            )
+
+            print(responseKeyClockUser, "responseKeyClockUser")
+
             messageArr = []
             messageArr.append("URL : " + elevateuserhost)
-            messageArr.append("Body : " + keyclockapibody)
-            messageArr.append("Status Code : " + str(responseKeyClockUser))
+            messageArr.append("Body : " + str(loginBody))
+            messageArr.append("Status Code : " + str(responseKeyClockUser.status_code))
+
             if responseKeyClockUser.status_code == 200:
                 responseKeyClockUser = responseKeyClockUser.json()
                 accessTokenUser = responseKeyClockUser['result']['access_token']
                 jwtTokenSecret  = config.get(environment, 'jwtTokenSecret')
                 decode = jwt.decode(accessTokenUser, jwtTokenSecret , algorithms=["HS256"])
                 ElevateObservation.getRolesAndTenantIdAndOrgIdFromUserToken(decode)
-                messageArr.append("Acccess Token : " + str(accessTokenUser))
+                messageArr.append("Access Token : " + str(accessTokenUser))
                 ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
-                fileheader = ["Access Token","Access Token succesfully genarated","Passed"]
-                ElevateObservation.apicheckslog(solutionName_for_folder_path,fileheader)
+                fileheader = ["Access Token", "Access Token successfully generated", "Passed"]
+                ElevateObservation.apicheckslog(solutionName_for_folder_path, fileheader)
                 print("--->Access Token Generated!")
-                return accessTokenUser
-            
             else:
                 print("Error in generating Access token")
                 print("Status code : " + str(responseKeyClockUser.status_code))
-                ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
                 print(responseKeyClockUser.text)
                 errorVar = str(responseKeyClockUser.text)
-                return accessTokenUser
+
+            return accessTokenUser
+
         except Exception as e:
-            print(f"Error occurred: {str(e)}")
-            errorVar =  f"Error occurred: {str(e)}"
-            print(errorVar,"---> API-Error")
+            errorVar = f"Error occurred: {str(e)}"
+            print(errorVar, "---> API-Error")
+            return accessTokenUser
     
     def getRolesAndTenantIdAndOrgIdFromUserToken(decodedToken):
         rolesInToken = decodedToken['data']['roles']
@@ -315,7 +329,7 @@ class ElevateObservation:
                 "query": {
                     "metaInformation.name": entityName,
                     "tenantId":tenantID,  # Use the current entity name
-                    "orgIds": {"$in":append_to_list(normalize_cell_value(orgIDFromTemplate),'ALL')},
+                    "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')},
                 },
                 "projection": [
                     "entityType"
@@ -325,6 +339,7 @@ class ElevateObservation:
 
             # Make the API call inside the loop to send one request per entity
             responseFetchEntityListApi = requests.post(url=urlFetchEntityListApi, headers=headerFetchEntityListApi, data=data)
+            print(responseFetchEntityListApi.text, "responseFetchEntityListApi")
             # Log API call details
             messageArr = ["Entities List Fetch API executed for entity: " + entityName, 
                         "URL  : " + str(urlFetchEntityListApi),
@@ -369,7 +384,7 @@ class ElevateObservation:
                         "$in": scopeEntityType
                     },
                     "tenantId":tenantID,
-                    "orgIds": {"$in":append_to_list(normalize_cell_value(orgIDFromTemplate),'ALL')}
+                    "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')}
                 },
 
                 "projection": [
@@ -621,18 +636,21 @@ class ElevateObservation:
                     },
                     "requestForPIIConsent":True
                     })
-            messageArr.append("Body : " + str(payload))
+            print(payload,"payload")
+            # messageArr.append("Body : " + str(payload))
             headers = {'X-auth-token': accessToken,
-                'internal-access-token': config.get(environment, 'internal-access-token'),
+                'internal-access-token': internal_access_token,
                 'Content-Type': 'application/json',
-                'Authorization':config.get(environment, 'Authorization'),
+                'Authorization':authorization,
                 'tenantId': tenantID,
                 'orgid': orgIDFromTemplate,
-                adminTokenHeaderName: adminAccessToken,
+                # config.get(environment,'adminTokenHeaderName'): config.get(environment, 'adminAccessToken')
                 }
+            print(headers,"headers")
             
             # program creation 
             responsePgmCreate = requests.request("POST", ProgramCreationurl, headers=headers, data=(payload))
+            print(responsePgmCreate.text,"responsePgmCreate")
             messageArr.append("Program Creation Status Code : " + str(responsePgmCreate.status_code))
             messageArr.append("Program Creation Response : " + str(responsePgmCreate.text))
             messageArr.append("Program body : " + str(payload))
@@ -674,6 +692,7 @@ class ElevateObservation:
         sheetNames = wbPgm.sheet_names()
         # list of sheets in the program sheet 
         pgmSheets = ["Instructions", "Program Details", "Resource Details","Program Manager Details"]
+        print(pgmSheets, "pgmSheets")
 
         # checking the sheets in the program sheet 
         if (len(sheetNames) == len(pgmSheets)) and ((set(sheetNames) == set(pgmSheets))):
@@ -687,6 +706,7 @@ class ElevateObservation:
                 elif sheetEnv.strip().lower() == 'program details':
                     print("--->Checking Program details sheet...")
                     detailsEnvSheet = wbPgm.sheet_by_name(sheetEnv)
+                    print(detailsEnvSheet, "detailsEnvSheet")
                     keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
                             range(detailsEnvSheet.ncols)]
                     for row_index_env in range(2, detailsEnvSheet.nrows):
@@ -774,15 +794,16 @@ class ElevateObservation:
                         global scopeEntityType
                         # scopeEntityType = "state"
                         global entitiesType
-                        entitiesType = ElevateObservation.fetchEntityType(parentFolder, accessToken,
-                                                    entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
+                        print(entitiesPGM, "entitiesPGM")
+                        # entitiesType = ElevateObservation.fetchEntityType(parentFolder, accessToken,
+                                                    # entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
                         if entitiesPGM:
                             entitiesPGM = entitiesPGM
                             scopeEntityType = entitiesType
 
                         global entitiesPGMID
-                        entitiesPGMID = ElevateObservation.fetchEntityId(parentFolder, accessToken,
-                                                    entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
+                        # entitiesPGMID = ElevateObservation.fetchEntityId(parentFolder, accessToken,
+                                                    # entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
                         global orgIds
                         
 
@@ -843,8 +864,8 @@ class ElevateObservation:
                                 print("Program creation failed! Please check logs.")
                                 return False
                         else :
-                            userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
-                            # userDetails=["222","1","name","1","1"]
+                            # userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['projectService username/user id/email id/phone no. of Program Designer'])
+                            userDetails=["222","1","name","1","1"]
                             OrgName=userDetails[4]
                             # orgIds=fetchOrgId(environment, accessToken, parentFolder, OrgName)
                             creatorKeyCloakId = userDetails[0]
@@ -1379,7 +1400,7 @@ class ElevateObservation:
                 'internal-access-token': internal_access_token,
                 'tenantId': tenantID,
                 'orgid': orgIDFromTemplate,
-                adminTokenHeaderName: adminAccessToken
+                # adminTokenHeaderName: adminAccessToken
             }
             queryparamsCreateSolutionApi = '?frameworkId=' + str(frameworkExternalId) + '&entityType=' + entityType
             responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi + queryparamsCreateSolutionApi,
@@ -2339,7 +2360,7 @@ class ElevateObservation:
                 "internal-access-token": internal_access_token,
                 'tenantId': tenantID,
                 'orgid': orgIDFromTemplate,
-                adminTokenHeaderName: adminAccessToken
+                # adminTokenHeaderName: adminAccessToken
             }
             filesCriteriaRubric = {
                 'criteria': open(solutionName_for_folder_path + '/criteriaRubrics/uploadSheet.csv', 'rb')
@@ -2439,7 +2460,7 @@ class ElevateObservation:
                 'internal-access-token': internal_access_token,
                 'tenantId': tenantID,
                 'orgid': orgIDFromTemplate,
-                adminTokenHeaderName: adminAccessToken
+                # adminTokenHeaderName: adminAccessToken
             }
             filesThemeRubric = {
                 'themes': open(solutionName_for_folder_path + '/themeRubrics/uploadSheet.csv', 'rb')
@@ -2485,7 +2506,7 @@ class ElevateObservation:
                 'internal-access-token': internal_access_token,
                 'tenantId': tenantID,
                 'orgid': orgIDFromTemplate,
-                adminTokenHeaderName: adminAccessToken
+                # adminTokenHeaderName: adminAccessToken
             }
             payloadFetchSolutionApi = {}
             responseFetchSolutionApiUrl = requests.post(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
@@ -2599,7 +2620,7 @@ class ElevateObservation:
                                     'internal-access-token': internal_access_token,
                                     'tenantId': tenantID,
                                     'orgid': orgIDFromTemplate,
-                                    adminTokenHeaderName: adminAccessToken
+                                    # adminTokenHeaderName: adminAccessToken
                                     }
             responseSol_prog_mapping = requests.request("POST", urlSol_prog_mapping, headers=headersSol_prog_mapping,
                                                         data=json.dumps(payloadSol_prog_mapping))
@@ -2648,7 +2669,7 @@ class ElevateObservation:
                 'internal-access-token': internal_access_token,
                 'tenantId': tenantID,
                 'orgid': orgIDFromTemplate,
-                adminTokenHeaderName: adminAccessToken
+                # adminTokenHeaderName: adminAccessToken
             }
             payloadFetchSolutionApi = {}
 
@@ -3462,7 +3483,7 @@ class ElevateObservation:
                             # 'appName': config.get(environment, 'appName'),
                             'tenantId': tenantID,
                             'orgid': orgIDFromTemplate,
-                            adminTokenHeaderName: adminAccessToken
+                            # adminTokenHeaderName: adminAccessToken
                         }
                         responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi,
                                                                 headers=headerCreateSolutionApi,
@@ -3822,7 +3843,7 @@ class ElevateObservation:
                             'internal-access-token': internal_access_token,
                             'tenantId': tenantID,
                             'orgid': orgIDFromTemplate,
-                            adminTokenHeaderName: adminAccessToken
+                            # adminTokenHeaderName: adminAccessToken
                         }
                         responseImportSoluTemplateApi = requests.get(url=urlImportSoluTemplate,
                                                                     headers=headerImportSoluTemplateApi)
@@ -3842,7 +3863,7 @@ class ElevateObservation:
                                 'internal-access-token': internal_access_token,
                                 'tenantId': tenantID,
                                 'orgid': orgIDFromTemplate,
-                                adminTokenHeaderName: adminAccessToken
+                                # adminTokenHeaderName: adminAccessToken
                             }
                             responseSurveyProgramMappingApi = requests.get(url=urlSurveyProgramMapping,headers=headeSurveyProgramMappingApi)
                             if responseSurveyProgramMappingApi.status_code == 200:
@@ -4246,7 +4267,7 @@ class ElevateObservation:
                             'internal-access-token': internal_access_token,
                             'tenantId': tenantID,
                             'orgid': orgIDFromTemplate,
-                            adminTokenHeaderName: adminAccessToken
+                            # adminTokenHeaderName: adminAccessToken
                         }
                         responseImportSoluTemplateApi = requests.get(url=urlImportSoluTemplate,
                                                                     headers=headerImportSoluTemplateApi)
@@ -4266,7 +4287,7 @@ class ElevateObservation:
                                 'internal-access-token': internal_access_token,
                                 'tenantId': tenantID,
                                 'orgid': orgIDFromTemplate,
-                                adminTokenHeaderName: adminAccessToken
+                                # adminTokenHeaderName: adminAccessToken
                             }
                             responseSurveyProgramMappingApi = requests.get(url=urlSurveyProgramMapping,headers=headeSurveyProgramMappingApi)
                             if responseSurveyProgramMappingApi.status_code == 200:
@@ -4395,17 +4416,19 @@ class ElevateObservation:
                 result = {}
                 return result
             print(typeofSolution,"this is type of solution")
-            ElevateObservation.validateTenantAndOrgIdsFromProgramSheet(wbProgram)
+            wbPgm =xlrd.open_workbook(programFile, on_demand=True)
+            ElevateObservation.validateTenantAndOrgIdsFromProgramSheet(wbPgm)
+            print(wbPgm,"wbPgm")
             # typeofSolution = validateSheets(addObservationSolution, accessToken, parentFolder)
             # sys.exit()
             wbObservation = xlrd.open_workbook(addObservationSolution, on_demand=True)
             projectSheetNames = wbObservation.sheet_names()
-            wbProgram = xlrd.open_workbook(programFile, on_demand=True)
-            programSheetNames = wbProgram.sheet_names()
+            wbPgm=xlrd.open_workbook(programFile, on_demand=True)
+            programSheetNames = wbPgm.sheet_names()
             for programSheets in programSheetNames:
                 if programSheets.strip().lower() == 'program details':
                     print("Checking program details sheet...")
-                    programDetailsSheet = wbProgram.sheet_by_name(programSheets)
+                    programDetailsSheet = wbPgm.sheet_by_name(programSheets)
                     keysEnv = [programDetailsSheet.cell(1, col_index_env).value for col_index_env in
                             range(programDetailsSheet.ncols)]
                     for row_index_env in range(2, programDetailsSheet.nrows):
@@ -4806,8 +4829,8 @@ class ElevateObservation:
 
                 elif typeofSolution == 3 and sheets.strip().lower() == 'details'.lower():
                     ElevateObservation.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath)
-                    wbprogram = xlrd.open_workbook(programFile, on_demand=True)
-                    programSheetNames = wbprogram.sheet_names()
+                    wbPgm= xlrd.open_workbook(programFile, on_demand=True)
+                    programSheetNames = wbPgm.sheet_names()
                     wbSurvey = xlrd.open_workbook(addObservationSolution, on_demand=True)
                     ResourceSheet = wbObservation.sheet_by_name(sheets)
                     keysEnv = [ResourceSheet.cell(1, col_index_env).value for col_index_env in range(ResourceSheet.ncols)]
@@ -5159,8 +5182,8 @@ class ElevateObservation:
                     ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                     return ObsWORSolutionLink
             elif typeofSolution == 3:
-                wbprogram = xlrd.open_workbook(programFile, on_demand=True)
-                programSheetNames = wbprogram.sheet_names()
+                wbPgm= xlrd.open_workbook(programFile, on_demand=True)
+                programSheetNames = wbPgm.sheet_names()
                 wbSurvey = xlrd.open_workbook(addObservationSolution, on_demand=True)
                 ResourceSheet = wbObservation.sheet_by_name(sheets)
                 keysEnv = [ResourceSheet.cell(1, col_index_env).value for col_index_env in range(ResourceSheet.ncols)]
