@@ -113,12 +113,42 @@ ccRootOrgName = None
 ccRootOrgId  = None
 certificatetemplateid = None
 question_sequence_arr = []
+tenantID = None
+orgIDFromTemplate = None
+roleOfResourceCreator = 'admin'
 
 class ElevateObservation:
 
     # def terminatingMessage(msg):
     #     print(msg)
     #     sys.exit()
+
+    #helper function 
+    def clean_single_value(value):
+        value = str(value).strip()
+        try:
+            f = float(value)
+            if f.is_integer():
+                return str(int(f))
+            return str(f)
+        except ValueError:
+            return value  # not a number, return as-is
+        
+    def append_to_list(base, items_to_add):
+        if not isinstance(base, list):
+            base = [base]
+
+        if isinstance(items_to_add, list):
+            return base + items_to_add
+        else:
+            return base + [items_to_add]
+
+    def normalize_cell_value(value):
+        if isinstance(value, str) and ',' in value:
+            return [ElevateObservation.clean_single_value(part) for part in value.split(',') if part.strip()]
+        return ElevateObservation.clean_single_value(value)
+
+
 
     def valid_file(param):
         base, ext = os.path.splitext(param)
@@ -220,7 +250,7 @@ class ElevateObservation:
             #                                      data=str(config.get(environment, 'keyclockAPIBody')))
             loginBody = {
                 'username' : email,
-                'password' : passwordobs
+                'password' : password
             }
             responseKeyClockUser = requests.request("POST", elevateuserhost + userlogin, headers=headerKeyClockUser, data=loginBody)
             messageArr = []
@@ -230,6 +260,9 @@ class ElevateObservation:
             if responseKeyClockUser.status_code == 200:
                 responseKeyClockUser = responseKeyClockUser.json()
                 accessTokenUser = responseKeyClockUser['result']['access_token']
+                jwtTokenSecret  = config.get(environment, 'jwtTokenSecret')
+                decode = jwt.decode(accessTokenUser, jwtTokenSecret , algorithms=["HS256"])
+                ElevateObservation.getRolesAndTenantIdAndOrgIdFromUserToken(decode)
                 messageArr.append("Acccess Token : " + str(accessTokenUser))
                 ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
                 fileheader = ["Access Token","Access Token succesfully genarated","Passed"]
@@ -249,6 +282,20 @@ class ElevateObservation:
             errorVar =  f"Error occurred: {str(e)}"
             print(errorVar,"---> API-Error")
     
+    def getRolesAndTenantIdAndOrgIdFromUserToken(decodedToken):
+        rolesInToken = decodedToken['data']['roles']
+        global roleOfResourceCreator
+        for element in rolesInToken:
+            if element.get('title') == 'org_admin':
+             roleOfResourceCreator = 'org_admin'
+            elif element.get('title') == 'tenant_admin':
+             roleOfResourceCreator = 'tenant_admin'
+
+        global tenantID 
+        tenantID = ElevateObservation.clean_single_value(decodedToken['data']['tenant_id'])
+        global orgIDFromTemplate 
+        orgIDFromTemplate = ElevateObservation.clean_single_value(decodedToken['data']['organization_ids'][0])
+
     def fetchEntityType(solutionName_for_folder_path, accessToken, entitiesPGM, scopeEntityType):
         urlFetchEntityListApi = elevateentityhost + searchforlocation
         headerFetchEntityListApi = {
@@ -266,7 +313,9 @@ class ElevateObservation:
             # Prepare the payload for the API request
             payload = {
                 "query": {
-                    "metaInformation.name": entityName  # Use the current entity name
+                    "metaInformation.name": entityName,
+                    "tenantId":tenantID,  # Use the current entity name
+                    "orgIds": {"$in":append_to_list(normalize_cell_value(orgIDFromTemplate),'ALL')},
                 },
                 "projection": [
                     "entityType"
@@ -315,17 +364,18 @@ class ElevateObservation:
                 'internal-access-token': internal_access_token,
             }
             payload = {
+                "query" : {
+                    "entityType": {
+                        "$in": scopeEntityType
+                    },
+                    "tenantId":tenantID,
+                    "orgIds": {"$in":append_to_list(normalize_cell_value(orgIDFromTemplate),'ALL')}
+                },
 
-            "query" : {
-                "entityType": {
-                    "$in": scopeEntityType
+                "projection": [
+                    "_id","metaInformation.name"
+                ]
                 }
-            },
-
-            "projection": [
-                "_id","metaInformation.name"
-            ]
-            }
             data=json.dumps(payload)
             responseFetchEntityListApi = requests.post(url=urlFetchEntityListApi, headers=headerFetchEntityListApi,data=json.dumps(payload))
             messageArr = ["Entities List Fetch API executed.", "URL  : " + str(urlFetchEntityListApi),
@@ -483,11 +533,14 @@ class ElevateObservation:
             if responseUserSearch.status_code == 200:
                 responseUserSearch = responseUserSearch.json()
                 if responseUserSearch['result']:
-                    if responseUserSearch['result']:
-                        userKeycloak = responseUserSearch['result']['id']
-                        userName = responseUserSearch['result']['name']
-                        rootOrgName = responseUserSearch['result']['organisations'][1]['addedByName']
-                        rootOrgId = responseUserSearch['result']['organisations'][1]['organisationId']
+                    userKeycloak = responseUserSearch['result']['id']
+                    userName = responseUserSearch['result']['name']
+                    firstName = responseUserSearch['result']['name']
+                    rootOrgId = responseUserSearch['result']['organization']['id']
+                    roledetails = None
+                    for index in responseUserSearch['result']['user_roles']:
+                        if rootOrgId == index['organization_id']:
+                            roledetails = index['title']
                     # userKeycloak = responseUserSearch['result']['id']
                     # userName = responseUserSearch['result']['name']
                     # firstName = responseUserSearch['result']['name']
@@ -498,7 +551,7 @@ class ElevateObservation:
                     #         # rootOrgName = index['orgName']
                     #         # OrgName.append(index['orgName'])
                     # print(roledetails)
-                    return [userKeycloak, userName,rootOrgName,rootOrgId]
+                    return [userKeycloak, userName, firstName,roledetails,rootOrgId]
                 else:
                     print("-->Given username/email is not present in the platform<--.")
                     return False
@@ -570,9 +623,13 @@ class ElevateObservation:
                     })
             messageArr.append("Body : " + str(payload))
             headers = {'X-auth-token': accessToken,
-                    'internal-access-token': internal_access_token,
-                    'Content-Type': 'application/json',
-                    'Authorization':authorization}
+                'internal-access-token': config.get(environment, 'internal-access-token'),
+                'Content-Type': 'application/json',
+                'Authorization':config.get(environment, 'Authorization'),
+                'tenantId': tenantID,
+                'orgid': orgIDFromTemplate,
+                adminTokenHeaderName: adminAccessToken,
+                }
             
             # program creation 
             responsePgmCreate = requests.request("POST", ProgramCreationurl, headers=headers, data=(payload))
@@ -698,6 +755,11 @@ class ElevateObservation:
                             errorVar = "\"End date of program\" must not be Empty in \"Program details\" sheet"
                         ReffstartDateOfProgram = dictDetailsEnv['Start date of program']
                         ReffendDateOfProgram = dictDetailsEnv['End date of program']
+                        # global tenantID 
+                        # tenantID = clean_single_value(dictDetailsEnv['Tenant ID'])
+                        # global orgIDFromTemplate 
+                        # orgIDFromTemplate = clean_single_value(dictDetailsEnv['Org ID'])
+
                         # endDateOfProgram = dictDetailsEnv['End date of program']
                         # taking the start date of program from program template and converting YYYY-MM-DD 00:00:00 format
                         
@@ -781,8 +843,8 @@ class ElevateObservation:
                                 print("Program creation failed! Please check logs.")
                                 return False
                         else :
-                            # userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
-                            userDetails=["222","1","name","1","1"]
+                            userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
+                            # userDetails=["222","1","name","1","1"]
                             OrgName=userDetails[4]
                             # orgIds=fetchOrgId(environment, accessToken, parentFolder, OrgName)
                             creatorKeyCloakId = userDetails[0]
@@ -1313,7 +1375,11 @@ class ElevateObservation:
                 'Content-Type': content_type,
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id
+                'X-Channel-id': x_channel_id,
+                'internal-access-token': internal_access_token,
+                'tenantId': tenantID,
+                'orgid': orgIDFromTemplate,
+                adminTokenHeaderName: adminAccessToken
             }
             queryparamsCreateSolutionApi = '?frameworkId=' + str(frameworkExternalId) + '&entityType=' + entityType
             responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi + queryparamsCreateSolutionApi,
@@ -2269,7 +2335,11 @@ class ElevateObservation:
             headerCriteriaRubricUploadApi = {
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id
+                'X-Channel-id': x_channel_id,
+                "internal-access-token": internal_access_token,
+                'tenantId': tenantID,
+                'orgid': orgIDFromTemplate,
+                adminTokenHeaderName: adminAccessToken
             }
             filesCriteriaRubric = {
                 'criteria': open(solutionName_for_folder_path + '/criteriaRubrics/uploadSheet.csv', 'rb')
@@ -2365,7 +2435,11 @@ class ElevateObservation:
             headerThemeRubricUploadApi = {
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id
+                'X-Channel-id': x_channel_id,
+                'internal-access-token': internal_access_token,
+                'tenantId': tenantID,
+                'orgid': orgIDFromTemplate,
+                adminTokenHeaderName: adminAccessToken
             }
             filesThemeRubric = {
                 'themes': open(solutionName_for_folder_path + '/themeRubrics/uploadSheet.csv', 'rb')
@@ -2408,7 +2482,10 @@ class ElevateObservation:
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
-                'internal-access-token': internal_access_token
+                'internal-access-token': internal_access_token,
+                'tenantId': tenantID,
+                'orgid': orgIDFromTemplate,
+                adminTokenHeaderName: adminAccessToken
             }
             payloadFetchSolutionApi = {}
             responseFetchSolutionApiUrl = requests.post(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
@@ -2431,11 +2508,13 @@ class ElevateObservation:
                     cell_value = resourceDetailsSheet["A" + str(row)].value
                     if cell_value is not None and str(cell_value).strip() == str(solutionName).strip():
                         solutionMainRole = str(resourceDetailsSheet["E" + str(row)].value).strip()
-                        solutionRolesArray = str(resourceDetailsSheet["F" + str(row)].value).split(",") if str(resourceDetailsSheet["E" + str(row)].value).split(",") else []
-                        if "teacher" in solutionMainRole.strip().lower():
+                        cell_F_value = resourceDetailsSheet["F" + str(row)].value
+                        solutionRolesArray = str(cell_F_value).split(",") if cell_F_value else []     
+                        if solutionMainRole.strip().lower() == "teacher" and "TEACHER" not in solutionRolesArray:
                             solutionRolesArray.append("TEACHER")
-                        solutionStartDate = resourceDetailsSheet["G" + str(row)].value
-                        solutionEndDate = resourceDetailsSheet["H" + str(row)].value
+
+                    solutionStartDate = resourceDetailsSheet["G" + str(row)].value
+                    solutionEndDate = resourceDetailsSheet["H" + str(row)].value
                 return [solutionRolesArray, solutionStartDate, solutionEndDate]
             else:
                 error_message = ""
@@ -2516,7 +2595,12 @@ class ElevateObservation:
             }
             headersSol_prog_mapping = {'Authorization': authorization,
                                     'X-auth-token': accessToken,
-                                    'Content-Type': content_type}
+                                    'Content-Type': content_type,
+                                    'internal-access-token': internal_access_token,
+                                    'tenantId': tenantID,
+                                    'orgid': orgIDFromTemplate,
+                                    adminTokenHeaderName: adminAccessToken
+                                    }
             responseSol_prog_mapping = requests.request("POST", urlSol_prog_mapping, headers=headersSol_prog_mapping,
                                                         data=json.dumps(payloadSol_prog_mapping))
             messageArr = ["Create child API called.", "URL : " + urlSol_prog_mapping,
@@ -2561,7 +2645,10 @@ class ElevateObservation:
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
-                'internal-access-token': internal_access_token
+                'internal-access-token': internal_access_token,
+                'tenantId': tenantID,
+                'orgid': orgIDFromTemplate,
+                adminTokenHeaderName: adminAccessToken
             }
             payloadFetchSolutionApi = {}
 
@@ -2601,51 +2688,54 @@ class ElevateObservation:
                     messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
                     ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
 
-                    # print(MainFilePath,"MainFilePath")
-                    # print(programFile,"programFile")
-                    # if os.path.exists(MainFilePath + "/" + str(programFile).replace(".xlsx", "") + '-SuccessSheet.xlsx'):
-                    #     xfile = openpyxl.load_workbook(
-                    #         MainFilePath + "/" + str(programFile).replace(".xlsx", "") + '-SuccessSheet.xlsx')
-                    # else:
-                    #     xfile = openpyxl.load_workbook(programFile)
-                    # print(xfile.sheetnames)
+                    if os.path.exists(MainFilePath + "/" + str(programFile).replace(".xlsx", "") + '-SuccessSheet.xlsx'):
+                        xfile = openpyxl.load_workbook(
+                            MainFilePath + "/" + str(programFile).replace(".xlsx", "") + '-SuccessSheet.xlsx')
+                    else:
+                        xfile = openpyxl.load_workbook(programFile)
+                    print(xfile.sheetnames)
 
-                    # sheet_name = 'Resource Details'.strip()
+                    #sheet_name = 'details'.strip()
+                    sheet_name_primary = 'Resource Details'.strip()
+                    sheet_name_fallback = 'details'.strip()
 
-                    # resourceDetailsSheet = xfile[sheet_name]
+                    try:
+                        resourceDetailsSheet = xfile[sheet_name_primary]
+                    except KeyError:
+                        resourceDetailsSheet = xfile[sheet_name_fallback]
 
-                    # greenFill = PatternFill(start_color='0000FF00',
-                    #                         end_color='0000FF00',
-                    #                         fill_type='solid')
-                    # rowCountRD = resourceDetailsSheet.max_row
-                    # columnCountRD = resourceDetailsSheet.max_column
-                    # for row in range(3, rowCountRD + 1):
-                    #     if str(resourceDetailsSheet["B" + str(row)].value).rstrip().lstrip().lower() == "course":
-                    #         resourceDetailsSheet["D1"] = ""
-                    #         resourceDetailsSheet["E1"] = ""
-                    #         resourceDetailsSheet['I2'] = "External id of the resource"
-                    #         resourceDetailsSheet['J2'] = "link to access the resource/Response"
-                    #         resourceDetailsSheet['I2'].fill = greenFill
-                    #         resourceDetailsSheet['J2'].fill = greenFill
-                    #         resourceDetailsSheet['I' + str(row)] = solutionExternalId
-                    #         resourceDetailsSheet['J' + str(row)] = "The course has been successfully mapped to the program"
-                    #         resourceDetailsSheet['I' + str(row)].fill = greenFill
-                    #         resourceDetailsSheet['J' + str(row)].fill = greenFill
-                    #     elif str(resourceDetailsSheet["A" + str(row)].value).strip() == solutionName:
-                    #         resourceDetailsSheet["D1"] = ""
-                    #         resourceDetailsSheet["E1"] = ""
-                    #         resourceDetailsSheet['I2'] = "External id of the resource"
-                    #         resourceDetailsSheet['J2'] = "link to access the resource/Response"
-                    #         resourceDetailsSheet['I2'].fill = greenFill
-                    #         resourceDetailsSheet['J2'].fill = greenFill
-                    #         resourceDetailsSheet['I' + str(row)] = solutionExternalId
-                    #         resourceDetailsSheet['J' + str(row)] = solutionLink
-                    #         resourceDetailsSheet['I' + str(row)].fill = greenFill
-                    #         resourceDetailsSheet['J' + str(row)].fill = greenFill
+                    greenFill = PatternFill(start_color='0000FF00',
+                                            end_color='0000FF00',
+                                            fill_type='solid')
+                    rowCountRD = resourceDetailsSheet.max_row
+                    columnCountRD = resourceDetailsSheet.max_column
+                    for row in range(3, rowCountRD + 1):
+                        if str(resourceDetailsSheet["B" + str(row)].value).rstrip().lstrip().lower() == "course":
+                            resourceDetailsSheet["D1"] = ""
+                            resourceDetailsSheet["E1"] = ""
+                            resourceDetailsSheet['I2'] = "External id of the resource"
+                            resourceDetailsSheet['J2'] = "link to access the resource/Response"
+                            resourceDetailsSheet['I2'].fill = greenFill
+                            resourceDetailsSheet['J2'].fill = greenFill
+                            resourceDetailsSheet['I' + str(row)] = solutionExternalId
+                            resourceDetailsSheet['J' + str(row)] = "The course has been successfully mapped to the program"
+                            resourceDetailsSheet['I' + str(row)].fill = greenFill
+                            resourceDetailsSheet['J' + str(row)].fill = greenFill
+                        elif str(resourceDetailsSheet["A" + str(row)].value).strip() == solutionName:
+                            resourceDetailsSheet["D1"] = ""
+                            resourceDetailsSheet["E1"] = ""
+                            resourceDetailsSheet['I2'] = "External id of the resource"
+                            resourceDetailsSheet['J2'] = "link to access the resource/Response"
+                            resourceDetailsSheet['I2'].fill = greenFill
+                            resourceDetailsSheet['J2'].fill = greenFill
+                            resourceDetailsSheet['I' + str(row)] = solutionExternalId
+                            resourceDetailsSheet['J' + str(row)] = solutionLink
+                            resourceDetailsSheet['I' + str(row)].fill = greenFill
+                            resourceDetailsSheet['J' + str(row)].fill = greenFill
 
-                    # programFile = str(programFile).replace(".xlsx", "")
-                    # xfile.save(MainFilePath + "/" + programFile + '-SuccessSheet.xlsx')
-                    # print("Program success sheet is created")
+                    programFile = str(programFile).replace(".xlsx", "")
+                    xfile.save(MainFilePath + "/" + programFile + '-SuccessSheet.xlsx')
+                    print("Program success sheet is created")
                     return solutionLink
                 else:
                     print("Fetch solution link API Failed")
@@ -2684,6 +2774,73 @@ class ElevateObservation:
                 return False
         return True
     
+    def assignTenantOrgValuesToGlobalVariables(tenantIdFromTheSheets, orgIdsFromTheSheets):
+        global tenantID 
+        tenantID = ElevateObservation.clean_single_value(tenantIdFromTheSheets)
+        global orgIDFromTemplate 
+        orgIDFromTemplate = ElevateObservation.clean_single_value(orgIdsFromTheSheets)
+
+    def validateTenantAndOrgIdsFromProgramSheet(programFileContent):
+            
+            tenantIdFromProgramFile = None
+            orgIdsFromProgramFile = None
+                        
+            sheetNames = programFileContent.sheet_names()
+            # iterate through the sheets 
+            for sheetEnv in sheetNames:
+
+                if sheetEnv == "Instructions":
+                    # skip Instructions sheet 
+                    pass
+                elif sheetEnv.strip().lower() == 'program details':
+                    print("--->Checking Program details sheet...")
+                    detailsEnvSheet = programFileContent.sheet_by_name(sheetEnv)
+                    keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
+                            range(detailsEnvSheet.ncols)]
+                    for row_index_env in range(2, detailsEnvSheet.nrows):
+                        dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
+                                        for
+                                        col_index_env in range(detailsEnvSheet.ncols)}
+                        tenantIdFromProgramFile = dictDetailsEnv.get('Tenant ID')
+                        orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
+
+            global roleOfResourceCreator
+            if roleOfResourceCreator not in ['org_admin', 'tenant_admin'] and not tenantIdFromProgramFile:
+                raise ValueError("Tenant ID is required in program template for role 'admin', it cannot be empty")
+
+            if roleOfResourceCreator not in ['org_admin'] and not orgIdsFromProgramFile:
+                raise ValueError("Org ID is required for role 'admin' and 'tenant_admin' in program template and cannot be empty")
+            
+            ElevateObservation.assignTenantOrgValuesToGlobalVariables(tenantIdFromProgramFile, orgIdsFromProgramFile)
+
+    def validateTenantAndOrgIdsFromResourceSheet(resourceFileContent):
+            print('validating resourceFileconetnt .....')
+            tenantIdFromresourceFile = None
+            orgIdsFromresourceFile = None
+                        
+            sheetNames1 = resourceFileContent.sheet_names()
+            for sheetEnv in sheetNames1:
+                if sheetEnv.strip().lower() == 'details':
+                    detailsEnvSheet = resourceFileContent.sheet_by_name(sheetEnv)
+                    keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
+                        range(detailsEnvSheet.ncols)]
+
+                    for row_index_env in range(2, detailsEnvSheet.nrows):
+                        dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
+                                    for
+                                    col_index_env in range(detailsEnvSheet.ncols)}
+                        tenantIdFromresourceFile = dictDetailsEnv.get('Tenant ID')
+                        orgIdsFromresourceFile = dictDetailsEnv.get('Org ID')
+
+            global roleOfResourceCreator
+            if roleOfResourceCreator not in ['org_admin', 'tenant_admin'] and not tenantIdFromresourceFile:
+                raise ValueError("Tenant ID is required in program template for role 'admin', it cannot be empty")
+
+            if roleOfResourceCreator not in ['org_admin'] and not orgIdsFromresourceFile:
+                raise ValueError("Org ID is required for role 'admin' and 'tenant_admin' in program template and cannot be empty")
+            
+            ElevateObservation.assignTenantOrgValuesToGlobalVariables(tenantIdFromresourceFile, orgIdsFromresourceFile)
+
     def ObsWRValidate(wbObservation1, accessToken, parentFolder,typeofSolution):
         print("Validating Observation temp....")
         global errorVar, entityType, solutionName, solutionDescription, scopeEntityType, dikshaLoginId, pointBasedValue
@@ -2709,7 +2866,7 @@ class ElevateObservation:
                 else:
                     if sheetEnv.strip().lower() == 'details':
                         print("--->Checking details sheet...")
-                        detailsCols = ["observation_solution_name", "observation_solution_description", "Elevate_loginId","Name_of_the_creator", "language", "allow_multiple_submissions", "keywords","scoring_system", "entity_type","start_date","end_date"]
+                        detailsCols = ["observation_solution_name", "observation_solution_description", "Elevate_loginId","Name_of_the_creator", "language", "allow_multiple_submissions", "keywords","scoring_system", "entity_type","start_date","end_date","Tenant ID","Org ID"]
                         detailsEnvSheet = wbObservation1.sheet_by_name(sheetEnv)
                         keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
                                 range(detailsEnvSheet.ncols)]
@@ -3139,6 +3296,1092 @@ class ElevateObservation:
             print(f"Error during ECM processing: {str(e)}")
             print(errorVar,"3270")        
 
+    def surveyValidate(filePathAddObs, accessToken, parentFolder):
+        print("Validating survey temp....")
+        global errorVar
+        try:
+            wbObservation1 = xlrd.open_workbook(filePathAddObs, on_demand=True)
+            sheetNames1 = wbObservation1.sheet_names()
+            survey_sheet_names = ['Instructions', 'details', 'questions']
+            if (len(survey_sheet_names) == len(sheetNames1)) and ((set(survey_sheet_names) == set(sheetNames1))):
+                print("--->Survey file detected.<---")
+            
+            for sheetEnvCheck in sheetNames1:
+                if sheetEnvCheck.strip().lower() == 'instructions' or sheetEnvCheck.strip().lower() == 'details' or sheetEnvCheck.strip().lower() == 'questions':
+                    pass
+                else:
+                    errorVar = 'Sheet Names in excel file is wrong , Sheet Names are details,questions'
+
+            detailsColNames = ["survey_solution_name", "survey_solution_description", "Name_of_the_creator","Username/user id/email id/phone no. of the Content creator", "survey_start_date", "survey_end_date"]
+            questionsColNames = ["question_sequence", "question_id", "section_header", "instance_parent_question_id",
+                                "parent_question_id", "show_when_parent_question_value_is", "parent_question_value",
+                                "page", "question_number", "question_language1", "question_language2", "question_tip",
+                                "question_hint", "instance_identifier", "question_response_type", "date_auto_capture",
+                                "response_required", "min_number_value", "max_number_value", "file_upload", "show_remarks",
+                                "response(R1)", "response(R2)", "response(R3)", "response(R4)", "response(R5)",
+                                "response(R6)", "response(R7)", "response(R8)", "response(R9)", "response(R10)",
+                                "response(R11)", "response(R12)", "response(R13)", "response(R14)", "response(R15)",
+                                "response(R16)", "response(R17)", "response(R18)", "response(R19)", "response(R20)",
+                                "response(R1)_hint", "response(R2)_hint", "response(R3)_hint", "response(R4)_hint",
+                                "response(R5)_hint", "response(R6)_hint", "response(R7)_hint", "response(R8)_hint",
+                                "response(R9)_hint", "response(R10)_hint", "response(R11)_hint", "response(R12)_hint",
+                                "response(R13)_hint", "response(R14)_hint", "response(R15)_hint", "response(R16)_hint",
+                                "response(R17)_hint", "response(R18)_hint", "response(R19)_hint", "response(R20)_hint"]
+
+            for sheetColCheck in sheetNames1:
+                # print(sheetColCheck,"sheetColCheck 2717")
+                if sheetColCheck.strip().lower() == 'details':
+                    detailsColCheck = wbObservation1.sheet_by_name(sheetColCheck)
+                    keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
+                                        range(detailsColCheck.ncols)]
+                    if len(keysColCheckDetai) != len(detailsColNames):
+                        errorVar = 'Some Columns are missing in details sheet'
+
+                    detailsEnvSheet = wbObservation1.sheet_by_name(sheetColCheck)
+                    keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
+                                range(detailsEnvSheet.ncols)]
+
+                    for row_index_env in range(2, detailsEnvSheet.nrows):
+                        dictDetailsEnv = {
+                            keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value for
+                            col_index_env in range(detailsEnvSheet.ncols)}
+                        if dictDetailsEnv['survey_solution_name']:
+                            surveysolutionname = dictDetailsEnv['survey_solution_name']
+                        else:
+                            errorVar = "validation failed :survey_solution_name column must not be Empty in details sheet"
+                        if dictDetailsEnv['survey_solution_description']:
+                            surveysolutiondescription = dictDetailsEnv['survey_solution_description']
+                        else:
+                            errorVar = "validation failed :survey_solution_description column must not be Empty in details sheet"
+                        if dictDetailsEnv['Name_of_the_creator']:
+                            Nameofthecreator = dictDetailsEnv['Name_of_the_creator']
+                        else:
+                            errorVar = "validation failed :Name_of_the_creator column must not be Empty in details sheet"
+                        if dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']:
+                            surveycreatorusername = dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']
+                        else:
+                            errorVar = "validation failed :Username/user id/email id/phone no. of the Content creator column must not be Empty in details sheet"
+                        if dictDetailsEnv['survey_start_date']:
+                            surveystartdate = dictDetailsEnv['survey_start_date']
+                        else:
+                            errorVar = "validation failed :survey_start_date column must not be Empty in details sheet"
+                        if dictDetailsEnv['survey_end_date']:
+                            surveyenddate = dictDetailsEnv['survey_end_date']
+                        else:
+                            errorVar = "validation failed :survey_end_date column must not be Empty in details sheet"
+
+                if sheetColCheck.strip().lower() == 'questions':
+                    questionsColCheck = wbObservation1.sheet_by_name(sheetColCheck)
+                    keysColCheckQues = [questionsColCheck.cell(1, col_index_check2).value for col_index_check2 in
+                                        range(questionsColCheck.ncols)]
+                    # print(keysColCheckQues)
+                    if len(keysColCheckQues) != len(questionsColNames):
+                        errorVar = 'Some Columns are missing in questions sheet'
+                    for row_index_env in range(2, questionsColCheck.nrows):
+                        dictDetailsEnv = {
+                            keysColCheckQues[col_index_env]: questionsColCheck.cell(row_index_env, col_index_env).value for
+                            col_index_env in range(questionsColCheck.ncols)}
+                        if dictDetailsEnv['question_sequence']:
+                            question_sequenceSUR = dictDetailsEnv['question_sequence']
+                        else:
+                            errorVar = "validation failed :question_sequence column must not be Empty in questions sheet"
+                        if dictDetailsEnv['question_id']:
+                            question_idSUR = dictDetailsEnv['question_id'].encode('utf-8').decode('utf-8')
+                        else:
+                            errorVar = "validation failed :question_id column must not be Empty in questions sheet"
+                        if dictDetailsEnv['page']:
+                            pageSUR = dictDetailsEnv['page']
+                        else:
+                            errorVar = "validation failed :page column must not be Empty in questions sheet"
+                        if dictDetailsEnv['question_number']:
+                            question_numberSUR = dictDetailsEnv['question_number']
+                        else:
+                            errorVar = "validation failed :question_number column must not be Empty in questions sheet"
+                        if dictDetailsEnv['question_language1']:
+                            question_language1SUR = dictDetailsEnv['question_language1'].encode('utf-8').decode('utf-8')
+                        else:
+                            errorVar = "validation failed :question_language1 column must not be Empty in questions sheet"
+                        if dictDetailsEnv['question_response_type']:
+                            question_response_typeSUR = dictDetailsEnv['question_response_type']
+                        else:
+                            errorVar = "validation failed :question_response_type column must not be Empty in questions sheet"
+                        if dictDetailsEnv['response_required']:
+                            response_requiredSUR = dictDetailsEnv['response_required']
+                        else:
+                            errorVar = "validation failed :response_required column must not be Empty in questions sheet"
+            if errorVar == "":
+                return True
+            else:
+                print(errorVar,"3415")
+                return False            
+        except Exception as e:
+            print(f"Error during ECM processing: {str(e)}")
+            print(errorVar,"3419")
+
+    def createSurveySolution(parentFolder, wbSurvey, accessToken):
+        global errorVar
+        error_message = ""
+        print("Create Survey Solution Func Called....")
+        sheetNames1 = wbSurvey.sheet_names()
+        for sheetEnv in sheetNames1:
+            if sheetEnv.strip().lower() == 'details':
+                surveySolutionCreationReqBody = {}
+                detailsEnvSheet = wbSurvey.sheet_by_name(sheetEnv)
+                keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
+                        range(detailsEnvSheet.ncols)]
+
+                for row_index_env in range(2, detailsEnvSheet.nrows):
+                    dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
+                                    for
+                                    col_index_env in range(detailsEnvSheet.ncols)}
+                    surveySolutionCreationReqBody['name'] = dictDetailsEnv['survey_solution_name'].encode('utf-8').decode('utf-8')
+                    surveySolutionCreationReqBody["description"] = dictDetailsEnv['survey_solution_description'].encode('utf-8').decode('utf-8')
+                    surveySolutionExternalId = str(uuid.uuid1())
+                    surveySolutionCreationReqBody["externalId"] = surveySolutionExternalId
+                    if dictDetailsEnv['Name_of_the_creator']== "":
+                        exceptionHandlingFlag = True
+                        print('survey_creator_username column should not be empty in the details sheet column should not be empty in the details sheet')
+                        # sys.exit()
+                    else:
+                        surveySolutionCreationReqBody['creator'] = dictDetailsEnv['Name_of_the_creator']
+
+
+                    userDetails = ElevateObservation.fetchUserDetails( accessToken, dictDetailsEnv['survey_creator_username'])
+                    surveySolutionCreationReqBody['author'] = userDetails[0]
+                    global SurveyTemplateStartDate, SurveyTemplateEndDate
+                    SurveyTemplateStartDate = dictDetailsEnv["survey_start_date"]
+                    SurveyTemplateEndDate = dictDetailsEnv["survey_end_date"]
+                    try: 
+                        urlCreateSolutionApi = INTERNAL_KONG_IP+ surveySolutionCreationApiUrl
+                        headerCreateSolutionApi = {
+                            'Content-Type': content_type,
+                            "internal-access-token": internal_access_token,
+                            # 'Authorization': config.get(environment, 'Authorization'),
+                            'X-auth-token': accessToken,
+                            # 'X-Channel-id': config.get(environment, 'X-Channel-id'),
+                            # 'appName': config.get(environment, 'appName'),
+                            'tenantId': tenantID,
+                            'orgid': orgIDFromTemplate,
+                            adminTokenHeaderName: adminAccessToken
+                        }
+                        responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi,
+                                                                headers=headerCreateSolutionApi,
+                                                                data=json.dumps(surveySolutionCreationReqBody))
+                        responseInText = responseCreateSolutionApi.text
+                        messageArr = ["********* Create Survey Solution *********", "URL : " + urlCreateSolutionApi,
+                                    "BODY : " + str(surveySolutionCreationReqBody),
+                                    "Status code : " + str(responseCreateSolutionApi.status_code),
+                                    "Response : " + responseCreateSolutionApi.text]
+                        fileheader = [surveySolutionCreationReqBody['name'].encode('utf-8').decode('utf-8'),'Program Sheet Validation'," "]
+                        ElevateObservation.createAPILog(parentFolder, messageArr)
+                        ElevateObservation.apicheckslog(parentFolder,fileheader)
+                        if responseCreateSolutionApi.status_code == 200:
+                            responseCreateSolutionApi = responseCreateSolutionApi.json()
+                            urlSearchSolution = INTERNAL_KONG_IP + fetchsolutiondetails + "survey&page=1&limit=10&search=" + str(surveySolutionExternalId)
+                            responseSearchSolution = requests.request("POST", urlSearchSolution,
+                                                                    headers=headerCreateSolutionApi)
+                            messageArr = ["********* Search Survey Solution *********", "URL : " + urlSearchSolution,
+                                        "Status code : " + str(responseSearchSolution.status_code),
+                                        "Response : " + responseSearchSolution.text]
+                            ElevateObservation.createAPILog(parentFolder, messageArr)
+                            ElevateObservation.apicheckslog(parentFolder, messageArr)
+                            if responseSearchSolution.status_code == 200:
+                                responseSearchSolutionApi = responseSearchSolution.json()
+                                surveySolutionExternalId = None
+                                surveySolutionExternalId = responseSearchSolutionApi['result']['data'][0]['externalId']
+                                # return True
+                            else:
+                                error_message = ""
+                                if responseSearchSolution.status_code in [400, 401, 403, 404, 422]:
+                                    error_message = f"SearchSolution-Client Error {responseSearchSolution.status_code}: {responseSearchSolution.text}"
+                                elif responseSearchSolution.status_code in [500, 502, 503, 504]:
+                                    error_message = f"SearchSolution-Server Error {responseSearchSolution.status_code}: {responseSearchSolution.text}"
+                                else:
+                                    error_message = f"SearchSolution-Unexpected Error {responseSearchSolution.status_code}: {responseSearchSolution.text}"
+                                errorVar = error_message
+                                print(error_message)
+                                messageArr.append(f"Error Response: {error_message}")
+                                ElevateObservation.createAPILog(messageArr) 
+                                # return False
+                            solutionId = None
+                            solutionId = responseCreateSolutionApi["result"]["solutionId"]
+                            bodySolutionUpdate = {"creator": dictDetailsEnv['Name_of_the_creator'].encode('utf-8').decode('utf-8')}
+                            if ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
+                                return [solutionId, surveySolutionExternalId]
+                            else:
+                                print("solution update failed...")
+                                print(errorVar)
+                                return errorVar
+                        else:
+                            error_message = ""
+                            if responseCreateSolutionApi.status_code in [400, 401, 403, 404, 422]:
+                                error_message = f"CreateSolutionApi-Client Error {responseCreateSolutionApi.status_code}: {responseCreateSolutionApi.text}"
+                            elif responseCreateSolutionApi.status_code in [500, 502, 503, 504]:
+                                error_message = f"CreateSolutionApi-Server Error {responseCreateSolutionApi.status_code}: {responseCreateSolutionApi.text}"
+                            else:
+                                error_message = f"CreateSolutionApi-Unexpected Error {responseCreateSolutionApi.status_code}: {responseCreateSolutionApi.text}"
+                            errorVar = error_message
+                            print(error_message)
+                            messageArr.append(f"Error Response: {error_message}")
+                            ElevateObservation.createAPILog(messageArr) 
+                            return False 
+    
+                    except Exception as e:
+                        errorVar = error_message
+                        print(error_message,"5591")
+                        print(errorVar,"5592")
+                        ElevateObservation.createAPILog([f"Exception: {str(e)}"])
+    
+    def convert_to_date(date_str):
+        return datetime.strptime(date_str, "%d-%m-%Y")
+    
+    def uploadSurveyQuestions(MainFilePath, parentFolder, wbSurvey, addObservationSolution, accessToken, surTempExtID, surTempSolID, millisecond, programFile):
+        print("Upload Survey Questions Func Called....")
+        # print(parentFolder,"4854")
+        # wbSurvey = xlrd.open_workbook(wbSurvey, on_demand=True)
+        # print(f"Type of wbSurvey: {type(wbSurvey)}")
+        sheetNam = wbSurvey.sheet_names()
+        # print(sheetNam,"4854")
+        global surveySolutionlink, errorVar
+        error_message = ""
+        stDt = None
+        enDt = None
+        shCnt = 0
+        for i in sheetNam:
+            if i.strip().lower() == 'questions':
+                sheetNam1 = wbSurvey.sheets()[shCnt]
+            shCnt = shCnt + 1
+        dataSort = [sheetNam1.row_values(i) for i in range(sheetNam1.nrows)]
+        labels = dataSort[1]
+        dataSort = dataSort[2:]
+        dataSort.sort(key=lambda x: int(x[0]))
+        openWorkBookSort1 = xl_copy(wbSurvey)
+        sheet1 = openWorkBookSort1.add_sheet('questions_sequence_sorted')
+
+        for idx, label in enumerate(labels):
+            sheet1.write(0, idx, label)
+
+        for idx_r, row in enumerate(dataSort):
+            for idx_c, value in enumerate(row):
+                sheet1.write(idx_r + 1, idx_c, value)
+        newFileName = str(addObservationSolution)
+        openWorkBookSort1.save(newFileName)
+        openNewFile = xlrd.open_workbook(newFileName, on_demand=True)
+        wbSurvey = openNewFile
+        sheetNames = wbSurvey.sheet_names()
+        # print("reached till here 4881")
+        for sheet2 in sheetNames:
+            if sheet2.strip().lower() == 'questions_sequence_sorted':
+                questionsList = []
+                questionsSheet = wbSurvey.sheet_by_name(sheet2.lower())
+                keys2 = [questionsSheet.cell(0, col_index2).value for col_index2 in
+                        range(questionsSheet.ncols)]
+                for row_index2 in range(1, questionsSheet.nrows):
+                    d2 = {keys2[col_index2]: questionsSheet.cell(row_index2, col_index2).value
+                        for col_index2 in range(questionsSheet.ncols)}
+                    questionsList.append(d2)
+                questionSeqByEcmArr = []
+                quesSeqCnt = 1.0
+                questionUploadFieldnames = []
+                questionUploadFieldnames = ['solutionId', 'instanceParentQuestionId','hasAParentQuestion', 'parentQuestionOperator','parentQuestionValue', 'parentQuestionId','externalId', 'question0', 'question1', 'tip','hint', 'instanceIdentifier', 'responseType','dateFormat', 'autoCapture', 'validation','validationIsNumber', 'validationRegex','validationMax', 'validationMin', 'file','fileIsRequired', 'fileUploadType','allowAudioRecording', 'minFileCount','maxFileCount', 'caption', 'questionGroup','modeOfCollection', 'accessibility', 'showRemarks','rubricLevel', 'isAGeneralQuestion', 'R1','R1-hint', 'R2', 'R2-hint', 'R3', 'R3-hint', 'R4','R4-hint', 'R5', 'R5-hint', 'R6', 'R6-hint', 'R7','R7-hint', 'R8', 'R8-hint', 'R9', 'R9-hint', 'R10','R10-hint', 'R11', 'R11-hint', 'R12', 'R12-hint','R13', 'R13-hint', 'R14', 'R14-hint', 'R15','R15-hint', 'R16', 'R16-hint', 'R17', 'R17-hint','R18', 'R18-hint', 'R19', 'R19-hint', 'R20','R20-hint', 'sectionHeader', 'page','questionNumber', '_arrayFields']
+
+                for ques in questionsList:
+
+                    questionFilePath = parentFolder + '/questionUpload/'
+                    file_exists_ques = os.path.isfile(
+                        parentFolder + '/questionUpload/uploadSheet.csv')
+                    # print(questionFilePath,"4904")
+                    if not os.path.exists(questionFilePath):
+                        os.mkdir(questionFilePath)
+                    with open(parentFolder + '/questionUpload/uploadSheet.csv', 'a',
+                            encoding='utf-8') as questionUploadFile:
+                        writerQuestionUpload = csv.DictWriter(questionUploadFile, fieldnames=questionUploadFieldnames, lineterminator='\n')
+                        if not file_exists_ques:
+                            writerQuestionUpload.writeheader()
+                        questionFileObj = {}
+                        surveyExternalId = None
+                        questionFileObj['solutionId'] = surTempExtID
+                        if ques['instance_parent_question_id'].encode('utf-8').decode('utf-8'):
+                            questionFileObj['instanceParentQuestionId'] = ques[
+                                                                            'instance_parent_question_id'].strip() + '_' + str(
+                                millisecond)
+                        else:
+                            questionFileObj['instanceParentQuestionId'] = 'NA'
+                        if ques['parent_question_id'].encode('utf-8').decode('utf-8').strip():
+                            questionFileObj['hasAParentQuestion'] = 'YES'
+                            if ques['show_when_parent_question_value_is'] == 'or':
+                                questionFileObj['parentQuestionOperator'] = '||'
+                            else:
+                                questionFileObj['parentQuestionOperator'] = ques['show_when_parent_question_value_is']
+                            if type(ques['parent_question_value']) != str:
+                                if (ques['parent_question_value'] and ques[
+                                    'parent_question_value'].is_integer() == True):
+                                    questionFileObj['parentQuestionValue'] = int(ques['parent_question_value'])
+                                elif (ques['parent_question_value'] and ques[
+                                    'parent_question_value'].is_integer() == False):
+                                    questionFileObj['parentQuestionValue'] = ques['parent_question_value']
+                            else:
+                                questionFileObj['parentQuestionValue'] = ques['parent_question_value']
+                                questionFileObj['parentQuestionId'] = ques['parent_question_id'].encode('utf-8').decode('utf-8').strip() + '_' + str(
+                                    millisecond)
+                        else:
+                            questionFileObj['hasAParentQuestion'] = 'NO'
+                            questionFileObj['parentQuestionOperator'] = None
+                            questionFileObj['parentQuestionValue'] = None
+                            questionFileObj['parentQuestionId'] = None
+                        questionFileObj['externalId'] = ques['question_id'].strip() + '_' + str(millisecond)
+                        if quesSeqCnt == ques['question_sequence']:
+                            questionSeqByEcmArr.append(ques['question_id'].strip() + '_' + str(millisecond))
+                            quesSeqCnt = quesSeqCnt + 1.0
+                        if ques['question_language1']:
+                            questionFileObj['question0'] = ques['question_language1'].encode('utf-8').decode('utf-8')
+                        else:
+                            questionFileObj['question0'] = None
+                        if ques['question_language2']:
+                            questionFileObj['question1'] = ques['question_language2'].encode('utf-8').decode('utf-8')
+                        else:
+                            questionFileObj['question1'] = None
+                        if ques['question_tip']:
+                            questionFileObj['tip'] = ques['question_tip'].encode('utf-8').decode('utf-8')
+                        else:
+                            questionFileObj['tip'] = None
+                        if ques['question_hint']:
+                            questionFileObj['hint'] = ques['question_hint'].encode('utf-8').decode('utf-8')
+                        else:
+                            questionFileObj['hint'] = None
+                        if ques['instance_identifier']:
+                            questionFileObj['instanceIdentifier'] = ques['instance_identifier'].encode('utf-8').decode('utf-8')
+                        else:
+                            questionFileObj['instanceIdentifier'] = None
+                        if ques['question_response_type'].strip().lower():
+                            questionFileObj['responseType'] = ques['question_response_type'].strip().lower()
+                        if ques['question_response_type'].strip().lower() == 'date':
+                            questionFileObj['dateFormat'] = "DD-MM-YYYY"
+                        else:
+                            questionFileObj['dateFormat'] = None
+                        if ques['question_response_type'].strip().lower() == 'date':
+                            if ques['date_auto_capture'] and ques['date_auto_capture'] == 1:
+                                questionFileObj['autoCapture'] = 'TRUE'
+                            elif ques['date_auto_capture'] and ques['date_auto_capture'] == 0:
+                                questionFileObj['autoCapture'] = 'false'
+                            else:
+                                questionFileObj['autoCapture'] = 'false'
+                        else:
+                            questionFileObj['autoCapture'] = None
+                        if ques['response_required']:
+                            if ques['response_required'] == 1:
+                                questionFileObj['validation'] = 'TRUE'
+                            elif ques['response_required'] == 0:
+                                questionFileObj['validation'] = 'FALSE'
+                        else:
+                            questionFileObj['validation'] = 'FALSE'
+                        if ques['question_response_type'].strip().lower() == 'number':
+                            questionFileObj['validationIsNumber'] = 'TRUE'
+                            questionFileObj['validationRegex'] = 'isNumber'
+                            if (ques['max_number_value'] and ques['max_number_value'].is_integer() == True):
+                                questionFileObj['validationMax'] = int(ques['max_number_value'])
+                            elif (ques['max_number_value'] and ques['max_number_value'].is_integer() == False):
+                                questionFileObj['validationMax'] = ques['max_number_value']
+                            else:
+                                questionFileObj['validationMax'] = 10000
+
+                            if (ques['min_number_value'] and ques['min_number_value'].is_integer() == True):
+                                questionFileObj['validationMin'] = int(ques['min_number_value'])
+                            elif (ques['min_number_value'] and ques['min_number_value'].is_integer() == False):
+                                questionFileObj['validationMin'] = ques['min_number_value']
+                            else:
+                                questionFileObj['validationMax'] = 10000
+
+                            if (ques['min_number_value'] and ques['min_number_value'].is_integer() == True):
+                                questionFileObj['validationMin'] = int(ques['min_number_value'])
+                            elif (ques['min_number_value'] and ques['min_number_value'].is_integer() == False):
+                                questionFileObj['validationMin'] = ques['min_number_value']
+                            else:
+                                questionFileObj['validationMin'] = 0
+
+                        elif ques['question_response_type'].strip().lower() == 'slider':
+                            questionFileObj['validationIsNumber'] = None
+                            questionFileObj['validationRegex'] = 'isNumber'
+                            if (ques['max_number_value'] and ques['max_number_value'].is_integer() == True):
+                                questionFileObj['validationMax'] = int(ques['max_number_value'])
+                            elif (ques['max_number_value'] and ques['max_number_value'].is_integer() == False):
+                                questionFileObj['validationMax'] = ques['max_number_value']
+                            else:
+                                questionFileObj['validationMax'] = 5
+
+                            if (ques['min_number_value'] and ques['min_number_value'].is_integer() == True):
+                                questionFileObj['validationMin'] = int(ques['min_number_value'])
+                            elif (ques['min_number_value'] and ques['min_number_value'].is_integer() == False):
+                                questionFileObj['validationMin'] = ques['min_number_value']
+                            else:
+                                questionFileObj['validationMin'] = 0
+                        else:
+                            questionFileObj['validationIsNumber'] = None
+                            questionFileObj['validationRegex'] = None
+                            questionFileObj['validationMax'] = None
+                            questionFileObj['validationMin'] = None
+                        if ques['file_upload'] == 1:
+                            questionFileObj['file'] = 'Snapshot'
+                            questionFileObj['fileIsRequired'] = 'TRUE'
+                            questionFileObj['fileUploadType'] = 'image/jpeg,docx,pdf,ppt'
+                            questionFileObj['minFileCount'] = 0
+                            questionFileObj['maxFileCount'] = 10
+                        elif ques['file_upload'] == 0:
+                            questionFileObj['file'] = 'NA'
+                            questionFileObj['fileIsRequired'] = None
+                            questionFileObj['fileUploadType'] = None
+                            questionFileObj['minFileCount'] = None
+                            questionFileObj['maxFileCount'] = None
+
+                        questionFileObj['caption'] = 'FALSE'
+                        questionFileObj['questionGroup'] = 'A1'
+                        questionFileObj['modeOfCollection'] = 'onfield'
+                        questionFileObj['accessibility'] = 'No'
+                        if ques['show_remarks'] == 1:
+                            questionFileObj['showRemarks'] = 'TRUE'
+                        elif ques['show_remarks'] == 0:
+                            questionFileObj['showRemarks'] = 'FALSE'
+                        questionFileObj['rubricLevel'] = None
+                        questionFileObj['isAGeneralQuestion'] = None
+                        if ques['question_response_type'].strip().lower() == 'radio' or ques[
+                            'question_response_type'].strip() == 'multiselect':
+                            for quesIndex in range(1, 21):
+                                if type(ques['response(R' + str(quesIndex) + ')']) != str:
+                                    if (ques['response(R' + str(quesIndex) + ')'] and ques[
+                                        'response(R' + str(quesIndex) + ')'].is_integer() == True):
+                                        questionFileObj['R' + str(quesIndex) + ''] = int(
+                                            ques['response(R' + str(quesIndex) + ')'])
+                                    elif (ques['response(R' + str(quesIndex) + ')'] and ques[
+                                        'response(R' + str(quesIndex) + ')'].is_integer() == False):
+                                        questionFileObj['R' + str(quesIndex) + ''] = ques[
+                                            'response(R' + str(quesIndex) + ')']
+                                else:
+                                    questionFileObj['R' + str(quesIndex) + ''] = ques[
+                                        'response(R' + str(quesIndex) + ')']
+
+                                if type(ques['response(R' + str(quesIndex) + ')_hint']) != str:
+                                    if (ques['response(R' + str(quesIndex) + ')_hint'] and ques[
+                                        'response(R' + str(quesIndex) + ')_hint'].is_integer() == True):
+                                        questionFileObj['R' + str(quesIndex) + '-hint'] = int(
+                                            ques['response(R' + str(quesIndex) + ')_hint'])
+                                    elif (ques['response(R' + str(quesIndex) + ')_hint'] and ques[
+                                        'response(R' + str(quesIndex) + ')_hint'].is_integer() == False):
+                                        questionFileObj['R' + str(quesIndex) + '-hint'] = ques[
+                                            'response(R' + str(quesIndex) + ')_hint']
+                                else:
+                                    questionFileObj['R' + str(quesIndex) + '-hint'] = ques[
+                                        'response(R' + str(quesIndex) + ')_hint']
+                                questionFileObj['_arrayFields'] = 'parentQuestionValue'
+                        else:
+                            for quesIndex in range(1, 21):
+                                questionFileObj['R' + str(quesIndex)] = None
+                                questionFileObj['R' + str(quesIndex) + '-hint'] = None
+                        if ques['section_header']:
+                            questionFileObj['sectionHeader'] = ques['section_header'].encode('utf-8').decode('utf-8')
+                        else:
+                            questionFileObj['sectionHeader'] = None
+
+                        questionFileObj['page'] = ques['page']
+                        if type(ques['question_number']) != str:
+                            if ques['question_number'] and ques['question_number'].is_integer() == True:
+                                questionFileObj['questionNumber'] = int(ques['question_number'])
+                            elif ques['question_number']:
+                                questionFileObj['questionNumber'] = ques['question_number']
+                            else:
+                                questionFileObj['questionNumber'] = ques['question_number']
+                        writerQuestionUpload.writerow(questionFileObj)
+                try:        
+                    urlQuestionsUploadApi = INTERNAL_KONG_IP + questionUploadApiUrl
+                    headerQuestionUploadApi = {
+                        'Authorization': authorization,
+                        'X-authenticated-user-token': accessToken,
+                        'X-Channel-id': x_channel_id
+                    }
+                    filesQuestion = {
+                        'questions': open(parentFolder + '/questionUpload/uploadSheet.csv', 'rb')
+                    }
+                    responseQuestionUploadApi = requests.post(url=urlQuestionsUploadApi,
+                                                            headers=headerQuestionUploadApi, files=filesQuestion)
+                    if responseQuestionUploadApi.status_code == 200:
+                        print('Question upload Success')
+
+                        messageArr = ["********* Question Upload api *********", "URL : " + urlQuestionsUploadApi,
+                                    "Path : " + str(parentFolder) + str('/questionUpload/uploadSheet.csv'),
+                                    "Status code : " + str(responseQuestionUploadApi.status_code),
+                                    "Response : " + responseQuestionUploadApi.text]
+                        ElevateObservation.createAPILog(parentFolder, messageArr)
+                        messageArr1 = ["Questions","Question upload Success","Passed",str(responseQuestionUploadApi.status_code)]
+                        ElevateObservation.apicheckslog(parentFolder,messageArr1)
+
+                        with open(parentFolder + '/questionUpload/uploadInternalIdsSheet.csv', 'w+',encoding='utf-8') as questionRes:
+                            questionRes.write(responseQuestionUploadApi.text)
+                        urlImportSoluTemplate = INTERNAL_KONG_IP + importSurveySolutionTemplateUrl + str(surTempSolID) + "?appName=manage-learn"
+                        headerImportSoluTemplateApi = {
+                            'X-auth-token': accessToken,
+                            'X-Channel-id': x_channel_id,
+                            'internal-access-token': internal_access_token,
+                            'tenantId': tenantID,
+                            'orgid': orgIDFromTemplate,
+                            adminTokenHeaderName: adminAccessToken
+                        }
+                        responseImportSoluTemplateApi = requests.get(url=urlImportSoluTemplate,
+                                                                    headers=headerImportSoluTemplateApi)
+                        if responseImportSoluTemplateApi.status_code == 200:
+                            print('Creating Child Success')
+
+                            messageArr = ["********* Creating Child api *********", "URL : " + urlImportSoluTemplate,
+                                        "Status code : " + str(responseImportSoluTemplateApi.status_code),
+                                        "Response : " + responseImportSoluTemplateApi.text]
+                            ElevateObservation.createAPILog(parentFolder, messageArr)
+                            responseImportSoluTemplateApi = responseImportSoluTemplateApi.json()
+                            solutionIdSuc = responseImportSoluTemplateApi["result"]["solutionId"]
+                            urlSurveyProgramMapping = INTERNAL_KONG_IP + importSurveySolutionToProgramUrl + str(solutionIdSuc) + "?programId=" + programExternalId.lstrip().rstrip()
+                            headeSurveyProgramMappingApi = {
+                                'X-auth-token': accessToken,
+                                'X-Channel-id': x_channel_id,
+                                'internal-access-token': internal_access_token,
+                                'tenantId': tenantID,
+                                'orgid': orgIDFromTemplate,
+                                adminTokenHeaderName: adminAccessToken
+                            }
+                            responseSurveyProgramMappingApi = requests.get(url=urlSurveyProgramMapping,headers=headeSurveyProgramMappingApi)
+                            if responseSurveyProgramMappingApi.status_code == 200:
+                                print('Program Mapping Success')
+                                
+                                messageArr = ["********* Program mapping api *********", "URL : " + urlSurveyProgramMapping,
+                                            "Status code : " + str(responseSurveyProgramMappingApi.status_code),
+                                            "Response : " + responseSurveyProgramMappingApi.text]
+                                ElevateObservation.createAPILog(parentFolder, messageArr)
+                                surveyLink = None
+                                solutionIdSuc = None
+                                surveyExternalIdSuc = None
+                                surveyLink = responseImportSoluTemplateApi["result"]["link"]
+                                solutionIdSuc = responseImportSoluTemplateApi["result"]["solutionId"]
+                                solutionExtIdSuc = responseImportSoluTemplateApi["result"]["solutionExternalId"]
+                                print("Survey Child Id : " + str(solutionExtIdSuc))
+                                solutionDetails = ElevateObservation.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionIdSuc,
+                                                                                    accessToken)
+                                solutionStartDate1 = ElevateObservation.convert_to_date(solutionDetails[1])
+                                solutionEndDate1 = ElevateObservation.convert_to_date(solutionDetails[2])
+                                SurveyTemplateStartDate1 = ElevateObservation.convert_to_date(SurveyTemplateStartDate)
+                                SurveyTemplateEndDate1 = ElevateObservation.convert_to_date(SurveyTemplateEndDate)
+                                if SurveyTemplateStartDate1 == solutionStartDate1 and SurveyTemplateEndDate1 == solutionEndDate1:
+                                    scopeEntities = entitiesPGMID
+                                    scopeRoles = solutionDetails[0]
+                                    scope = {}
+                                    for i in range(len(entitiesType)):
+                                        entity_type = entitiesType[i]
+                                        entity_value = scopeEntities[i]
+                                        if entity_type in scope:
+                                            scope[entity_type].append(entity_value)
+                                        else:
+                                            scope[entity_type] = [entity_value]
+                                # bodySolutionUpdate = {
+                                #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
+                                    scope["roles"] = rolesPGMID
+                                    bodySolutionUpdate = {
+                                        "scope": scope
+                                    }
+                                    ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
+                                    if solutionDetails[1]:
+                                        startDateArr = str(solutionDetails[1]).split("-")
+                                        bodySolutionUpdate = {
+                                            "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
+                                        ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
+                                    if solutionDetails[2]:
+                                        endDateArr = str(solutionDetails[2]).split("-")
+                                        bodySolutionUpdate = {
+                                            "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
+                                        ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
+                                    surveySolutionlink = ElevateObservation.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, solutionExtIdSuc,
+                                                        solutionIdSuc, accessToken)
+                                
+                                    print('Survey Successfully Added')
+                                    print(surveySolutionlink)
+                                else:
+                                    errorVar = "The survey Template start date and end date do not match the start date and end date at the Program Template."
+                                    return errorVar
+                            else:
+                                print('Program Mapping Failed')
+                                error_message = ""
+                                if responseSurveyProgramMappingApi.status_code in [400, 401, 403, 404, 422]:
+                                    error_message = f"SurveyProgramMappingApi-Client Error {responseSurveyProgramMappingApi.status_code}: {responseSurveyProgramMappingApi.text}"
+                                elif responseSurveyProgramMappingApi.status_code in [500, 502, 503, 504]:
+                                    error_message = f"SurveyProgramMappingApi-Server Error {responseSurveyProgramMappingApi.status_code}: {responseSurveyProgramMappingApi.text}"
+                                else:
+                                    error_message = f"SurveyProgramMappingApi-Unexpected Error {responseSurveyProgramMappingApi.status_code}: {responseSurveyProgramMappingApi.text}"
+
+                                messageArr = ["********* Program mapping api *********", "URL : " + urlSurveyProgramMapping,
+                                            "Status code : " + str(responseSurveyProgramMappingApi.status_code),
+                                            "Response : " + responseSurveyProgramMappingApi.text]
+                                ElevateObservation.createAPILog(parentFolder, messageArr)
+                                errorVar = error_message
+                                print(error_message)
+                                messageArr.append(f"Error Response: {error_message}")
+                        else:
+                            print('Creating Child API Failed')
+                            error_message = ""
+                            if responseImportSoluTemplateApi.status_code in [400, 401, 403, 404, 422]:
+                                error_message = f"ImportSoluTemplateApi-Client Error {responseImportSoluTemplateApi.status_code}: {responseImportSoluTemplateApi.text}"
+                            elif responseImportSoluTemplateApi.status_code in [500, 502, 503, 504]:
+                                error_message = f"ImportSoluTemplateApi-Server Error {responseImportSoluTemplateApi.status_code}: {responseImportSoluTemplateApi.text}"
+                            else:
+                                error_message = f"ImportSoluTemplateApi-Unexpected Error {responseImportSoluTemplateApi.status_code}: {responseImportSoluTemplateApi.text}"
+
+                            messageArr = ["********* Program mapping api *********", "URL : " + urlImportSoluTemplate,
+                                        "Status code : " + str(responseImportSoluTemplateApi.status_code),
+                                        "Response : " + responseImportSoluTemplateApi.text]
+                            ElevateObservation.createAPILog(parentFolder, messageArr)
+                            errorVar = error_message
+                            print(error_message)
+                            messageArr.append(f"Error Response: {error_message}")
+                    else:
+                        if responseQuestionUploadApi.status_code in [400, 401, 403, 404, 422]:
+                            error_message = f"QuestionUploadApi-Client Error {responseQuestionUploadApi.status_code}: {responseQuestionUploadApi.text}"
+                        elif responseQuestionUploadApi.status_code in [500, 502, 503, 504]:
+                            error_message = f"QuestionUploadApi-Server Error {responseQuestionUploadApi.status_code}: {responseQuestionUploadApi.text}"
+                        else:
+                            error_message = f"QuestionUploadApi-Unexpected Error {responseQuestionUploadApi.status_code}: {responseQuestionUploadApi.text}"
+                        print('QuestionUploadApi Failed')
+                        messageArr = ["********* Question Upload api *********", "URL : " + urlQuestionsUploadApi,
+                                    "Path : " + str(parentFolder) + str('/questionUpload/uploadSheet.csv'),
+                                    "Status code : " + str(responseQuestionUploadApi.status_code),
+                                    "Response : " + responseQuestionUploadApi.text]
+                        ElevateObservation.createAPILog(parentFolder, messageArr)
+                        errorVar = error_message
+                        messageArr.append(f"Error Response: {error_message}")
+            
+                except Exception as e:
+                    errorVar = error_message
+                    ElevateObservation.createAPILog(parentFolder, [f"Exception: {str(e)}"])
+        if errorVar == "":
+            return surveySolutionlink
+        else:
+            return errorVar
+
+    def NOPuploadSurveyQuestions(MainFilePath, parentFolder, wbSurvey, addObservationSolution, accessToken, surTempExtID, surTempSolID, millisecond, programFile):
+        print("Upload Survey Questions Func Called....")
+        # print(parentFolder,"4854")
+        # wbSurvey = xlrd.open_workbook(wbSurvey, on_demand=True)
+        # print(f"Type of wbSurvey: {type(wbSurvey)}")
+        sheetNam = wbSurvey.sheet_names()
+        # print(sheetNam,"4854")
+        global surveySolutionlink, errorVar
+        error_message = ""
+        stDt = None
+        enDt = None
+        shCnt = 0
+        for i in sheetNam:
+            if i.strip().lower() == 'questions':
+                sheetNam1 = wbSurvey.sheets()[shCnt]
+            shCnt = shCnt + 1
+        dataSort = [sheetNam1.row_values(i) for i in range(sheetNam1.nrows)]
+        labels = dataSort[1]
+        dataSort = dataSort[2:]
+        dataSort.sort(key=lambda x: int(x[0]))
+        openWorkBookSort1 = xl_copy(wbSurvey)
+        sheet1 = openWorkBookSort1.add_sheet('questions_sequence_sorted')
+
+        for idx, label in enumerate(labels):
+            sheet1.write(0, idx, label)
+
+        for idx_r, row in enumerate(dataSort):
+            for idx_c, value in enumerate(row):
+                sheet1.write(idx_r + 1, idx_c, value)
+        newFileName = str(addObservationSolution)
+        openWorkBookSort1.save(newFileName)
+        openNewFile = xlrd.open_workbook(newFileName, on_demand=True)
+        wbSurvey = openNewFile
+        sheetNames = wbSurvey.sheet_names()
+        # print("reached till here 4881")
+        for sheet2 in sheetNames:
+            if sheet2.strip().lower() == 'questions_sequence_sorted':
+                questionsList = []
+                questionsSheet = wbSurvey.sheet_by_name(sheet2.lower())
+                keys2 = [questionsSheet.cell(0, col_index2).value for col_index2 in
+                        range(questionsSheet.ncols)]
+                for row_index2 in range(1, questionsSheet.nrows):
+                    d2 = {keys2[col_index2]: questionsSheet.cell(row_index2, col_index2).value
+                        for col_index2 in range(questionsSheet.ncols)}
+                    questionsList.append(d2)
+                questionSeqByEcmArr = []
+                quesSeqCnt = 1.0
+                questionUploadFieldnames = []
+                questionUploadFieldnames = ['solutionId', 'instanceParentQuestionId','hasAParentQuestion', 'parentQuestionOperator','parentQuestionValue', 'parentQuestionId','externalId', 'question0', 'question1', 'tip','hint', 'instanceIdentifier', 'responseType','dateFormat', 'autoCapture', 'validation','validationIsNumber', 'validationRegex','validationMax', 'validationMin', 'file','fileIsRequired', 'fileUploadType','allowAudioRecording', 'minFileCount','maxFileCount', 'caption', 'questionGroup','modeOfCollection', 'accessibility', 'showRemarks','rubricLevel', 'isAGeneralQuestion', 'R1','R1-hint', 'R2', 'R2-hint', 'R3', 'R3-hint', 'R4','R4-hint', 'R5', 'R5-hint', 'R6', 'R6-hint', 'R7','R7-hint', 'R8', 'R8-hint', 'R9', 'R9-hint', 'R10','R10-hint', 'R11', 'R11-hint', 'R12', 'R12-hint','R13', 'R13-hint', 'R14', 'R14-hint', 'R15','R15-hint', 'R16', 'R16-hint', 'R17', 'R17-hint','R18', 'R18-hint', 'R19', 'R19-hint', 'R20','R20-hint', 'sectionHeader', 'page','questionNumber', '_arrayFields']
+
+                for ques in questionsList:
+
+                    questionFilePath = parentFolder + '/questionUpload/'
+                    file_exists_ques = os.path.isfile(
+                        parentFolder + '/questionUpload/uploadSheet.csv')
+                    # print(questionFilePath,"4904")
+                    if not os.path.exists(questionFilePath):
+                        os.mkdir(questionFilePath)
+                    with open(parentFolder + '/questionUpload/uploadSheet.csv', 'a',
+                            encoding='utf-8') as questionUploadFile:
+                        writerQuestionUpload = csv.DictWriter(questionUploadFile, fieldnames=questionUploadFieldnames, lineterminator='\n')
+                        if not file_exists_ques:
+                            writerQuestionUpload.writeheader()
+                        questionFileObj = {}
+                        surveyExternalId = None
+                        questionFileObj['solutionId'] = surTempExtID
+                        if ques['instance_parent_question_id'].encode('utf-8').decode('utf-8'):
+                            questionFileObj['instanceParentQuestionId'] = ques[
+                                                                            'instance_parent_question_id'].strip() + '_' + str(
+                                millisecond)
+                        else:
+                            questionFileObj['instanceParentQuestionId'] = 'NA'
+                        if ques['parent_question_id'].encode('utf-8').decode('utf-8').strip():
+                            questionFileObj['hasAParentQuestion'] = 'YES'
+                            if ques['show_when_parent_question_value_is'] == 'or':
+                                questionFileObj['parentQuestionOperator'] = '||'
+                            else:
+                                questionFileObj['parentQuestionOperator'] = ques['show_when_parent_question_value_is']
+                            if type(ques['parent_question_value']) != str:
+                                if (ques['parent_question_value'] and ques[
+                                    'parent_question_value'].is_integer() == True):
+                                    questionFileObj['parentQuestionValue'] = int(ques['parent_question_value'])
+                                elif (ques['parent_question_value'] and ques[
+                                    'parent_question_value'].is_integer() == False):
+                                    questionFileObj['parentQuestionValue'] = ques['parent_question_value']
+                            else:
+                                questionFileObj['parentQuestionValue'] = ques['parent_question_value']
+                                questionFileObj['parentQuestionId'] = ques['parent_question_id'].encode('utf-8').decode('utf-8').strip() + '_' + str(
+                                    millisecond)
+                        else:
+                            questionFileObj['hasAParentQuestion'] = 'NO'
+                            questionFileObj['parentQuestionOperator'] = None
+                            questionFileObj['parentQuestionValue'] = None
+                            questionFileObj['parentQuestionId'] = None
+                        questionFileObj['externalId'] = ques['question_id'].strip() + '_' + str(millisecond)
+                        if quesSeqCnt == ques['question_sequence']:
+                            questionSeqByEcmArr.append(ques['question_id'].strip() + '_' + str(millisecond))
+                            quesSeqCnt = quesSeqCnt + 1.0
+                        if ques['question_language1']:
+                            questionFileObj['question0'] = ques['question_language1'].encode('utf-8').decode('utf-8')
+                        else:
+                            questionFileObj['question0'] = None
+                        if ques['question_language2']:
+                            questionFileObj['question1'] = ques['question_language2'].encode('utf-8').decode('utf-8')
+                        else:
+                            questionFileObj['question1'] = None
+                        if ques['question_tip']:
+                            questionFileObj['tip'] = ques['question_tip'].encode('utf-8').decode('utf-8')
+                        else:
+                            questionFileObj['tip'] = None
+                        if ques['question_hint']:
+                            questionFileObj['hint'] = ques['question_hint'].encode('utf-8').decode('utf-8')
+                        else:
+                            questionFileObj['hint'] = None
+                        if ques['instance_identifier']:
+                            questionFileObj['instanceIdentifier'] = ques['instance_identifier'].encode('utf-8').decode('utf-8')
+                        else:
+                            questionFileObj['instanceIdentifier'] = None
+                        if ques['question_response_type'].strip().lower():
+                            questionFileObj['responseType'] = ques['question_response_type'].strip().lower()
+                        if ques['question_response_type'].strip().lower() == 'date':
+                            questionFileObj['dateFormat'] = "DD-MM-YYYY"
+                        else:
+                            questionFileObj['dateFormat'] = None
+                        if ques['question_response_type'].strip().lower() == 'date':
+                            if ques['date_auto_capture'] and ques['date_auto_capture'] == 1:
+                                questionFileObj['autoCapture'] = 'TRUE'
+                            elif ques['date_auto_capture'] and ques['date_auto_capture'] == 0:
+                                questionFileObj['autoCapture'] = 'false'
+                            else:
+                                questionFileObj['autoCapture'] = 'false'
+                        else:
+                            questionFileObj['autoCapture'] = None
+                        if ques['response_required']:
+                            if ques['response_required'] == 1:
+                                questionFileObj['validation'] = 'TRUE'
+                            elif ques['response_required'] == 0:
+                                questionFileObj['validation'] = 'FALSE'
+                        else:
+                            questionFileObj['validation'] = 'FALSE'
+                        if ques['question_response_type'].strip().lower() == 'number':
+                            questionFileObj['validationIsNumber'] = 'TRUE'
+                            questionFileObj['validationRegex'] = 'isNumber'
+                            if (ques['max_number_value'] and ques['max_number_value'].is_integer() == True):
+                                questionFileObj['validationMax'] = int(ques['max_number_value'])
+                            elif (ques['max_number_value'] and ques['max_number_value'].is_integer() == False):
+                                questionFileObj['validationMax'] = ques['max_number_value']
+                            else:
+                                questionFileObj['validationMax'] = 10000
+
+                            if (ques['min_number_value'] and ques['min_number_value'].is_integer() == True):
+                                questionFileObj['validationMin'] = int(ques['min_number_value'])
+                            elif (ques['min_number_value'] and ques['min_number_value'].is_integer() == False):
+                                questionFileObj['validationMin'] = ques['min_number_value']
+                            else:
+                                questionFileObj['validationMax'] = 10000
+
+                            if (ques['min_number_value'] and ques['min_number_value'].is_integer() == True):
+                                questionFileObj['validationMin'] = int(ques['min_number_value'])
+                            elif (ques['min_number_value'] and ques['min_number_value'].is_integer() == False):
+                                questionFileObj['validationMin'] = ques['min_number_value']
+                            else:
+                                questionFileObj['validationMin'] = 0
+
+                        elif ques['question_response_type'].strip().lower() == 'slider':
+                            questionFileObj['validationIsNumber'] = None
+                            questionFileObj['validationRegex'] = 'isNumber'
+                            if (ques['max_number_value'] and ques['max_number_value'].is_integer() == True):
+                                questionFileObj['validationMax'] = int(ques['max_number_value'])
+                            elif (ques['max_number_value'] and ques['max_number_value'].is_integer() == False):
+                                questionFileObj['validationMax'] = ques['max_number_value']
+                            else:
+                                questionFileObj['validationMax'] = 5
+
+                            if (ques['min_number_value'] and ques['min_number_value'].is_integer() == True):
+                                questionFileObj['validationMin'] = int(ques['min_number_value'])
+                            elif (ques['min_number_value'] and ques['min_number_value'].is_integer() == False):
+                                questionFileObj['validationMin'] = ques['min_number_value']
+                            else:
+                                questionFileObj['validationMin'] = 0
+                        else:
+                            questionFileObj['validationIsNumber'] = None
+                            questionFileObj['validationRegex'] = None
+                            questionFileObj['validationMax'] = None
+                            questionFileObj['validationMin'] = None
+                        if ques['file_upload'] == 1:
+                            questionFileObj['file'] = 'Snapshot'
+                            questionFileObj['fileIsRequired'] = 'TRUE'
+                            questionFileObj['fileUploadType'] = 'image/jpeg,docx,pdf,ppt'
+                            questionFileObj['minFileCount'] = 0
+                            questionFileObj['maxFileCount'] = 10
+                        elif ques['file_upload'] == 0:
+                            questionFileObj['file'] = 'NA'
+                            questionFileObj['fileIsRequired'] = None
+                            questionFileObj['fileUploadType'] = None
+                            questionFileObj['minFileCount'] = None
+                            questionFileObj['maxFileCount'] = None
+
+                        questionFileObj['caption'] = 'FALSE'
+                        questionFileObj['questionGroup'] = 'A1'
+                        questionFileObj['modeOfCollection'] = 'onfield'
+                        questionFileObj['accessibility'] = 'No'
+                        if ques['show_remarks'] == 1:
+                            questionFileObj['showRemarks'] = 'TRUE'
+                        elif ques['show_remarks'] == 0:
+                            questionFileObj['showRemarks'] = 'FALSE'
+                        questionFileObj['rubricLevel'] = None
+                        questionFileObj['isAGeneralQuestion'] = None
+                        if ques['question_response_type'].strip().lower() == 'radio' or ques[
+                            'question_response_type'].strip() == 'multiselect':
+                            for quesIndex in range(1, 21):
+                                if type(ques['response(R' + str(quesIndex) + ')']) != str:
+                                    if (ques['response(R' + str(quesIndex) + ')'] and ques[
+                                        'response(R' + str(quesIndex) + ')'].is_integer() == True):
+                                        questionFileObj['R' + str(quesIndex) + ''] = int(
+                                            ques['response(R' + str(quesIndex) + ')'])
+                                    elif (ques['response(R' + str(quesIndex) + ')'] and ques[
+                                        'response(R' + str(quesIndex) + ')'].is_integer() == False):
+                                        questionFileObj['R' + str(quesIndex) + ''] = ques[
+                                            'response(R' + str(quesIndex) + ')']
+                                else:
+                                    questionFileObj['R' + str(quesIndex) + ''] = ques[
+                                        'response(R' + str(quesIndex) + ')']
+
+                                if type(ques['response(R' + str(quesIndex) + ')_hint']) != str:
+                                    if (ques['response(R' + str(quesIndex) + ')_hint'] and ques[
+                                        'response(R' + str(quesIndex) + ')_hint'].is_integer() == True):
+                                        questionFileObj['R' + str(quesIndex) + '-hint'] = int(
+                                            ques['response(R' + str(quesIndex) + ')_hint'])
+                                    elif (ques['response(R' + str(quesIndex) + ')_hint'] and ques[
+                                        'response(R' + str(quesIndex) + ')_hint'].is_integer() == False):
+                                        questionFileObj['R' + str(quesIndex) + '-hint'] = ques[
+                                            'response(R' + str(quesIndex) + ')_hint']
+                                else:
+                                    questionFileObj['R' + str(quesIndex) + '-hint'] = ques[
+                                        'response(R' + str(quesIndex) + ')_hint']
+                                questionFileObj['_arrayFields'] = 'parentQuestionValue'
+                        else:
+                            for quesIndex in range(1, 21):
+                                questionFileObj['R' + str(quesIndex)] = None
+                                questionFileObj['R' + str(quesIndex) + '-hint'] = None
+                        if ques['section_header']:
+                            questionFileObj['sectionHeader'] = ques['section_header'].encode('utf-8').decode('utf-8')
+                        else:
+                            questionFileObj['sectionHeader'] = None
+
+                        questionFileObj['page'] = ques['page']
+                        if type(ques['question_number']) != str:
+                            if ques['question_number'] and ques['question_number'].is_integer() == True:
+                                questionFileObj['questionNumber'] = int(ques['question_number'])
+                            elif ques['question_number']:
+                                questionFileObj['questionNumber'] = ques['question_number']
+                            else:
+                                questionFileObj['questionNumber'] = ques['question_number']
+                        writerQuestionUpload.writerow(questionFileObj)
+                try:        
+                    urlQuestionsUploadApi = INTERNAL_KONG_IP + questionUploadApiUrl
+                    headerQuestionUploadApi = {
+                        'Authorization': authorization,
+                        'X-authenticated-user-token': accessToken,
+                        'X-Channel-id': x_channel_id
+                    }
+                    filesQuestion = {
+                        'questions': open(parentFolder + '/questionUpload/uploadSheet.csv', 'rb')
+                    }
+                    responseQuestionUploadApi = requests.post(url=urlQuestionsUploadApi,
+                                                            headers=headerQuestionUploadApi, files=filesQuestion)
+                    if responseQuestionUploadApi.status_code == 200:
+                        print('Question upload Success')
+
+                        messageArr = ["********* Question Upload api *********", "URL : " + urlQuestionsUploadApi,
+                                    "Path : " + str(parentFolder) + str('/questionUpload/uploadSheet.csv'),
+                                    "Status code : " + str(responseQuestionUploadApi.status_code),
+                                    "Response : " + responseQuestionUploadApi.text]
+                        ElevateObservation.createAPILog(parentFolder, messageArr)
+                        messageArr1 = ["Questions","Question upload Success","Passed",str(responseQuestionUploadApi.status_code)]
+                        ElevateObservation.apicheckslog(parentFolder,messageArr1)
+
+                        with open(parentFolder + '/questionUpload/uploadInternalIdsSheet.csv', 'w+',encoding='utf-8') as questionRes:
+                            questionRes.write(responseQuestionUploadApi.text)
+                        urlImportSoluTemplate = INTERNAL_KONG_IP + importSurveySolutionTemplateUrl + str(surTempSolID) + "?appName=manage-learn"
+                        headerImportSoluTemplateApi = {
+                            'X-auth-token': accessToken,
+                            'X-Channel-id': x_channel_id,
+                            'internal-access-token': internal_access_token,
+                            'tenantId': tenantID,
+                            'orgid': orgIDFromTemplate,
+                            adminTokenHeaderName: adminAccessToken
+                        }
+                        responseImportSoluTemplateApi = requests.get(url=urlImportSoluTemplate,
+                                                                    headers=headerImportSoluTemplateApi)
+                        if responseImportSoluTemplateApi.status_code == 200:
+                            print('Creating Child Success')
+
+                            messageArr = ["********* Creating Child api *********", "URL : " + urlImportSoluTemplate,
+                                        "Status code : " + str(responseImportSoluTemplateApi.status_code),
+                                        "Response : " + responseImportSoluTemplateApi.text]
+                            ElevateObservation.createAPILog(parentFolder, messageArr)
+                            responseImportSoluTemplateApi = responseImportSoluTemplateApi.json()
+                            solutionIdSuc = responseImportSoluTemplateApi["result"]["solutionId"]
+                            urlSurveyProgramMapping = INTERNAL_KONG_IP + importSurveySolutionToProgramUrl + str(solutionIdSuc) + "?programId=" + programExternalId.lstrip().rstrip()
+                            headeSurveyProgramMappingApi = {
+                                'X-auth-token': accessToken,
+                                'X-Channel-id': x_channel_id,
+                                'internal-access-token': internal_access_token,
+                                'tenantId': tenantID,
+                                'orgid': orgIDFromTemplate,
+                                adminTokenHeaderName: adminAccessToken
+                            }
+                            responseSurveyProgramMappingApi = requests.get(url=urlSurveyProgramMapping,headers=headeSurveyProgramMappingApi)
+                            if responseSurveyProgramMappingApi.status_code == 200:
+                                print('Program Mapping Success')
+                                
+                                messageArr = ["********* Program mapping api *********", "URL : " + urlSurveyProgramMapping,
+                                            "Status code : " + str(responseSurveyProgramMappingApi.status_code),
+                                            "Response : " + responseSurveyProgramMappingApi.text]
+                                ElevateObservation.createAPILog(parentFolder, messageArr)
+                                surveyLink = None
+                                solutionIdSuc = None
+                                surveyExternalIdSuc = None
+                                surveyLink = responseImportSoluTemplateApi["result"]["link"]
+                                solutionIdSuc = responseImportSoluTemplateApi["result"]["solutionId"]
+                                solutionExtIdSuc = responseImportSoluTemplateApi["result"]["solutionExternalId"]
+                                print("Survey Child Id : " + str(solutionExtIdSuc))
+                                solutionDetails = ElevateObservation.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionIdSuc,
+                                                                                    accessToken)
+                                solutionStartDate1 = ElevateObservation.convert_to_date(solutionDetails[1])
+                                solutionEndDate1 = ElevateObservation.convert_to_date(solutionDetails[2])
+                                SurveyTemplateStartDate1 = ElevateObservation.convert_to_date(SurveyTemplateStartDate)
+                                SurveyTemplateEndDate1 = ElevateObservation.convert_to_date(SurveyTemplateEndDate)
+                                if SurveyTemplateStartDate1 == solutionStartDate1 and SurveyTemplateEndDate1 == solutionEndDate1:
+                                    scopeEntities = entitiesPGMID
+                                    scopeRoles = solutionDetails[0]
+                                    scope = {}
+                                    for i in range(len(entitiesType)):
+                                        entity_type = entitiesType[i]
+                                        entity_value = scopeEntities[i]
+                                        if entity_type in scope:
+                                            scope[entity_type].append(entity_value)
+                                        else:
+                                            scope[entity_type] = [entity_value]
+                                # bodySolutionUpdate = {
+                                #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
+                                    scope["roles"] = rolesPGMID
+                                    bodySolutionUpdate = {
+                                        "scope": scope
+                                    }
+                                    ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
+                                    if solutionDetails[1]:
+                                        startDateArr = str(solutionDetails[1]).split("-")
+                                        bodySolutionUpdate = {
+                                            "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
+                                        ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
+                                    if solutionDetails[2]:
+                                        endDateArr = str(solutionDetails[2]).split("-")
+                                        bodySolutionUpdate = {
+                                            "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
+                                        ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
+                                    surveySolutionlink = "Survey solution Created Successfully."
+                                
+                                    print('Survey Successfully Added')
+                                    print(surveySolutionlink)
+                                else:
+                                    errorVar = "The survey Template start date and end date do not match the start date and end date at the Program Template."
+                                    return errorVar
+                            else:
+                                print('Program Mapping Failed')
+                                error_message = ""
+                                if responseSurveyProgramMappingApi.status_code in [400, 401, 403, 404, 422]:
+                                    error_message = f"SurveyProgramMappingApi-Client Error {responseSurveyProgramMappingApi.status_code}: {responseSurveyProgramMappingApi.text}"
+                                elif responseSurveyProgramMappingApi.status_code in [500, 502, 503, 504]:
+                                    error_message = f"SurveyProgramMappingApi-Server Error {responseSurveyProgramMappingApi.status_code}: {responseSurveyProgramMappingApi.text}"
+                                else:
+                                    error_message = f"SurveyProgramMappingApi-Unexpected Error {responseSurveyProgramMappingApi.status_code}: {responseSurveyProgramMappingApi.text}"
+
+                                messageArr = ["********* Program mapping api *********", "URL : " + urlSurveyProgramMapping,
+                                            "Status code : " + str(responseSurveyProgramMappingApi.status_code),
+                                            "Response : " + responseSurveyProgramMappingApi.text]
+                                ElevateObservation.createAPILog(parentFolder, messageArr)
+                                errorVar = error_message
+                                print(error_message)
+                                messageArr.append(f"Error Response: {error_message}")
+                        else:
+                            print('Creating Child API Failed')
+                            error_message = ""
+                            if responseImportSoluTemplateApi.status_code in [400, 401, 403, 404, 422]:
+                                error_message = f"ImportSoluTemplateApi-Client Error {responseImportSoluTemplateApi.status_code}: {responseImportSoluTemplateApi.text}"
+                            elif responseImportSoluTemplateApi.status_code in [500, 502, 503, 504]:
+                                error_message = f"ImportSoluTemplateApi-Server Error {responseImportSoluTemplateApi.status_code}: {responseImportSoluTemplateApi.text}"
+                            else:
+                                error_message = f"ImportSoluTemplateApi-Unexpected Error {responseImportSoluTemplateApi.status_code}: {responseImportSoluTemplateApi.text}"
+
+                            messageArr = ["********* Program mapping api *********", "URL : " + urlImportSoluTemplate,
+                                        "Status code : " + str(responseImportSoluTemplateApi.status_code),
+                                        "Response : " + responseImportSoluTemplateApi.text]
+                            ElevateObservation.createAPILog(parentFolder, messageArr)
+                            errorVar = error_message
+                            print(error_message)
+                            messageArr.append(f"Error Response: {error_message}")
+                    else:
+                        if responseQuestionUploadApi.status_code in [400, 401, 403, 404, 422]:
+                            error_message = f"QuestionUploadApi-Client Error {responseQuestionUploadApi.status_code}: {responseQuestionUploadApi.text}"
+                        elif responseQuestionUploadApi.status_code in [500, 502, 503, 504]:
+                            error_message = f"QuestionUploadApi-Server Error {responseQuestionUploadApi.status_code}: {responseQuestionUploadApi.text}"
+                        else:
+                            error_message = f"QuestionUploadApi-Unexpected Error {responseQuestionUploadApi.status_code}: {responseQuestionUploadApi.text}"
+                        print('QuestionUploadApi Failed')
+                        messageArr = ["********* Question Upload api *********", "URL : " + urlQuestionsUploadApi,
+                                    "Path : " + str(parentFolder) + str('/questionUpload/uploadSheet.csv'),
+                                    "Status code : " + str(responseQuestionUploadApi.status_code),
+                                    "Response : " + responseQuestionUploadApi.text]
+                        ElevateObservation.createAPILog(parentFolder, messageArr)
+                        errorVar = error_message
+                        messageArr.append(f"Error Response: {error_message}")
+            
+                except Exception as e:
+                    errorVar = error_message
+                    ElevateObservation.createAPILog(parentFolder, [f"Exception: {str(e)}"])
+        if errorVar == "":
+            return surveySolutionlink
+        else:
+            return errorVar
+        
     def mainFunc(MainFilePath, programFile, addObservationSolution, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType):
         global errorVar,pointBasedValue
@@ -3152,6 +4395,7 @@ class ElevateObservation:
                 result = {}
                 return result
             print(typeofSolution,"this is type of solution")
+            ElevateObservation.validateTenantAndOrgIdsFromProgramSheet(wbProgram)
             # typeofSolution = validateSheets(addObservationSolution, accessToken, parentFolder)
             # sys.exit()
             wbObservation = xlrd.open_workbook(addObservationSolution, on_demand=True)
@@ -3335,7 +4579,7 @@ class ElevateObservation:
                                             scope[entity_type] = [entity_value]
                                     # bodySolutionUpdate = {
                                     #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-                                    scope["roles"] = scopeRoles
+                                    scope["roles"] = rolesPGMID
                                     bodySolutionUpdate = {
                                         "scope": scope
                                     }
@@ -3495,7 +4739,6 @@ class ElevateObservation:
                                         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                                         return ObsWORSolutionLink
                                     scopeEntities = entitiesPGMID
-                                    print(entitiesType,solutionDetails,"this is 5429")
                                     scopeRoles = solutionDetails[0]
                                     scope = {}
                                     for i in range(len(entitiesType)):
@@ -3507,7 +4750,7 @@ class ElevateObservation:
                                             scope[entity_type] = [entity_value]
                                     # bodySolutionUpdate = {
                                     #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-                                    scope["roles"] = scopeRoles
+                                    scope["roles"] = rolesPGMID
                                     bodySolutionUpdate = {
                                         "scope": scope
                                     }
@@ -3560,6 +4803,55 @@ class ElevateObservation:
                         else:
                             ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                             return ObsWORSolutionLink
+
+                elif typeofSolution == 3 and sheets.strip().lower() == 'details'.lower():
+                    ElevateObservation.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath)
+                    wbprogram = xlrd.open_workbook(programFile, on_demand=True)
+                    programSheetNames = wbprogram.sheet_names()
+                    wbSurvey = xlrd.open_workbook(addObservationSolution, on_demand=True)
+                    ResourceSheet = wbObservation.sheet_by_name(sheets)
+                    keysEnv = [ResourceSheet.cell(1, col_index_env).value for col_index_env in range(ResourceSheet.ncols)]
+                    dictDetailsEnv = {keysEnv[col_index_env]: ResourceSheet.cell(row_index_env, col_index_env).value for col_index_env in range(ResourceSheet.ncols)}
+                    SurveyResourceName = dictDetailsEnv['survey_solution_name'].encode('utf-8').decode('utf-8')
+                    try:
+                        def addsurveyFunc(parentFolder, wbObservation, millisecond, accessToken):
+                            if not ElevateObservation.surveyValidate(addObservationSolution, accessToken, parentFolder): 
+                                finalsurveySolutionlink = {SurveyResourceName: errorVar}
+                                return finalsurveySolutionlink
+                            # Create survey solution
+                            surveyResp = ElevateObservation.createSurveySolution(parentFolder, wbSurvey, accessToken)
+                            if not surveyResp:
+                                finalsurveySolutionlink = {SurveyResourceName: errorVar}
+                                return finalsurveySolutionlink
+                            surTempExtID = surveyResp[1]
+                            surTempSolID = surveyResp[0]
+                            # Update solution status
+                            bodySolutionUpdate = {"status": "active", "isDeleted": False}
+                            if not ElevateObservation.solutionUpdate(parentFolder, accessToken, surveyResp[0], bodySolutionUpdate):
+                                finalsurveySolutionlink = {SurveyResourceName: errorVar}
+                                return finalsurveySolutionlink
+                            # if errorVar == "":
+                                # Upload survey questions
+                            if not ElevateObservation.uploadSurveyQuestions(MainFilePath, parentFolder, wbSurvey, addObservationSolution, accessToken, surTempExtID, surTempSolID, millisecond, programFile):
+                                finalsurveySolutionlink = {SurveyResourceName: errorVar}
+                                return finalsurveySolutionlink
+                            if errorVar == "":
+                                finalsurveySolutionlink = {SurveyResourceName: surveySolutionlink}
+                                return finalsurveySolutionlink
+                        millisecond = int(time.time() * 1000)
+                        surveySollink = addsurveyFunc(parentFolder, wbObservation, millisecond, accessToken)
+                        return surveySollink
+                        
+                    except Exception as e:
+                        print(f"Error occurred during survey creation: {str(e)}")
+                        solutionError = str(e)
+                        print(errorVar,"3772")
+                        if errorVar == "":
+                            surveySollink = {SurveyResourceName: solutionError}
+                        else:
+                            surveySollink = {SurveyResourceName: errorVar}
+                        return surveySollink
+                
         else :
             parentFolder = ElevateObservation.createFileStruct(MainFilePath, addObservationSolution)
             accessToken = ElevateObservation.generateAccessToken(parentFolder)
@@ -3567,6 +4859,7 @@ class ElevateObservation:
             if typeofSolution == 0:
                 result = {}
                 return result
+            ElevateObservation.validateTenantAndOrgIdsFromResourceSheet(wbObservation)
             wbObservation = xlrd.open_workbook(addObservationSolution, on_demand=True)
             print(typeofSolution,"this is type of solution")
             if typeofSolution == 1 or typeofSolution == 5:
@@ -3865,7 +5158,53 @@ class ElevateObservation:
                     print("No program name detected.")
                     ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                     return ObsWORSolutionLink
-
+            elif typeofSolution == 3:
+                wbprogram = xlrd.open_workbook(programFile, on_demand=True)
+                programSheetNames = wbprogram.sheet_names()
+                wbSurvey = xlrd.open_workbook(addObservationSolution, on_demand=True)
+                ResourceSheet = wbObservation.sheet_by_name(sheets)
+                keysEnv = [ResourceSheet.cell(1, col_index_env).value for col_index_env in range(ResourceSheet.ncols)]
+                dictDetailsEnv = {keysEnv[col_index_env]: ResourceSheet.cell(row_index_env, col_index_env).value for col_index_env in range(ResourceSheet.ncols)}
+                SurveyResourceName = dictDetailsEnv['survey_solution_name'].encode('utf-8').decode('utf-8')
+                try:
+                    def addsurveyFunc(parentFolder, wbObservation, millisecond, accessToken):
+                        if not ElevateObservation.surveyValidate(addObservationSolution, accessToken, parentFolder): 
+                            finalsurveySolutionlink = {SurveyResourceName: errorVar}
+                            return finalsurveySolutionlink
+                        # Create survey solution
+                        surveyResp = ElevateObservation.createSurveySolution(parentFolder, wbSurvey, accessToken)
+                        if not surveyResp:
+                            finalsurveySolutionlink = {SurveyResourceName: errorVar}
+                            return finalsurveySolutionlink
+                        surTempExtID = surveyResp[1]
+                        surTempSolID = surveyResp[0]
+                        # Update solution status
+                        bodySolutionUpdate = {"status": "active", "isDeleted": False}
+                        if not ElevateObservation.solutionUpdate(parentFolder, accessToken, surveyResp[0], bodySolutionUpdate):
+                            finalsurveySolutionlink = {SurveyResourceName: errorVar}
+                            return finalsurveySolutionlink
+                        # if errorVar == "":
+                            # Upload survey questions
+                        if not ElevateObservation.NOPuploadSurveyQuestions(MainFilePath, parentFolder, wbSurvey, addObservationSolution, accessToken, surTempExtID, surTempSolID, millisecond, programFile):
+                            finalsurveySolutionlink = {SurveyResourceName: errorVar}
+                            return finalsurveySolutionlink
+                        if errorVar == "":
+                            finalsurveySolutionlink = {SurveyResourceName: surveySolutionlink}
+                            return finalsurveySolutionlink
+                    millisecond = int(time.time() * 1000)
+                    surveySollink = addsurveyFunc(parentFolder, wbObservation, millisecond, accessToken)
+                    return surveySollink
+                    
+                except Exception as e:
+                    print(f"Error occurred during survey creation: {str(e)}")
+                    solutionError = str(e)
+                    print(errorVar,"3772")
+                    if errorVar == "":
+                        surveySollink = {SurveyResourceName: solutionError}
+                    else:
+                        surveySollink = {SurveyResourceName: errorVar}
+                    return surveySollink
+                
     def loadSurveyFile(programFile):
         print(programFile,"infile")
         print("entering the loadfile")
