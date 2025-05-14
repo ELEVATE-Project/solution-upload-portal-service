@@ -293,7 +293,9 @@ def programCreation(accessToken, parentFolder, externalId, pName, pDescription, 
             scope[entity_type] = [entity_value]
                     # bodySolutionUpdate = {
                     #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-    scope["roles"] = roles
+    #scope["roles"] = roles
+    scope["professional_subroles"] = rolesPGMID
+    scope["professional_role"] = mainRole
     payload = json.dumps({
         "externalId": externalId,
         "name": pName,
@@ -536,14 +538,11 @@ def programsFileCheck(filePathAddPgm, accessToken, parentFolder, MainFilePath):
                     global rolesPGM
                     rolesPGM = dictDetailsEnv['Targeted subrole at program level'] if dictDetailsEnv['Targeted subrole at program level'] else terminatingMessage("\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet")  
                     global rolesPGMID
+                    mainRole = mainRole.lstrip().rstrip().split(",")
                     rolesPGMID=rolesPGM.lstrip().rstrip().split(",")
                     global startDateOfProgram, endDateOfProgram
                     startDateOfProgram = dictDetailsEnv['Start date of program']
                     endDateOfProgram = dictDetailsEnv['End date of program']
-                    # global tenantID 
-                    # tenantID = clean_single_value(dictDetailsEnv['Tenant ID'])
-                    # global orgIDFromTemplate 
-                    # orgIDFromTemplate = clean_single_value(dictDetailsEnv['Org ID'])
                     # taking the start date of program from program template and converting YYYY-MM-DD 00:00:00 format
                     
                     startDateArr = str(startDateOfProgram).split("-")
@@ -608,6 +607,7 @@ def programsFileCheck(filePathAddPgm, accessToken, parentFolder, MainFilePath):
                         # fetch sub-role details 
                         # rolesPGMID = fetchScopeRole(parentFolder, accessToken, rolesPGM.lstrip().rstrip().split(","))
                         # global rolesPGMID
+                        mainRole=mainRole.lstrip().rstrip().split(",")
                         rolesPGMID=rolesPGM.lstrip().rstrip().split(",")
                         # sys.exit()
                         # call function to create program 
@@ -684,7 +684,7 @@ def fetchEntityType(solutionName_for_folder_path, accessToken, entitiesPGM, scop
             "query": {
                 "metaInformation.name": entityName,
                   "tenantId":tenantID,  # Use the current entity name
-                  "orgIds": {"$in":append_to_list(normalize_cell_value(orgIDFromTemplate),'ALL')},
+               #   "orgIds": {"$in":append_to_list(normalize_cell_value(orgIDFromTemplate),'ALL')},
             },
             "projection": [
                 "entityType"
@@ -699,7 +699,6 @@ def fetchEntityType(solutionName_for_folder_path, accessToken, entitiesPGM, scop
                       "URL  : " + str(urlFetchEntityListApi),
                       "Status : " + str(responseFetchEntityListApi.status_code)]
         createAPILog(solutionName_for_folder_path, messageArr)
-
         # Check if the API call was successful
         if responseFetchEntityListApi.status_code == 200:
             responseFetchEntityListApi = responseFetchEntityListApi.json()
@@ -821,7 +820,8 @@ def envCheck():
     
 # function to get roles, tenant id and org id from user token
 def getRolesAndTenantIdAndOrgIdFromUserToken(decodedToken):
-        rolesInToken = decodedToken['data']['roles']
+
+        rolesInToken = decodedToken['data']['organizations'][0]['roles']
         global roleOfResourceCreator
         for element in rolesInToken:
             if element.get('title') == 'org_admin':
@@ -830,19 +830,19 @@ def getRolesAndTenantIdAndOrgIdFromUserToken(decodedToken):
              roleOfResourceCreator = 'tenant_admin'
 
         global tenantID 
-        tenantID = clean_single_value(decodedToken['data']['tenant_id'])
+        tenantID = clean_single_value(decodedToken['data']['tenant_code'])
         global orgIDFromTemplate 
-        orgIDFromTemplate = clean_single_value(decodedToken['data']['organization_ids'][0])
+        orgIDFromTemplate = clean_single_value(decodedToken['data']['organizations'][0].get('id'))
 
 # Generate access token for the APIs. 
 def generateAccessToken(solutionName_for_folder_path):
     # production search user api - start
-    headerKeyClockUser = {'Content-Type': config.get(environment, 'content-type')}
+    headerKeyClockUser = {'Content-Type': config.get(environment, 'content-type'),'origin':config.get(environment, 'origin')}
     
     # responseKeyClockUser = requests.post(url=config.get(environment, 'host') + config.get(environment, 'keyclockAPIUrl'), headers=headerKeyClockUser,
     #                                      data=str(config.get(environment, 'keyclockAPIBody')))
     loginBody = {
-        'email' : config.get(environment, 'email'),
+        'identifier' : config.get(environment, 'identifier'),
         'password' : config.get(environment, 'password')
     }
     responseKeyClockUser = requests.request("POST", config.get(environment, 'userLoginHost') + config.get(environment, 'keyclockapiurl'), headers=headerKeyClockUser, data=json.dumps(loginBody))
@@ -1000,10 +1000,13 @@ def fetchUserDetails(environment, accessToken, dikshaId):
     decoded_token = jwt.decode(accessToken, options={"verify_signature": False}, algorithms=["HS256"])
     data=decoded_token.get('data')
     user_id = data.get('id')  
-    url = config.get(environment, 'userLoginHost') + config.get(environment, 'userInfoApiUrl')+"/"+str(user_id)
+    url = config.get(environment, 'userLoginHost') + config.get(environment, 'userInfoApiUrl')
+    #+"/"+str(user_id)
     messageArr = ["User search API called."]
-    headers = {'Content-Type': 'application/json',
-               'internal_access_token': config.get(environment, 'internal-access-token')}
+    headers = {#'Content-Type': 'application/json',
+                'internal_access_token': config.get(environment, 'internal-access-token'),
+               'X-auth-token': accessToken
+               }
   
     # isEmail = checkEmailValidation(dikshaId.lstrip().rstrip())
     # if isEmail:
@@ -1018,9 +1021,10 @@ def fetchUserDetails(environment, accessToken, dikshaId):
             userKeycloak = responseUserSearch['result']['id']
             userName = responseUserSearch['result']['name']
             firstName = responseUserSearch['result']['name']
-            rootOrgId = responseUserSearch['result']['organization']['id']
+            rootOrgId = responseUserSearch['result']['organizations'][0]['id']
             roledetails = None
-            for index in responseUserSearch['result']['user_roles']:
+            roles = responseUserSearch['result']['organizations'][0]['roles']
+            for index in roles:
                 if rootOrgId == index['organization_id']:
                     roledetails = index['title']
                     # rootOrgName = index['orgName']
@@ -1208,6 +1212,7 @@ def fetchEntityId(solutionName_for_folder_path, accessToken, entitiesNameList, s
     headerFetchEntityListApi = {
         'Content-Type': config.get(environment, 'Content-Type'),
         'internal-access-token': config.get(environment, 'internal-access-token'),
+        'origin':config.get(environment, 'origin')
     }
     payload = {
 
@@ -1216,7 +1221,7 @@ def fetchEntityId(solutionName_for_folder_path, accessToken, entitiesNameList, s
             "$in": scopeEntityType
         },
         "tenantId":tenantID,
-        "orgIds": {"$in":append_to_list(normalize_cell_value(orgIDFromTemplate),'ALL')}
+      #  "orgIds": {"$in":append_to_list(normalize_cell_value(orgIDFromTemplate),'ALL')}
     },
 
     "projection": [
@@ -2277,7 +2282,6 @@ def createSolutionFromFramework(solutionName_for_folder_path, accessToken, frame
                   "Response : " + str(responseCreateSolutionApi.text)]
     createAPILog(solutionName_for_folder_path, messageArr)
     messageArr = []
-    print(responseCreateSolutionApi.text,'responseCreateSolutionApi')
     if responseCreateSolutionApi.status_code == 200:
         responseCreateSolutionApi = responseCreateSolutionApi.json()
         solutionId = responseCreateSolutionApi['result']['templateId']
@@ -2306,7 +2310,6 @@ def solutionUpdate(solutionName_for_folder_path, accessToken, solutionId, bodySo
     responseUpdateSolutionApi = requests.post(url=solutionUpdateApi, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
     messageArr = ["Solution Update API called.", "URL : " + str(solutionUpdateApi), "Body : " + str(bodySolutionUpdate),"Response : " + str(responseUpdateSolutionApi.text),"Status Code : " + str(responseUpdateSolutionApi.status_code)]
     createAPILog(solutionName_for_folder_path, messageArr)
-    print(str(bodySolutionUpdate),'solutionUpdateBody')
     if responseUpdateSolutionApi.status_code == 200:
         print("Solution Update Success.")
         return True
@@ -4061,7 +4064,8 @@ def uploadSurveyQuestions(parentFolder, wbSurvey, addObservationSolution, access
                               scope[entity_type] = [entity_value]
                     # bodySolutionUpdate = {
                      #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-                          scope["roles"] = rolesPGMID
+                          scope["professional_subroles"] = rolesPGMID
+                          scope["professional_role"] = mainRole
                           bodySolutionUpdate = {
                             "scope": scope
                            }
@@ -5209,7 +5213,8 @@ def solutionCreationAndMapping(projectName_for_folder_path, entityToUpload, list
                         scope[entity_type] = [entity_value]
                 # bodySolutionUpdate = {
                 #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-                scope["roles"] = rolesPGMID
+                scope["professional_subroles"] = rolesPGMID
+                scope["professional_role"] = mainRole
                 bodySolutionUpdate = {
                   "scope": scope
                 }
@@ -5443,7 +5448,6 @@ def validateTenantAndOrgIdsFromProgramSheet(programFileContent):
         assignTenantOrgValuesToGlobalVariables(tenantIdFromProgramFile, orgIdsFromProgramFile)
 
 def validateTenantAndOrgIdsFromResourceSheet(resourceFileContent):
-        print('validating resourceFileconetnt .....')
         tenantIdFromresourceFile = None
         orgIdsFromresourceFile = None
                     
@@ -5573,7 +5577,8 @@ def mainFunc(MainFilePath, programFile, addObservationSolution, millisecond, isP
                           scope[entity_type] = [entity_value]
                     # bodySolutionUpdate = {
                     #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-                    scope["roles"] = rolesPGMID
+                    scope["professional_subroles"] = rolesPGMID
+                    scope["professional_role"] = mainRole
                     bodySolutionUpdate = {
                         "scope": scope
                      }
@@ -5652,7 +5657,8 @@ def mainFunc(MainFilePath, programFile, addObservationSolution, millisecond, isP
                           scope[entity_type] = [entity_value]
                     # bodySolutionUpdate = {
                      #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-                    scope["roles"] = rolesPGMID
+                    scope["professional_subroles"] = rolesPGMID
+                    scope["professional_role"] = mainRole
                     bodySolutionUpdate = {
                          "scope": scope
                     }

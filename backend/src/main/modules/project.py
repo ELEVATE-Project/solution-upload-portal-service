@@ -31,7 +31,8 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Color, PatternFill, Font, Border
 from openpyxl.styles import colors
 from openpyxl.cell import Cell
-from common_config import *
+from backend.src.main.modules.common_config import *
+# from common_config import *
 import threading
 import wget
 import gdown

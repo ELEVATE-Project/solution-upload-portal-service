@@ -1,40 +1,44 @@
 # Host URL for the elevate user service
-elevateuserhost = "https://project-qa.elevate-apis.shikshalokam.org/"
+elevateuserhost = "https://shiksha-dev-interface.tekdinext.com/interface/"
 
 # Host URL for the elevate project service
-elevateprojecthost = "https://project-qa.elevate-apis.shikshalokam.org/project/v1/"
+elevateprojecthost = "https://shiksha-dev-interface.tekdinext.com//project/v1/"
 
 # Host URL for the elevate entity service
-elevateentityhost = "https://project-qa.elevate-apis.shikshalokam.org/"
+elevateentityhost = "https://shiksha-dev-interface.tekdinext.com/"
 
-internal_kong_ip = "https://qa.elevate-apis.shikshalokam.org/survey/"
+internal_kong_ip = "https://shiksha-dev-interface.tekdinext.com/survey/"
 
 # JSON body for Keycloak API login
-keyclockapibody =  '{"email": "Vishnu@tunerlabs.com","password": "Parayilla#2"}'
+keyclockapibody = '{"username": "shikshalokam_test","password": "Tekdi@123"}'
+
 
 # Email for login credentials
-email = "Vishnu@tunerlabs.com"
+email = "shikshalokam_test"
 
 # Password for login credentials
-password = "Parayilla#2"
+password = "Tekdi@123"
 
 # Internal access token used for internal API calls
-internal_access_token = "Fqn0m0HQ0gXydRtBCg5l"
+internal_access_token = "8wE*tM*y(5)"
 
 # Endpoint for user login API
-userlogin = "user/v1/account/login"
+userlogin = "v1/user/auth/login"
 
 # Authorization token for API requests (to be added)
-authorization = "Bearer "  # ADD_YOUR_TOKEN_HERE
+authorization = "eyJhbGciOiJIUzI1NiIsInR5cCI6adsdkksd.eyJkYXRhIjp7ImlkIjozMDEsIm5hbWUiOiJhbW9naCIsInNlc3Npb25faWQiOjczMDcsIm9yZ2FuaXphdGlvbl9pZCI6MTUsInJvbGVzIjpbeyJpZCI6MjAsInRpdGxlIjoiZGlzdHJpY3RfZWR1Y2F0aW9uX29mZmljZXIiLCJsYWJlbCI6IkRpc3RyaWN0IEVkdWNhdGlvbiBPZmZpY2VyIiwidXNlcl90eXBlIjowLCJzdGF0dXMiOiJBQ1RJVkUiLCJvcmdhbml6YXRpb25faWQiOjI0LCJ2aXNpYmlsaXR5IjoiUFVCTElDIn1dfSwiaWF0IjoxNzI2NjU3NzcyLCJleHAiOjE3MjY3NDQxNzJ9 "  # ADD_YOUR_TOKEN_HERE
 
 # Authorization token specifically for host API requests (to be added)
-authorizationforhost = "Bearer " # ADD_YOUR_TOKEN_HERE
+authorizationforhost = "eyJhbGciOiJIUzI1NiIsInR5cCI6adsdkksd.eyJkYXRhIjp7ImlkIjozMDEsIm5hbWUiOiJhbW9naCIsInNlc3Npb25faWQiOjczMDcsIm9yZ2FuaXphdGlvbl9pZCI6MTUsInJvbGVzIjpbeyJpZCI6MjAsInRpdGxlIjoiZGlzdHJpY3RfZWR1Y2F0aW9uX29mZmljZXIiLCJsYWJlbCI6IkRpc3RyaWN0IEVkdWNhdGlvbiBPZmZpY2VyIiwidXNlcl90eXBlIjowLCJzdGF0dXMiOiJBQ1RJVkUiLCJvcmdhbml6YXRpb25faWQiOjI0LCJ2aXNpYmlsaXR5IjoiUFVCTElDIn1dfSwiaWF0IjoxNzI2NjU3NzcyLCJleHAiOjE3MjY3NDQxNzJ9 " # ADD_YOUR_TOKEN_HERE
 
 # Application name, typically used in headers or logs
 appname = "diksha"
 
 # Channel ID for identifying the request source
 x_channel_id = "0125747659358699520"
+
+ADMIN_ACCESS_TOKEN= "dev_admin_access_token"
+ADMIN_TOKEN_HEADER_NAME= "admin-auth-token"
 
 # Content type for Keycloak API requests
 keyclockapicontent_type = "application/x-www-form-urlencoded"
