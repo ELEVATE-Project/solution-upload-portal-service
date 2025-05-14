@@ -3942,7 +3942,7 @@ class ElevateObservation:
                                     # print(surveySolutionlink)
                                     # surveySolutionlink = ElevateObservation.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, solutionExtIdSuc,
                                     #                     solutionIdSuc, accessToken)
-                                    surveySolutionlink = "Solution created successfully."
+                                    surveySolutionlink = "https: Deeplink for survey created successfully."
                                     return surveySolutionlink
                                     print('Survey Successfully Added')
                                     print(surveySolutionlink)
@@ -4885,13 +4885,11 @@ class ElevateObservation:
                                 return finalsurveySolutionlink
                             # if errorVar == "":
                                 # Upload survey questions
-                            if not ElevateObservation.uploadSurveyQuestions(MainFilePath, parentFolder, wbSurvey, addObservationSolution, accessToken, surTempExtID, surTempSolID, millisecond, programFile):
-                                finalsurveySolutionlink = {SurveyResourceName: errorVar}
-                                return finalsurveySolutionlink
+                            surveySolutionlink =  ElevateObservation.uploadSurveyQuestions(MainFilePath, parentFolder, wbSurvey, addObservationSolution, accessToken, surTempExtID, surTempSolID, millisecond, programFile)
                             print("it is here1111111111111111111",surveySolutionlink)
-                            if errorVar == "":
-                                finalsurveySolutionlink = {SurveyResourceName: surveySolutionlink}
-                                return finalsurveySolutionlink
+    
+                            finalsurveySolutionlink = {SurveyResourceName: surveySolutionlink}
+                            return finalsurveySolutionlink
                         millisecond = int(time.time() * 1000)
                         surveySollink = addsurveyFunc(parentFolder, wbObservation, millisecond, accessToken)
                         return surveySollink
