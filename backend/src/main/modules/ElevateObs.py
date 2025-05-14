@@ -35,7 +35,7 @@ from openpyxl.cell import Cell
 # from common_config import *
 from backend.src.main.modules.common_config import *
 # from common_config import elevateuserhost, userlogin, keyclockAPIBody
-
+import jwt
 import threading
 import wget
 import gdown
@@ -249,35 +249,30 @@ class ElevateObservation:
 
         try:
             print("Generating Access Token...")
-            headerKeyClockUser = {'Content-Type': "application/json"}
-            print(headerKeyClockUser,"headerKeyClockUser")
-            print(elevateuserhost + userlogin,"elevateuserhost + userlogin")
+            headerKeyClockUser = {'Content-Type': "application/json",'origin': origin}
 
             loginBody = {
-                'username': "shikshalokam_test",
-                'password': "Tekdi@123"
+                'identifier': identifier,
+                'password': password
             }
-            print(loginBody, "loginBody")
-
-            # ✅ Use loginBody, not keyclockapibody
             responseKeyClockUser = requests.post(
-                elevateuserhost + userlogin,
+                userLoginHost + keyclockapiurl,
                 headers=headerKeyClockUser,
                 json=loginBody
             )
 
-            print(responseKeyClockUser, "responseKeyClockUser")
+            print(responseKeyClockUser.text, "responseKeyClockUser")
 
             messageArr = []
-            messageArr.append("URL : " + elevateuserhost)
+            messageArr.append("URL : " + userLoginHost)
             messageArr.append("Body : " + str(loginBody))
             messageArr.append("Status Code : " + str(responseKeyClockUser.status_code))
 
             if responseKeyClockUser.status_code == 200:
                 responseKeyClockUser = responseKeyClockUser.json()
                 accessTokenUser = responseKeyClockUser['result']['access_token']
-                jwtTokenSecret  = config.get(environment, 'jwtTokenSecret')
-                decode = jwt.decode(accessTokenUser, jwtTokenSecret , algorithms=["HS256"])
+                jwtToken  = jwtTokenSecret
+                decode = jwt.decode(accessTokenUser, jwtToken , algorithms=["HS256"])
                 ElevateObservation.getRolesAndTenantIdAndOrgIdFromUserToken(decode)
                 messageArr.append("Access Token : " + str(accessTokenUser))
                 ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
@@ -298,7 +293,7 @@ class ElevateObservation:
             return accessTokenUser
     
     def getRolesAndTenantIdAndOrgIdFromUserToken(decodedToken):
-        rolesInToken = decodedToken['data']['roles']
+        rolesInToken = decodedToken['data']['organizations'][0]['roles']
         global roleOfResourceCreator
         for element in rolesInToken:
             if element.get('title') == 'org_admin':
@@ -307,16 +302,18 @@ class ElevateObservation:
              roleOfResourceCreator = 'tenant_admin'
 
         global tenantID 
-        tenantID = ElevateObservation.clean_single_value(decodedToken['data']['tenant_id'])
+        tenantID = ElevateObservation.clean_single_value(decodedToken['data']['tenant_code'])
         global orgIDFromTemplate 
-        orgIDFromTemplate = ElevateObservation.clean_single_value(decodedToken['data']['organization_ids'][0])
+        orgIDFromTemplate = ElevateObservation.clean_single_value(decodedToken['data']['organizations'][0].get('id'))
 
     def fetchEntityType(solutionName_for_folder_path, accessToken, entitiesPGM, scopeEntityType):
         urlFetchEntityListApi = elevateentityhost + searchforlocation
+        print(urlFetchEntityListApi)
         headerFetchEntityListApi = {
             'Content-Type': content_type,
             'internal-access-token': internal_access_token,
         }
+        print(headerFetchEntityListApi)
 
         # Initialize a dictionary to store entity types for each entity
         entityTypes = []
@@ -329,13 +326,14 @@ class ElevateObservation:
             payload = {
                 "query": {
                     "metaInformation.name": entityName,
-                    "tenantId":tenantID,  # Use the current entity name
-                    "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')},
+                    "tenantId":tenantID if tenantID else "shikshagraha",  # Use the current entity name
+                    # "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')},
                 },
                 "projection": [
                     "entityType"
                 ]
             }
+            print(payload,"payload")
             data = json.dumps(payload)
 
             # Make the API call inside the loop to send one request per entity
@@ -378,14 +376,15 @@ class ElevateObservation:
             headerFetchEntityListApi = {
                 'Content-Type': content_type,
                 'internal-access-token': internal_access_token,
+                'origin': origin
             }
             payload = {
                 "query" : {
                     "entityType": {
                         "$in": scopeEntityType
                     },
-                    "tenantId":tenantID,
-                    "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')}
+                    "tenantId":tenantID if tenantID else "shikshagraha",
+                    # "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')}
                 },
 
                 "projection": [
@@ -439,7 +438,7 @@ class ElevateObservation:
                 global programID, programExternalId, programDescription, isProgramnamePresent, programName
                 programName = programNameInp
                 print(programName,"programName")
-                programUrl = internal_kong_ip + fetchprograminfoapiurlobs
+                programUrl = internal_kong_ip + fetchprograminfoapiurl
                 # print(programUrl,"payload")
                 payload = json.dumps({
                     "query": {
@@ -530,12 +529,12 @@ class ElevateObservation:
         global OrgName, errorVar
         error_message = ""
         try:
-            # decoded_token = jwt.decode(accessToken, options={"verify_signature": False}, algorithms=["HS256"])
-            # data=decoded_token.get('data')
-            # user_id = data.get('id')  
-            url = elevateuserhost + userinfoapiurl
+            decoded_token = jwt.decode(accessToken, options={"verify_signature": False}, algorithms=["HS256"])
+            data=decoded_token.get('data')
+            user_id = data.get('id')  
+            url = userLoginHost + userinfoapiurl
             messageArr = ["User search API called."]
-            headers = {'Content-Type': 'application/json',
+            headers = {# 'Content-Type': 'application/json',
                     'internal-access-token': internal_access_token,
                     'X-auth-token': accessToken}
         
@@ -552,9 +551,10 @@ class ElevateObservation:
                     userKeycloak = responseUserSearch['result']['id']
                     userName = responseUserSearch['result']['name']
                     firstName = responseUserSearch['result']['name']
-                    rootOrgId = responseUserSearch['result']['organization']['id']
+                    rootOrgId = responseUserSearch['result']['organizations'][0]['id']
                     roledetails = None
-                    for index in responseUserSearch['result']['user_roles']:
+                    roles = responseUserSearch['result']['organizations'][0]['roles']
+                    for index in roles:
                         if rootOrgId == index['organization_id']:
                             roledetails = index['title']
                     # userKeycloak = responseUserSearch['result']['id']
@@ -592,7 +592,7 @@ class ElevateObservation:
             messageArr = []
             messageArr.append("++++++++++++ Program Creation ++++++++++++")
             # program creation url 
-            ProgramCreationurl = internal_kong_ip + programcreationurlobs
+            ProgramCreationurl = internal_kong_ip + programcreationurl
             messageArr.append("Program Creation URL : " + ProgramCreationurl)
             # print(ProgramCreationurl,"ProgramCreationurl")
             # program creation payload
@@ -606,46 +606,46 @@ class ElevateObservation:
                     scope[entity_type] = [entity_value]
                             # bodySolutionUpdate = {
                             #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-            scope["roles"] = roles
-            print(externalId,pName,"pNamepNamepNamepNamepNamepName")
+            scope["professional_subroles"] = rolesPGMID
+            scope["professional_role"] = mainRole
             payload = json.dumps({
-                "externalId": externalId,
-                "name": pName,
-                "description": pDescription,
-                "resourceType": [
-                    "program"
-                ],
-                "language": [
-                    "English"
-                ],
-                "keywords": keywords,
-                "concepts": [],
-                "createdFor": orgIds,
-                "rootOrganisations": orgIds,
-                "startDate": startDateOfProgram,
-                "endDate": endDateOfProgram,
-                "imageCompression": {
-                    "quality": 10
+            "externalId": externalId,
+            "name": pName,
+            "description": pDescription,
+            "resourceType": [
+                "program"
+            ],
+            "language": [
+                "English"
+            ],
+            "keywords": keywords,
+            "concepts": [],
+            "createdFor": orgIds,
+            "rootOrganisations": orgIds,
+            "startDate": startDateOfProgram,
+            "endDate": endDateOfProgram,
+            "imageCompression": {
+                "quality": 10
+            },
+            "creator": creatorName,
+            "owner": creatorKeyCloakId,
+            "author": creatorKeyCloakId,
+            "scope": scope,
+            "metaInformation": {
+                "state":stateEntitiesPGM.split(","),
+                "roles": mainRole
                 },
-                "creator": creatorName,
-                "owner": creatorKeyCloakId,
-                "author": creatorKeyCloakId,
-                "scope": scope,
-                "metaInformation": {
-                    "state":stateEntitiesPGM.split(","),
-                    "roles": mainRole.split(",")
-                    },
-                    "requestForPIIConsent":True
-                    })
+                "requestForPIIConsent":True
+                })
             print(payload,"payload")
             # messageArr.append("Body : " + str(payload))
             headers = {'X-auth-token': accessToken,
                 'internal-access-token': internal_access_token,
                 'Content-Type': 'application/json',
                 'Authorization':authorization,
-                'tenantId': tenantID,
+                'tenantId': tenantID if tenantID else "shikshagraha",
                 'orgid': orgIDFromTemplate,
-                # config.get(environment,'adminTokenHeaderName'): config.get(environment, 'adminAccessToken')
+                adminTokenHeaderName: adminAccessToken
                 }
             print(headers,"headers")
             
@@ -763,6 +763,7 @@ class ElevateObservation:
                             errorVar = "\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet"
                         # rolesPGM = dictDetailsEnv['Targeted subrole at program level'] if dictDetailsEnv['Targeted subrole at program level'] else ElevateObservation.terminatingMessage("\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet")  
                         global rolesPGMID
+                        mainRole = mainRole.lstrip().rstrip().split(",")
                         rolesPGMID=rolesPGM.lstrip().rstrip().split(",")
                         global startDateOfProgram, endDateOfProgram, ReffstartDateOfProgram, ReffendDateOfProgram
                         if dictDetailsEnv.get('Start date of program'):
@@ -796,15 +797,15 @@ class ElevateObservation:
                         # scopeEntityType = "state"
                         global entitiesType
                         print(entitiesPGM, "entitiesPGM")
-                        # entitiesType = ElevateObservation.fetchEntityType(parentFolder, accessToken,
-                                                    # entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
+                        entitiesType = ElevateObservation.fetchEntityType(parentFolder, accessToken,
+                                                    entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
                         if entitiesPGM:
                             entitiesPGM = entitiesPGM
                             scopeEntityType = entitiesType
 
                         global entitiesPGMID
-                        # entitiesPGMID = ElevateObservation.fetchEntityId(parentFolder, accessToken,
-                                                    # entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
+                        entitiesPGMID = ElevateObservation.fetchEntityId(parentFolder, accessToken,
+                                                    entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
                         global orgIds
                         
 
@@ -828,8 +829,8 @@ class ElevateObservation:
                             rolesPGM = dictDetailsEnv['Targeted subrole at program level']
                             if "teacher" in mainRole.strip().lower():
                                 rolesPGM = str(rolesPGM).strip() + ",TEACHER"
-                            # userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
-                            userDetails=["222","1","name","1","1"]
+                            userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
+                            # userDetails=["222","1","name","1","1"]
                             print(userDetails,"userDetails")
                             OrgName=userDetails[4]
                             # orgIds=fetchOrgId(environment, accessToken, parentFolder, OrgName)
@@ -846,6 +847,7 @@ class ElevateObservation:
                             # fetch sub-role details 
                             # rolesPGMID = fetchScopeRole(parentFolder, accessToken, rolesPGM.lstrip().rstrip().split(","))
                             # global rolesPGMID
+                            mainRole=mainRole.lstrip().rstrip().split(",")
                             rolesPGMID=rolesPGM.lstrip().rstrip().split(",")
                             # sys.exit()
                             # call function to create program 
@@ -865,14 +867,14 @@ class ElevateObservation:
                                 print("Program creation failed! Please check logs.")
                                 return False
                         else :
-                            # userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['projectService username/user id/email id/phone no. of Program Designer'])
-                            userDetails=["222","1","name","1","1"]
+                            userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
+                            # userDetails=["222","1","name","1","1"]
                             OrgName=userDetails[4]
                             # orgIds=fetchOrgId(environment, accessToken, parentFolder, OrgName)
                             creatorKeyCloakId = userDetails[0]
                             creatorName = userDetails[2]
-                            if not ElevateObservation.programCreation(accessToken, parentFolder, extIdPGM, programNameInp, descriptionPGM,keywordsPGM.lstrip().rstrip().split(","), entitiesPGMID, rolesPGMID, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM):
-                                return False
+                            # if not ElevateObservation.programCreation(accessToken, parentFolder, extIdPGM, programNameInp, descriptionPGM,keywordsPGM.lstrip().rstrip().split(","), entitiesPGMID, rolesPGMID, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM):
+                            #     return False
                             if not ElevateObservation.getProgramInfo(accessToken, parentFolder, programNameInp):
                                 print("Program creation failed! Please check logs.")
                                 return False
@@ -934,7 +936,6 @@ class ElevateObservation:
                         #         endDateArr = str(endDateOfResource).split("-")
                         #         bodySolutionUpdate = {
                         #             "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                        print("it wants to come out//////////////////////////////////////////////////////////")
                         #         solutionUpdate(parentFolder, accessToken, coursemapping, bodySolutionUpdate)
                         if errorVar == "":
                             return True
@@ -951,7 +952,7 @@ class ElevateObservation:
         rubrics_sheet_names = ['Instructions', 'details', 'framework', 'ECMs or Domains', 'questions','Criteria_Rubric-Scoring', 'Domain(theme)_rubric_scoring']
         rubrics_sheet_IMP_names = ['Instructions', 'details', 'framework', 'ECMs or Domains', 'questions','Criteria_Rubric-Scoring', 'Domain(theme)_rubric_scoring', 'Imp mapping']
         observation_sheet_names = ['Instructions', 'details', 'criteria', 'questions']
-        # survey_sheet_names = ['Instructions', 'details', 'questions']
+        survey_sheet_names = ['Instructions', 'details', 'questions']
         # project_sheet_names = ['Instructions', 'Project upload', 'Tasks upload','Certificate details']
 
         # 1-with rubrics , 2 - with out rubrics , 3 - survey , 4 - Project 5 - With rubric and IMP
@@ -963,9 +964,9 @@ class ElevateObservation:
         elif (len(observation_sheet_names) == len(sheetNames1)) and ((set(observation_sheet_names) == set(sheetNames1))):
             print("--->Observation without rubrics file detected.<---")
             typeofSolution = 2
-        # elif (len(survey_sheet_names) == len(sheetNames1)) and ((set(survey_sheet_names) == set(sheetNames1))):
-        #     print("--->Survey file detected.<---")
-        #     typeofSolution = 3
+        elif (len(survey_sheet_names) == len(sheetNames1)) and ((set(survey_sheet_names) == set(sheetNames1))):
+            print("--->Survey file detected.<---")
+            typeofSolution = 3
         # elif (len(project_sheet_names) == len(sheetNames1)) and ((set(project_sheet_names) == set(sheetNames1))):
         #     print("--->Project file detected.<---")
         #     typeofSolution = 4
@@ -1399,9 +1400,9 @@ class ElevateObservation:
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
-                'tenantId': tenantID,
+                'tenantId': tenantID if tenantID else "shikshagraha",
                 'orgid': orgIDFromTemplate,
-                # adminTokenHeaderName: adminAccessToken
+                adminTokenHeaderName: adminAccessToken
             }
             queryparamsCreateSolutionApi = '?frameworkId=' + str(frameworkExternalId) + '&entityType=' + entityType
             responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi + queryparamsCreateSolutionApi,
@@ -1445,13 +1446,16 @@ class ElevateObservation:
         global errorVar
         error_message = ""
         try:
-            solutionUpdateApi = internal_kong_ip + solutionupdateapiObs + str(solutionId)
+            solutionUpdateApi = internal_kong_ip + solutionupdateapi + str(solutionId)
             headerUpdateSolutionApi = {
                 'Content-Type': 'application/json',
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
-                "internal-access-token": internal_access_token
+                "internal-access-token": internal_access_token,
+                'tenantId': tenantID if tenantID else "shikshagraha",
+                'orgid': orgIDFromTemplate,
+                adminTokenHeaderName: adminAccessToken
                 }
             responseUpdateSolutionApi = requests.post(url=solutionUpdateApi, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
             messageArr = ["Solution Update API called.", "URL : " + str(solutionUpdateApi), "Body : " + str(bodySolutionUpdate),"Response : " + str(responseUpdateSolutionApi.text),"Status Code : " + str(responseUpdateSolutionApi.status_code)]
@@ -2359,9 +2363,9 @@ class ElevateObservation:
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
                 "internal-access-token": internal_access_token,
-                'tenantId': tenantID,
+                'tenantId': tenantID if tenantID else "shikshagraha",
                 'orgid': orgIDFromTemplate,
-                # adminTokenHeaderName: adminAccessToken
+                adminTokenHeaderName: adminAccessToken
             }
             filesCriteriaRubric = {
                 'criteria': open(solutionName_for_folder_path + '/criteriaRubrics/uploadSheet.csv', 'rb')
@@ -2459,9 +2463,9 @@ class ElevateObservation:
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
-                'tenantId': tenantID,
+                'tenantId': tenantID if tenantID else "shikshagraha",
                 'orgid': orgIDFromTemplate,
-                # adminTokenHeaderName: adminAccessToken
+                adminTokenHeaderName: adminAccessToken
             }
             filesThemeRubric = {
                 'themes': open(solutionName_for_folder_path + '/themeRubrics/uploadSheet.csv', 'rb')
@@ -2498,16 +2502,16 @@ class ElevateObservation:
         global solutionRolesArray, solutionStartDate, solutionEndDate, errorVar
         error_message = ""
         try:
-            urlFetchSolutionApi = internal_kong_ip + fetchsolutiondocobs + solutionId
+            urlFetchSolutionApi = internal_kong_ip + fetchsolutiondoc + solutionId
             headerFetchSolutionApi = {
                 'Content-Type': 'application/json',
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
-                'tenantId': tenantID,
+                'tenantId': tenantID if tenantID else "shikshagraha",
                 'orgid': orgIDFromTemplate,
-                # adminTokenHeaderName: adminAccessToken
+                adminTokenHeaderName: adminAccessToken
             }
             payloadFetchSolutionApi = {}
             responseFetchSolutionApiUrl = requests.post(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
@@ -2557,7 +2561,7 @@ class ElevateObservation:
 
     def fetchSolutionDetailsFromResourceSheet(solutionName_for_folder_path, programFile, solutionId, accessToken,typeofSolution):
         global solutionRolesArray, solutionStartDate, solutionEndDate
-        urlFetchSolutionApi = internal_kong_ip + fetchsolutiondocobs + solutionId
+        urlFetchSolutionApi = internal_kong_ip + fetchsolutiondoc + solutionId
         
         headerFetchSolutionApi = {
             'Content-Type': 'application/json',
@@ -2619,9 +2623,9 @@ class ElevateObservation:
                                     'X-auth-token': accessToken,
                                     'Content-Type': content_type,
                                     'internal-access-token': internal_access_token,
-                                    'tenantId': tenantID,
+                                    'tenantId': tenantID if tenantID else "shikshagraha",
                                     'orgid': orgIDFromTemplate,
-                                    # adminTokenHeaderName: adminAccessToken
+                                    adminTokenHeaderName: adminAccessToken
                                     }
             responseSol_prog_mapping = requests.request("POST", urlSol_prog_mapping, headers=headersSol_prog_mapping,
                                                         data=json.dumps(payloadSol_prog_mapping))
@@ -2662,15 +2666,15 @@ class ElevateObservation:
         global errorVar
         error_message = ""
         try: 
-            urlFetchSolutionApi = internal_kong_ip + fetchsolutiondocobs + solutionId
+            urlFetchSolutionApi = internal_kong_ip + fetchsolutiondoc + solutionId
             headerFetchSolutionApi = {
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
-                'tenantId': tenantID,
+                'tenantId': tenantID if tenantID else "shikshagraha",
                 'orgid': orgIDFromTemplate,
-                # adminTokenHeaderName: adminAccessToken
+                adminTokenHeaderName: adminAccessToken
             }
             payloadFetchSolutionApi = {}
 
@@ -2686,103 +2690,105 @@ class ElevateObservation:
             if responseFetchSolutionApi.status_code == 200:
                 print('Fetch solution Api Success')
                 solutionName = responseFetchSolutionJson["result"]["name"]
+                solutionLink = "Solution created successfully."
+                return solutionLink
+                # urlFetchSolutionLinkApi = internal_kong_ip + fetchlink + solutionId
+                # headerFetchSolutionLinkApi = {
+                #     'Authorization': authorization,
+                #     'X-auth-token': accessToken,
+                #     'X-Channel-id': x_channel_id,
+                #     'internal-access-token': internal_access_token
+                # }
+                # payloadFetchSolutionLinkApi = {}
 
-                urlFetchSolutionLinkApi = internal_kong_ip + fetchlinkobs + solutionId
-                headerFetchSolutionLinkApi = {
-                    'Authorization': authorization,
-                    'X-auth-token': accessToken,
-                    'X-Channel-id': x_channel_id,
-                    'internal-access-token': internal_access_token
-                }
-                payloadFetchSolutionLinkApi = {}
+                # responseFetchSolutionLinkApi = requests.get(url=urlFetchSolutionLinkApi, headers=headerFetchSolutionLinkApi,
+                #                                             data=payloadFetchSolutionLinkApi)
 
-                responseFetchSolutionLinkApi = requests.get(url=urlFetchSolutionLinkApi, headers=headerFetchSolutionLinkApi,
-                                                            data=payloadFetchSolutionLinkApi)
+                # messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
+                # messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
+                # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                # print(responseFetchSolutionLinkApi,"responseFetchSolutionLinkApi")
+                # if responseFetchSolutionLinkApi.status_code == 200:
+                #     print('Fetch solution Link Api Success')
+                #     responseProjectUploadJson = responseFetchSolutionLinkApi.json()
+                #     ActualsolutionLink = responseProjectUploadJson["result"]
+                #     messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
+                #     ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
 
-                messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
-                messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
-                ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
-                print(responseFetchSolutionLinkApi,"responseFetchSolutionLinkApi")
-                if responseFetchSolutionLinkApi.status_code == 200:
-                    print('Fetch solution Link Api Success')
-                    responseProjectUploadJson = responseFetchSolutionLinkApi.json()
-                    solutionLink = responseProjectUploadJson["result"]
-                    messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
-                    ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                #     if os.path.exists(MainFilePath + "/" + str(programFile).replace(".xlsx", "") + '-SuccessSheet.xlsx'):
+                #         xfile = openpyxl.load_workbook(
+                #             MainFilePath + "/" + str(programFile).replace(".xlsx", "") + '-SuccessSheet.xlsx')
+                #     else:
+                #         xfile = openpyxl.load_workbook(programFile)
+                #     print(xfile.sheetnames)
 
-                    if os.path.exists(MainFilePath + "/" + str(programFile).replace(".xlsx", "") + '-SuccessSheet.xlsx'):
-                        xfile = openpyxl.load_workbook(
-                            MainFilePath + "/" + str(programFile).replace(".xlsx", "") + '-SuccessSheet.xlsx')
-                    else:
-                        xfile = openpyxl.load_workbook(programFile)
-                    print(xfile.sheetnames)
+                #     #sheet_name = 'details'.strip()
+                #     sheet_name_primary = 'Resource Details'.strip()
+                #     sheet_name_fallback = 'details'.strip()
 
-                    #sheet_name = 'details'.strip()
-                    sheet_name_primary = 'Resource Details'.strip()
-                    sheet_name_fallback = 'details'.strip()
+                #     try:
+                #         resourceDetailsSheet = xfile[sheet_name_primary]
+                #     except KeyError:
+                #         resourceDetailsSheet = xfile[sheet_name_fallback]
 
-                    try:
-                        resourceDetailsSheet = xfile[sheet_name_primary]
-                    except KeyError:
-                        resourceDetailsSheet = xfile[sheet_name_fallback]
+                #     greenFill = PatternFill(start_color='0000FF00',
+                #                             end_color='0000FF00',
+                #                             fill_type='solid')
+                #     rowCountRD = resourceDetailsSheet.max_row
+                #     columnCountRD = resourceDetailsSheet.max_column
+                #     for row in range(3, rowCountRD + 1):
+                #         if str(resourceDetailsSheet["B" + str(row)].value).rstrip().lstrip().lower() == "course":
+                #             resourceDetailsSheet["D1"] = ""
+                #             resourceDetailsSheet["E1"] = ""
+                #             resourceDetailsSheet['I2'] = "External id of the resource"
+                #             resourceDetailsSheet['J2'] = "link to access the resource/Response"
+                #             resourceDetailsSheet['I2'].fill = greenFill
+                #             resourceDetailsSheet['J2'].fill = greenFill
+                #             resourceDetailsSheet['I' + str(row)] = solutionExternalId
+                #             resourceDetailsSheet['J' + str(row)] = "The course has been successfully mapped to the program"
+                #             resourceDetailsSheet['I' + str(row)].fill = greenFill
+                #             resourceDetailsSheet['J' + str(row)].fill = greenFill
+                #         elif str(resourceDetailsSheet["A" + str(row)].value).strip() == solutionName:
+                #             resourceDetailsSheet["D1"] = ""
+                #             resourceDetailsSheet["E1"] = ""
+                #             resourceDetailsSheet['I2'] = "External id of the resource"
+                #             resourceDetailsSheet['J2'] = "link to access the resource/Response"
+                #             resourceDetailsSheet['I2'].fill = greenFill
+                #             resourceDetailsSheet['J2'].fill = greenFill
+                #             resourceDetailsSheet['I' + str(row)] = solutionExternalId
+                #             resourceDetailsSheet['J' + str(row)] = solutionLink
+                #             resourceDetailsSheet['I' + str(row)].fill = greenFill
+                #             resourceDetailsSheet['J' + str(row)].fill = greenFill
 
-                    greenFill = PatternFill(start_color='0000FF00',
-                                            end_color='0000FF00',
-                                            fill_type='solid')
-                    rowCountRD = resourceDetailsSheet.max_row
-                    columnCountRD = resourceDetailsSheet.max_column
-                    for row in range(3, rowCountRD + 1):
-                        if str(resourceDetailsSheet["B" + str(row)].value).rstrip().lstrip().lower() == "course":
-                            resourceDetailsSheet["D1"] = ""
-                            resourceDetailsSheet["E1"] = ""
-                            resourceDetailsSheet['I2'] = "External id of the resource"
-                            resourceDetailsSheet['J2'] = "link to access the resource/Response"
-                            resourceDetailsSheet['I2'].fill = greenFill
-                            resourceDetailsSheet['J2'].fill = greenFill
-                            resourceDetailsSheet['I' + str(row)] = solutionExternalId
-                            resourceDetailsSheet['J' + str(row)] = "The course has been successfully mapped to the program"
-                            resourceDetailsSheet['I' + str(row)].fill = greenFill
-                            resourceDetailsSheet['J' + str(row)].fill = greenFill
-                        elif str(resourceDetailsSheet["A" + str(row)].value).strip() == solutionName:
-                            resourceDetailsSheet["D1"] = ""
-                            resourceDetailsSheet["E1"] = ""
-                            resourceDetailsSheet['I2'] = "External id of the resource"
-                            resourceDetailsSheet['J2'] = "link to access the resource/Response"
-                            resourceDetailsSheet['I2'].fill = greenFill
-                            resourceDetailsSheet['J2'].fill = greenFill
-                            resourceDetailsSheet['I' + str(row)] = solutionExternalId
-                            resourceDetailsSheet['J' + str(row)] = solutionLink
-                            resourceDetailsSheet['I' + str(row)].fill = greenFill
-                            resourceDetailsSheet['J' + str(row)].fill = greenFill
-
-                    programFile = str(programFile).replace(".xlsx", "")
-                    xfile.save(MainFilePath + "/" + programFile + '-SuccessSheet.xlsx')
-                    print("Program success sheet is created")
-                    return solutionLink
-                else:
-                    print("Fetch solution link API Failed")
-                    error_message = ""
-                    if responseFetchSolutionLinkApi.status_code in [400, 401, 403, 404, 422]:
-                        error_message = f"FetchSolutionLinkApi-Client Error {responseFetchSolutionLinkApi.status_code}: {responseFetchSolutionLinkApi.text}"
-                    elif responseFetchSolutionLinkApi.status_code in [500, 502, 503, 504]:
-                        error_message = f"FetchSolutionLinkApi-Server Error {responseFetchSolutionLinkApi.status_code}: {responseFetchSolutionLinkApi.text}"
-                    else:
-                        error_message = f"FetchSolutionLinkApi-Unexpected Error {responseFetchSolutionLinkApi.status_code}: {responseFetchSolutionLinkApi.text}"
-                    errorVar = error_message
-                    messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
-                    ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
-                    return False
+                #     programFile = str(programFile).replace(".xlsx", "")
+                #     xfile.save(MainFilePath + "/" + programFile + '-SuccessSheet.xlsx')
+                #     print("Program success sheet is created")
+                #     solutionLink = "Solution created successfully."
+                #     return solutionLink
+                # else:
+                #     print("Fetch solution link API Failed")
+                #     error_message = ""
+                #     if responseFetchSolutionLinkApi.status_code in [400, 401, 403, 404, 422]:
+                #         error_message = f"FetchSolutionLinkApi-Client Error {responseFetchSolutionLinkApi.status_code}: {responseFetchSolutionLinkApi.text}"
+                #     elif responseFetchSolutionLinkApi.status_code in [500, 502, 503, 504]:
+                #         error_message = f"FetchSolutionLinkApi-Server Error {responseFetchSolutionLinkApi.status_code}: {responseFetchSolutionLinkApi.text}"
+                #     else:
+                #         error_message = f"FetchSolutionLinkApi-Unexpected Error {responseFetchSolutionLinkApi.status_code}: {responseFetchSolutionLinkApi.text}"
+                #     errorVar = error_message
+                #     messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
+                #     ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                #     return False
             else:
                 print("Fetch solution link API Failed")
                 error_message = ""
-                if responseFetchSolutionLinkApi.status_code in [400, 401, 403, 404, 422]:
-                    error_message = f"FetchSolutionLinkApi-Client Error {responseFetchSolutionLinkApi.status_code}: {responseFetchSolutionLinkApi.text}"
-                elif responseFetchSolutionLinkApi.status_code in [500, 502, 503, 504]:
-                    error_message = f"FetchSolutionLinkApi-Server Error {responseFetchSolutionLinkApi.status_code}: {responseFetchSolutionLinkApi.text}"
+                if responseFetchSolutionApi.status_code in [400, 401, 403, 404, 422]:
+                    error_message = f"FetchSolutionLinkApi-Client Error {responseFetchSolutionApi.status_code}: {responseFetchSolutionApi.text}"
+                elif responseFetchSolutionApi.status_code in [500, 502, 503, 504]:
+                    error_message = f"FetchSolutionLinkApi-Server Error {responseFetchSolutionApi.status_code}: {responseFetchSolutionApi.text}"
                 else:
-                    error_message = f"FetchSolutionLinkApi-Unexpected Error {responseFetchSolutionLinkApi.status_code}: {responseFetchSolutionLinkApi.text}"
+                    error_message = f"FetchSolutionLinkApi-Unexpected Error {responseFetchSolutionApi.status_code}: {responseFetchSolutionApi.text}"
                 errorVar = error_message
-                messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
+                messageArr.append("Response : " + str(responseFetchSolutionApi.text))
                 ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
                 return False
         except Exception as e:
@@ -2823,8 +2829,11 @@ class ElevateObservation:
                         dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
                                         for
                                         col_index_env in range(detailsEnvSheet.ncols)}
+                        print(dictDetailsEnv)
                         tenantIdFromProgramFile = dictDetailsEnv.get('Tenant ID')
+                        print(tenantIdFromProgramFile,"2831")
                         orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
+                        print(orgIdsFromProgramFile,"2833")
 
             global roleOfResourceCreator
             if roleOfResourceCreator not in ['org_admin', 'tenant_admin'] and not tenantIdFromProgramFile:
@@ -3334,12 +3343,12 @@ class ElevateObservation:
                 else:
                     errorVar = 'Sheet Names in excel file is wrong , Sheet Names are details,questions'
 
-            detailsColNames = ["survey_solution_name", "survey_solution_description", "Name_of_the_creator","Username/user id/email id/phone no. of the Content creator", "survey_start_date", "survey_end_date"]
+            detailsColNames = ["survey_solution_name", "survey_solution_description", "Name_of_the_creator","survey_creator_username", "survey_start_date", "survey_end_date","Tenant ID","Org ID"]
             questionsColNames = ["question_sequence", "question_id", "section_header", "instance_parent_question_id",
                                 "parent_question_id", "show_when_parent_question_value_is", "parent_question_value",
                                 "page", "question_number", "question_language1", "question_language2", "question_tip",
                                 "question_hint", "instance_identifier", "question_response_type", "date_auto_capture",
-                                "response_required", "min_number_value", "max_number_value", "file_upload", "show_remarks",
+                                "response_required","question_response_validation", "min_number_value", "max_number_value", "file_upload", "show_remarks",
                                 "response(R1)", "response(R2)", "response(R3)", "response(R4)", "response(R5)",
                                 "response(R6)", "response(R7)", "response(R8)", "response(R9)", "response(R10)",
                                 "response(R11)", "response(R12)", "response(R13)", "response(R14)", "response(R15)",
@@ -3354,9 +3363,11 @@ class ElevateObservation:
                 # print(sheetColCheck,"sheetColCheck 2717")
                 if sheetColCheck.strip().lower() == 'details':
                     detailsColCheck = wbObservation1.sheet_by_name(sheetColCheck)
-                    keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
+                    keysColCheckDetai = [detailsColCheck.cell(1, col_index_check).value for col_index_check in
                                         range(detailsColCheck.ncols)]
-                    if len(keysColCheckDetai) != len(detailsColNames):
+                    # print(keysColCheckDetai,detailsColNames)
+                    # print(len(keysColCheckDetai),len(detailsColNames))
+                    if len(keysColCheckDetai) != len(detailsColNames) :
                         errorVar = 'Some Columns are missing in details sheet'
 
                     detailsEnvSheet = wbObservation1.sheet_by_name(sheetColCheck)
@@ -3379,10 +3390,10 @@ class ElevateObservation:
                             Nameofthecreator = dictDetailsEnv['Name_of_the_creator']
                         else:
                             errorVar = "validation failed :Name_of_the_creator column must not be Empty in details sheet"
-                        if dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']:
-                            surveycreatorusername = dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']
+                        if dictDetailsEnv['survey_creator_username']:
+                            surveycreatorusername = dictDetailsEnv['survey_creator_username']
                         else:
-                            errorVar = "validation failed :Username/user id/email id/phone no. of the Content creator column must not be Empty in details sheet"
+                            errorVar = "validation failed :survey_creator_username column must not be Empty in details sheet"
                         if dictDetailsEnv['survey_start_date']:
                             surveystartdate = dictDetailsEnv['survey_start_date']
                         else:
@@ -3397,6 +3408,9 @@ class ElevateObservation:
                     keysColCheckQues = [questionsColCheck.cell(1, col_index_check2).value for col_index_check2 in
                                         range(questionsColCheck.ncols)]
                     # print(keysColCheckQues)
+                    print(keysColCheckQues,"111111")
+                    print(questionsColNames,"22222")
+                    print(len(keysColCheckQues),len(questionsColNames))
                     if len(keysColCheckQues) != len(questionsColNames):
                         errorVar = 'Some Columns are missing in questions sheet'
                     for row_index_env in range(2, questionsColCheck.nrows):
@@ -3468,13 +3482,15 @@ class ElevateObservation:
                         surveySolutionCreationReqBody['creator'] = dictDetailsEnv['Name_of_the_creator']
 
 
-                    userDetails = ElevateObservation.fetchUserDetails( accessToken, dictDetailsEnv['survey_creator_username'])
+                    userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['survey_creator_username'])
                     surveySolutionCreationReqBody['author'] = userDetails[0]
+                    print(surveySolutionCreationReqBody,"surveySolutionCreationReqBody")
                     global SurveyTemplateStartDate, SurveyTemplateEndDate
                     SurveyTemplateStartDate = dictDetailsEnv["survey_start_date"]
                     SurveyTemplateEndDate = dictDetailsEnv["survey_end_date"]
                     try: 
-                        urlCreateSolutionApi = INTERNAL_KONG_IP+ surveySolutionCreationApiUrl
+                        urlCreateSolutionApi = internal_kong_ip+ surveysolutioncreationapiurl
+
                         headerCreateSolutionApi = {
                             'Content-Type': content_type,
                             "internal-access-token": internal_access_token,
@@ -3482,9 +3498,9 @@ class ElevateObservation:
                             'X-auth-token': accessToken,
                             # 'X-Channel-id': config.get(environment, 'X-Channel-id'),
                             # 'appName': config.get(environment, 'appName'),
-                            'tenantId': tenantID,
+                            'tenantId': tenantID if tenantID else "shikshagraha",
                             'orgid': orgIDFromTemplate,
-                            # adminTokenHeaderName: adminAccessToken
+                            adminTokenHeaderName: adminAccessToken
                         }
                         responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi,
                                                                 headers=headerCreateSolutionApi,
@@ -3499,14 +3515,17 @@ class ElevateObservation:
                         ElevateObservation.apicheckslog(parentFolder,fileheader)
                         if responseCreateSolutionApi.status_code == 200:
                             responseCreateSolutionApi = responseCreateSolutionApi.json()
-                            urlSearchSolution = INTERNAL_KONG_IP + fetchsolutiondetails + "survey&page=1&limit=10&search=" + str(surveySolutionExternalId)
-                            responseSearchSolution = requests.request("POST", urlSearchSolution,
+                            urlSearchSolution = internal_kong_ip + fetchsolutiondetails + "survey&page=1&limit=10&search=" + str(surveySolutionExternalId)
+                            print(urlSearchSolution,"urlSearchSolution")
+                            print(headerCreateSolutionApi,"headerCreateSolutionApi")
+                            responseSearchSolution = requests.request("GET", urlSearchSolution,
                                                                     headers=headerCreateSolutionApi)
                             messageArr = ["********* Search Survey Solution *********", "URL : " + urlSearchSolution,
                                         "Status code : " + str(responseSearchSolution.status_code),
                                         "Response : " + responseSearchSolution.text]
                             ElevateObservation.createAPILog(parentFolder, messageArr)
                             ElevateObservation.apicheckslog(parentFolder, messageArr)
+                            print(responseSearchSolution.text,"responseSearchSolution")
                             if responseSearchSolution.status_code == 200:
                                 responseSearchSolutionApi = responseSearchSolution.json()
                                 surveySolutionExternalId = None
@@ -3813,10 +3832,10 @@ class ElevateObservation:
                                 questionFileObj['questionNumber'] = ques['question_number']
                         writerQuestionUpload.writerow(questionFileObj)
                 try:        
-                    urlQuestionsUploadApi = INTERNAL_KONG_IP + questionUploadApiUrl
+                    urlQuestionsUploadApi = internal_kong_ip + questionuploadapiurl
                     headerQuestionUploadApi = {
                         'Authorization': authorization,
-                        'X-authenticated-user-token': accessToken,
+                        'X-auth-token': accessToken,
                         'X-Channel-id': x_channel_id
                     }
                     filesQuestion = {
@@ -3824,6 +3843,7 @@ class ElevateObservation:
                     }
                     responseQuestionUploadApi = requests.post(url=urlQuestionsUploadApi,
                                                             headers=headerQuestionUploadApi, files=filesQuestion)
+                    print(responseQuestionUploadApi.text)
                     if responseQuestionUploadApi.status_code == 200:
                         print('Question upload Success')
 
@@ -3837,16 +3857,16 @@ class ElevateObservation:
 
                         with open(parentFolder + '/questionUpload/uploadInternalIdsSheet.csv', 'w+',encoding='utf-8') as questionRes:
                             questionRes.write(responseQuestionUploadApi.text)
-                        urlImportSoluTemplate = INTERNAL_KONG_IP + importSurveySolutionTemplateUrl + str(surTempSolID) + "?appName=manage-learn"
+                        urlImportSoluTemplate = internal_kong_ip + importsurveysolutiontemplateurl + str(surTempSolID) + "?appName=manage-learn"
                         headerImportSoluTemplateApi = {
                             'X-auth-token': accessToken,
                             'X-Channel-id': x_channel_id,
                             'internal-access-token': internal_access_token,
-                            'tenantId': tenantID,
+                            'tenantId': tenantID if tenantID else "shikshagraha",
                             'orgid': orgIDFromTemplate,
-                            # adminTokenHeaderName: adminAccessToken
+                            adminTokenHeaderName: adminAccessToken
                         }
-                        responseImportSoluTemplateApi = requests.get(url=urlImportSoluTemplate,
+                        responseImportSoluTemplateApi = requests.post(url=urlImportSoluTemplate,
                                                                     headers=headerImportSoluTemplateApi)
                         if responseImportSoluTemplateApi.status_code == 200:
                             print('Creating Child Success')
@@ -3857,16 +3877,16 @@ class ElevateObservation:
                             ElevateObservation.createAPILog(parentFolder, messageArr)
                             responseImportSoluTemplateApi = responseImportSoluTemplateApi.json()
                             solutionIdSuc = responseImportSoluTemplateApi["result"]["solutionId"]
-                            urlSurveyProgramMapping = INTERNAL_KONG_IP + importSurveySolutionToProgramUrl + str(solutionIdSuc) + "?programId=" + programExternalId.lstrip().rstrip()
+                            urlSurveyProgramMapping = internal_kong_ip + importsurveysolutiontoprogramurl + str(solutionIdSuc) + "?programId=" + programExternalId.lstrip().rstrip()
                             headeSurveyProgramMappingApi = {
                                 'X-auth-token': accessToken,
                                 'X-Channel-id': x_channel_id,
                                 'internal-access-token': internal_access_token,
-                                'tenantId': tenantID,
+                                'tenantId': tenantID if tenantID else "shikshagraha",
                                 'orgid': orgIDFromTemplate,
-                                # adminTokenHeaderName: adminAccessToken
+                                adminTokenHeaderName: adminAccessToken
                             }
-                            responseSurveyProgramMappingApi = requests.get(url=urlSurveyProgramMapping,headers=headeSurveyProgramMappingApi)
+                            responseSurveyProgramMappingApi = requests.post(url=urlSurveyProgramMapping,headers=headeSurveyProgramMappingApi)
                             if responseSurveyProgramMappingApi.status_code == 200:
                                 print('Program Mapping Success')
                                 
@@ -3883,28 +3903,31 @@ class ElevateObservation:
                                 print("Survey Child Id : " + str(solutionExtIdSuc))
                                 solutionDetails = ElevateObservation.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionIdSuc,
                                                                                     accessToken)
-                                solutionStartDate1 = ElevateObservation.convert_to_date(solutionDetails[1])
-                                solutionEndDate1 = ElevateObservation.convert_to_date(solutionDetails[2])
-                                SurveyTemplateStartDate1 = ElevateObservation.convert_to_date(SurveyTemplateStartDate)
-                                SurveyTemplateEndDate1 = ElevateObservation.convert_to_date(SurveyTemplateEndDate)
-                                if SurveyTemplateStartDate1 == solutionStartDate1 and SurveyTemplateEndDate1 == solutionEndDate1:
-                                    scopeEntities = entitiesPGMID
-                                    scopeRoles = solutionDetails[0]
-                                    scope = {}
-                                    for i in range(len(entitiesType)):
-                                        entity_type = entitiesType[i]
-                                        entity_value = scopeEntities[i]
-                                        if entity_type in scope:
-                                            scope[entity_type].append(entity_value)
-                                        else:
-                                            scope[entity_type] = [entity_value]
+                                print("came out.................")
+                                scopeEntities = entitiesPGMID
+                                scopeRoles = solutionDetails[0]
+                                scope = {}
+                                for i in range(len(entitiesType)):
+                                    entity_type = entitiesType[i]
+                                    entity_value = scopeEntities[i]
+                                    if entity_type in scope:
+                                        scope[entity_type].append(entity_value)
+                                    else:
+                                        scope[entity_type] = [entity_value]
                                 # bodySolutionUpdate = {
                                 #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-                                    scope["roles"] = rolesPGMID
+                                    scope["professional_subroles"] = rolesPGMID
+                                    scope["professional_role"] = mainRole
                                     bodySolutionUpdate = {
                                         "scope": scope
                                     }
+                                    print("date update....................")
                                     ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
+                                    # solutionStartDate1 = ElevateObservation.convert_to_date(solutionDetails[1])
+                                    # solutionEndDate1 = ElevateObservation.convert_to_date(solutionDetails[2])
+                                    # SurveyTemplateStartDate1 = ElevateObservation.convert_to_date(SurveyTemplateStartDate)
+                                    # SurveyTemplateEndDate1 = ElevateObservation.convert_to_date(SurveyTemplateEndDate)
+                                    # if SurveyTemplateStartDate1 == solutionStartDate1 and SurveyTemplateEndDate1 == solutionEndDate1:
                                     if solutionDetails[1]:
                                         startDateArr = str(solutionDetails[1]).split("-")
                                         bodySolutionUpdate = {
@@ -3915,9 +3938,12 @@ class ElevateObservation:
                                         bodySolutionUpdate = {
                                             "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
                                         ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
-                                    surveySolutionlink = ElevateObservation.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, solutionExtIdSuc,
-                                                        solutionIdSuc, accessToken)
-                                
+                                    print('Survey Successfully Added')
+                                    # print(surveySolutionlink)
+                                    # surveySolutionlink = ElevateObservation.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, solutionExtIdSuc,
+                                    #                     solutionIdSuc, accessToken)
+                                    surveySolutionlink = "Solution created successfully."
+                                    return surveySolutionlink
                                     print('Survey Successfully Added')
                                     print(surveySolutionlink)
                                 else:
@@ -4237,7 +4263,7 @@ class ElevateObservation:
                                 questionFileObj['questionNumber'] = ques['question_number']
                         writerQuestionUpload.writerow(questionFileObj)
                 try:        
-                    urlQuestionsUploadApi = INTERNAL_KONG_IP + questionUploadApiUrl
+                    urlQuestionsUploadApi = internal_kong_ip + questionuploadapiurl
                     headerQuestionUploadApi = {
                         'Authorization': authorization,
                         'X-authenticated-user-token': accessToken,
@@ -4261,14 +4287,14 @@ class ElevateObservation:
 
                         with open(parentFolder + '/questionUpload/uploadInternalIdsSheet.csv', 'w+',encoding='utf-8') as questionRes:
                             questionRes.write(responseQuestionUploadApi.text)
-                        urlImportSoluTemplate = INTERNAL_KONG_IP + importSurveySolutionTemplateUrl + str(surTempSolID) + "?appName=manage-learn"
+                        urlImportSoluTemplate = internal_kong_ip + importsurveysolutiontemplateurl + str(surTempSolID) + "?appName=manage-learn"
                         headerImportSoluTemplateApi = {
                             'X-auth-token': accessToken,
                             'X-Channel-id': x_channel_id,
                             'internal-access-token': internal_access_token,
-                            'tenantId': tenantID,
+                            'tenantId': tenantID if tenantID else "shikshagraha",
                             'orgid': orgIDFromTemplate,
-                            'admin-auth-token': ADMIN_TOKEN_HEADER_NAME
+                            adminTokenHeaderName: adminAccessToken
                         }
                         responseImportSoluTemplateApi = requests.get(url=urlImportSoluTemplate,
                                                                     headers=headerImportSoluTemplateApi)
@@ -4281,14 +4307,14 @@ class ElevateObservation:
                             ElevateObservation.createAPILog(parentFolder, messageArr)
                             responseImportSoluTemplateApi = responseImportSoluTemplateApi.json()
                             solutionIdSuc = responseImportSoluTemplateApi["result"]["solutionId"]
-                            urlSurveyProgramMapping = INTERNAL_KONG_IP + importSurveySolutionToProgramUrl + str(solutionIdSuc) + "?programId=" + programExternalId.lstrip().rstrip()
+                            urlSurveyProgramMapping = internal_kong_ip + importsurveysolutiontoprogramurl + str(solutionIdSuc) + "?programId=" + programExternalId.lstrip().rstrip()
                             headeSurveyProgramMappingApi = {
                                 'X-auth-token': accessToken,
                                 'X-Channel-id': x_channel_id,
                                 'internal-access-token': internal_access_token,
-                                'tenantId': tenantID,
+                                'tenantId': tenantID if tenantID else "shikshagraha",
                                 'orgid': orgIDFromTemplate,
-                                # adminTokenHeaderName: adminAccessToken
+                                adminTokenHeaderName: adminAccessToken
                             }
                             responseSurveyProgramMappingApi = requests.get(url=urlSurveyProgramMapping,headers=headeSurveyProgramMappingApi)
                             if responseSurveyProgramMappingApi.status_code == 200:
@@ -4324,7 +4350,8 @@ class ElevateObservation:
                                             scope[entity_type] = [entity_value]
                                 # bodySolutionUpdate = {
                                 #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-                                    scope["roles"] = rolesPGMID
+                                    scope["professional_subroles"] = rolesPGMID
+                                    scope["professional_role"] = mainRole
                                     bodySolutionUpdate = {
                                         "scope": scope
                                     }
@@ -4508,7 +4535,7 @@ class ElevateObservation:
                                 ECM_NAME = dictECMs['ECM Name/Domain Name'].encode('utf-8').decode('utf-8').strip()
                                 section.update({dictECMs['section_id']: dictECMs['section_name']})
                                 ecm_sections[EMC_ID] = dictECMs['section_id']
-                                if dictECMs['Is ECM Mandatory?']:
+                                if 'Is ECM Mandatory?' in dictECMs and dictECMs['Is ECM Mandatory?'] is not None:
                                     if dictECMs['Is ECM Mandatory?'] == "TRUE" or dictECMs['Is ECM Mandatory?'] == 1:
                                         dictECMs['Is ECM Mandatory?'] = False
                                     elif dictECMs['Is ECM Mandatory?'] == "FALSE" or dictECMs['Is ECM Mandatory?'] == 0:
@@ -4603,7 +4630,8 @@ class ElevateObservation:
                                             scope[entity_type] = [entity_value]
                                     # bodySolutionUpdate = {
                                     #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-                                    scope["roles"] = rolesPGMID
+                                    scope["professional_subroles"] = rolesPGMID
+                                    scope["professional_role"] = mainRole
                                     bodySolutionUpdate = {
                                         "scope": scope
                                     }
@@ -4774,7 +4802,8 @@ class ElevateObservation:
                                             scope[entity_type] = [entity_value]
                                     # bodySolutionUpdate = {
                                     #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-                                    scope["roles"] = rolesPGMID
+                                    scope["professional_subroles"] = rolesPGMID
+                                    scope["professional_role"] = mainRole
                                     bodySolutionUpdate = {
                                         "scope": scope
                                     }
@@ -4859,6 +4888,7 @@ class ElevateObservation:
                             if not ElevateObservation.uploadSurveyQuestions(MainFilePath, parentFolder, wbSurvey, addObservationSolution, accessToken, surTempExtID, surTempSolID, millisecond, programFile):
                                 finalsurveySolutionlink = {SurveyResourceName: errorVar}
                                 return finalsurveySolutionlink
+                            print("it is here1111111111111111111",surveySolutionlink)
                             if errorVar == "":
                                 finalsurveySolutionlink = {SurveyResourceName: surveySolutionlink}
                                 return finalsurveySolutionlink

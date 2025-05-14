@@ -155,124 +155,7 @@ def normalize_cell_value(value):
 # As per the discussion with products team, course is currently taken down from the product until further notice 
 def courseMapToProgram(accessToken, courseLink, parentFolder):
     terminatingMessage("---> Course not part of the product ...")
-#     # split url and get the do id
-#     getDo = courseLink.split("/do_")
-#     cleanDo = getDo[1].split("/")
-#     # content read url
-#     ReadCourseURL = config.get(environment, 'host') + config.get(environment, 'readCourseURL') + "do_" + str(cleanDo[0])
-#     # content read payload 
-#     payload = {}
-#     # content read headers
-#     headers = {'Content-Type': 'application/json', 'ts': '2017-05-25 10:18:56:578+0530',
-#                'Authorization': 'Bearer ' + config.get(environment, 'Authorization'),
-#                'X-auth-token': accessToken}
-#     # hit content read api
-#     responseReadCourse = requests.request("GET", ReadCourseURL, headers=headers, data=payload)
 
-#     # prepare message for api hit log  
-#     messageArr = ["*************** Read Course ***************", "Read Course URL : " + str(ReadCourseURL)]
-#     # write api hit log 
-#     createAPILog(parentFolder, messageArr)
-
-#     # check content read api status 
-#     if responseReadCourse.status_code == 200:
-#         # parse response JSON into a dictionary
-#         responseReadCourse = responseReadCourse.json()
-#         # fetch required info from the response 
-#         courseName = responseReadCourse['result']['content']['name']
-#         courseDesc = responseReadCourse['result']['content']['description']
-#         CourseExternalID = "COURSE_" + str(cleanDo[0]) + "-" + str(millisecond) + "-" + courseName.replace(" ", "_")
-#         # prepare message for api hit log  
-#         messageArr = ["Course Name : " + str(courseName), "Course Description : " + str(courseDesc)]
-#         # write api hit log 
-#         createAPILog(parentFolder, messageArr)
-
-#         # course solution creation  
-#         PGM_COURSE_MAPPINGurl = config.get(environment, 'host') + config.get(environment, 'courseProgramMapping')
-
-#         # course solution payload
-#         payload = json.dumps({
-#             "name": courseName,
-#             "description": courseDesc,
-#             "link": courseLink,
-#             "externalId": "COURSE_" + str(cleanDo[0]) + "-" + str(millisecond) + "-" + courseName.replace(" ", "_"),
-#             "type": "course",
-#             "subType": "course",
-#             "programExternalId": programExternalId.lstrip().rstrip(),
-#             "isReusable": False
-#         })
-
-#         # course solution header  
-#         headers = {'X-auth-token': accessToken,
-#                    'internal-access-token': config.get(environment, 'internal-access-token'),
-#                    'Content-Type': 'application/json',
-#                    'Authorization': 'Bearer ' + config.get(environment, 'Authorization')}
-#         # hit solution creation API 
-#         responseCourseMap = requests.request("POST", PGM_COURSE_MAPPINGurl, headers=headers, data=payload)
-        
-#         # API hit log 
-#         messageArr = ["*************** Course Mapping ***************",
-#                       "Course Program Mapping URL : " + str(PGM_COURSE_MAPPINGurl),
-#                       "Response  : " + str(responseCourseMap.text)]
-#         createAPILog(parentFolder, messageArr)
-
-#         if responseCourseMap.status_code == 200:
-#             responseCourseMap = responseCourseMap.json()
-#             courseSolutionId = responseCourseMap["result"]["_id"]
-#             print("--->Course mapped to program.")
-#             prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, CourseExternalID,
-#                                        courseSolutionId, accessToken)
-#             return courseSolutionId
-#         else:
-#             print("XXXXXXXXX ---- Course to program mapping Failed. ----- XXXXXXXX")
-#     else:
-#         print("XXXXXXXXX --- Course read API failed ----- XXXXXXXXX")
-#         print("XXXXXXXXX --- Check API hit logs ----- XXXXXXXXX")
-
-
-def checkIfObsMappedToProgram(accessToken, obsExt, parentFolder):
-    # fetch observation solution details API end points 
-    fetchSolutionDetailsURL = config.get(environment, 'INTERNAL_KONG_IP') + config.get(environment,'fetchSolutionDetails') + "observation&page=1&limit=10&search=" + str(obsExt)
-    # fetch observation solution details payload
-    payload = {}
-    # fetch observation solution header
-    headers = {'Content-Type': 'application/json',
-               'Authorization': 'Bearer ' + config.get(environment, 'internal-access-token'),
-               'X-auth-token': accessToken, 'X-Channel-id': config.get(environment, 'X-Channel-id'),
-               'tenantId': tenantID,
-               'orgid': orgIDFromTemplate,
-               config.get(environment,'adminTokenHeaderName'): config.get(environment, 'adminAccessToken')
-               }
-    
-    responseSearchSol = requests.request("POST", fetchSolutionDetailsURL, headers=headers, data=payload)
-    
-    listOfFoundSolutionIds = {}
-
-    if responseSearchSol.status_code == 200:
-        # parse list of Observations into a python dictionary 
-        responseSearchSol = responseSearchSol.json()
-
-        # iterate through each _id of solution and fetch the solution dump 
-        for eachSol in responseSearchSol['result']['data']:
-
-            fetchSolutionDumpURL = config.get(environment, 'INTERNAL_KONG_IP') + config.get(environment, 'fetchSolutionDump') + eachSol['_id']
-            headersSolutionDumpURL = {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + config.get(environment, 'Authorization'),
-                'X-auth-token': accessToken,
-                'X-Channel-id': config.get(environment, 'X-Channel-id'),
-                'internal-access-token': config.get(environment, 'internal-access-token')
-            }
-            responseSolDump = requests.request("POST", fetchSolutionDumpURL, headers=headersSolutionDumpURL)
-            if responseSolDump.status_code == 200:
-                responseSolDump = responseSolDump.json()
-                # save details of observation 
-                listOfFoundSolutionIds[eachSol['_id']] = {"externalId": responseSolDump['result']['externalId'],
-                                                          "isReusable": str(responseSolDump['result']['isReusable']),
-                                                          "programId": responseSolDump['result']['programId']}
-        # create API logs 
-        createAPILog(parentFolder, ["List of solutions found : " + str(listOfFoundSolutionIds)])
-        return listOfFoundSolutionIds
 
 
 # program creation function 
@@ -321,7 +204,7 @@ def programCreation(accessToken, parentFolder, externalId, pName, pDescription, 
         "scope": scope,
         "metaInformation": {
             "state":stateEntitiesPGM.split(","),
-            "roles": mainRole.split(",")
+            "roles": mainRole
             },
             "requestForPIIConsent":True
             })
@@ -352,105 +235,6 @@ def programCreation(accessToken, parentFolder, externalId, pName, pDescription, 
     else:
         # terminate execution
         terminatingMessage("Program creation API failed. Please check logs.")
-
-# this function is used to create the sheet of PDPM for API requerment
-def programmappingpdpmsheetcreation(MainFilePath,accessToken, program_file,programexternalId,parentFolder):
-    pdpmsheet = MainFilePath+ "/pdpmmapping/"
-    if not os.path.exists(pdpmsheet):
-        os.mkdir(pdpmsheet)
-
-    wbproject = xlrd.open_workbook(program_file, on_demand=True)
-    projectSheetNames = wbproject.sheet_names()
-
-    mappingsheet = wbproject.sheet_by_name('Program Details')
-    keysProject = [mappingsheet.cell(1, col_index_env).value for col_index_env in
-                   range(mappingsheet.ncols)]
-
-    pdpmcolo1 = ["user","role","entity","entityOperation","keycloak-userId","acl_school","acl_cluster","programOperation",
-                "platform_role","programs","_arrayFields"]
-    with open(pdpmsheet + 'mapping.csv', 'w',encoding='utf-8') as file:
-         writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
-         writer.writerows([pdpmcolo1])
-
-    wbPgm = xlrd.open_workbook(program_file, on_demand=True)
-    global programNameInp
-    sheetNames = wbPgm.sheet_names()
-    for sheetEnv in sheetNames:
-        if sheetEnv == "Instructions":
-            pass
-        elif sheetEnv.strip().lower() == 'program details':
-            print("--->Checking Program details sheet...")
-            detailsEnvSheet = wbPgm.sheet_by_name(sheetEnv)
-            keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
-                       range(detailsEnvSheet.ncols)]
-            for row_index_env in range(2, detailsEnvSheet.nrows):
-                dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
-                                  for
-                                  col_index_env in range(detailsEnvSheet.ncols)}
-                programNameInp = dictDetailsEnv['Title of the Program'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Title of the Program'] else terminatingMessage("\"Title of the Program\" must not be Empty in \"Program details\" sheet")
-
-            extIdPGM = dictDetailsEnv['Program ID'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Program ID'] else terminatingMessage("\"Program ID\" must not be Empty in \"Program details\" sheet")
-
-            programdesigner = dictDetailsEnv['Diksha username/user id/email id/phone no. of Program Designer'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Program ID'] else terminatingMessage("\"Diksha username/user id/email id/phone no. of Program Designer\" must not be Empty in \"Program details\" sheet")
-            userDetails = fetchUserDetails(environment, accessToken, programdesigner)
-            
-            creatorKeyCloakId = userDetails[0]
-            creatorName = userDetails[1]
-            # uncomment the following line in future
-            # if "PROGRAM_DESIGNER" in userDetails[3]:
-            # creatorKeyCloakId = userDetails[0]
-            # creatorName = userDetails[1]
-            # else :
-            #     terminatingMessage("user does't have program designer role")
-
-            pdpmcolo1 = [creatorName, " ", " ", " ", creatorKeyCloakId, " ", " ","ADD","PROGRAM_DESIGNER", extIdPGM, "programs"]
-            with open(pdpmsheet + 'mapping.csv', 'a',encoding='utf-8') as file:
-                writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
-                writer.writerows([pdpmcolo1])
-                fileheader = [creatorName,"program designer mapped successfully","Passed"]
-                apicheckslog(parentFolder,fileheader)
-
-
-        elif sheetEnv.strip().lower() == 'program manager details':
-            print("--->Program Manager Details...")
-            detailsEnvSheet = wbPgm.sheet_by_name(sheetEnv)
-            keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
-                       range(detailsEnvSheet.ncols)]
-            for row_index_env in range(2, detailsEnvSheet.nrows):
-                dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
-                                  for
-                                  col_index_env in range(detailsEnvSheet.ncols)}
-
-                if str(dictDetailsEnv['Is a SSO user?']).strip() == "YES":
-                    programmanagername2 = dictDetailsEnv['Diksha user id ( profile ID)'] if dictDetailsEnv['Diksha user id ( profile ID)'] else terminatingMessage("\"Diksha user id ( profile ID)\" must not be Empty in \"Program details\" sheet")
-                else:
-                    try :
-                        programmanagername2 = dictDetailsEnv['Login ID on DIKSHA'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Login ID on DIKSHA'] else terminatingMessage("\"Login ID on DIKSHA\" must not be Empty in \"Program details\" sheet")
-                        userDetails = fetchUserDetails(environment, accessToken, programmanagername2)
-                    except :
-                        programmanagername2 = dictDetailsEnv['Diksha user id ( profile ID)'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Diksha user id ( profile ID)'] else terminatingMessage("\"Diksha user id ( profile ID)\" must not be Empty in \"Program details\" sheet")
-                        userDetails = fetchUserDetails(environment, accessToken, programmanagername2)
-
-                userDetails = fetchUserDetails(environment, accessToken, programmanagername2)
-                creatorKeyCloakId = userDetails[0]
-                creatorName = userDetails[1]
-                # if "PROGRAM_MANAGER" in userDetails[3]:
-                # creatorKeyCloakId = userDetails[0]
-                # creatorName = userDetails[1]
-                # else:
-                #     terminatingMessage("user does't have program manager role")
-
-                pdpmcolo1 = [creatorName, " ", " ", " ", creatorKeyCloakId, " ", " ","ADD","PROGRAM_MANAGER", extIdPGM, "programs"]
-
-                with open(pdpmsheet + 'mapping.csv', 'a',encoding='utf-8') as file:
-                    writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
-                    writer.writerows([pdpmcolo1])
-                messageArr.append("Response : " + str(pdpmcolo1))
-                createAPILog(parentFolder, messageArr)
-
-                fileheader = [creatorName,"program manager mapped succesfully","Passed"]
-                apicheckslog(parentFolder,fileheader)
-
 
 # this function is used for call the api and map the pdpm roles which we created
 def Programmappingapicall(MainFilePath,accessToken, program_file,parentFolder):
@@ -845,6 +629,10 @@ def generateAccessToken(solutionName_for_folder_path):
         'identifier' : config.get(environment, 'identifier'),
         'password' : config.get(environment, 'password')
     }
+    url = config.get(environment, 'userLoginHost') + config.get(environment, 'keyclockapiurl')
+    print(url)
+    print(headerKeyClockUser)
+    print(loginBody)
     responseKeyClockUser = requests.request("POST", config.get(environment, 'userLoginHost') + config.get(environment, 'keyclockapiurl'), headers=headerKeyClockUser, data=json.dumps(loginBody))
     messageArr = []
     messageArr.append("URL : " + str(config.get(environment, 'keyclockAPIUrl')))
