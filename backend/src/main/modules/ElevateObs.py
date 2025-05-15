@@ -267,17 +267,20 @@ class ElevateObservation:
             messageArr.append("URL : " + userLoginHost)
             messageArr.append("Body : " + str(loginBody))
             messageArr.append("Status Code : " + str(responseKeyClockUser.status_code))
-
+            print(responseKeyClockUser.text,"270")
+            print(responseKeyClockUser.status_code)
             if responseKeyClockUser.status_code == 200:
+                print("sadwfwfwdfwfdwfwe")
                 responseKeyClockUser = responseKeyClockUser.json()
                 accessTokenUser = responseKeyClockUser['result']['access_token']
                 jwtToken  = jwtTokenSecret
                 decode = jwt.decode(accessTokenUser, jwtToken , algorithms=["HS256"])
+                print(decode,"276")
                 ElevateObservation.getRolesAndTenantIdAndOrgIdFromUserToken(decode)
-                messageArr.append("Access Token : " + str(accessTokenUser))
+                messageArr.append("Acccess Token : " + str(accessTokenUser))
                 ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
-                fileheader = ["Access Token", "Access Token successfully generated", "Passed"]
-                ElevateObservation.apicheckslog(solutionName_for_folder_path, fileheader)
+                fileheader = ["Access Token","Access Token succesfully genarated","Passed"]
+                ElevateObservation.apicheckslog(solutionName_for_folder_path,fileheader)
                 print("--->Access Token Generated!")
             else:
                 print("Error in generating Access token")
@@ -303,8 +306,10 @@ class ElevateObservation:
 
         global tenantID 
         tenantID = ElevateObservation.clean_single_value(decodedToken['data']['tenant_code'])
+        print(tenantID,"306")
         global orgIDFromTemplate 
         orgIDFromTemplate = ElevateObservation.clean_single_value(decodedToken['data']['organizations'][0].get('id'))
+        print(orgIDFromTemplate,"312")
 
     def fetchEntityType(solutionName_for_folder_path, accessToken, entitiesPGM, scopeEntityType):
         urlFetchEntityListApi = elevateentityhost + searchforlocation
@@ -317,7 +322,7 @@ class ElevateObservation:
 
         # Initialize a dictionary to store entity types for each entity
         entityTypes = []
-
+        print(tenantID,"321")
         # Loop through each entity name in the entitiesPGM list
         for entityName in entitiesPGM:
             entityName = entityName.strip()  # Remove any extra spaces
@@ -326,7 +331,7 @@ class ElevateObservation:
             payload = {
                 "query": {
                     "metaInformation.name": entityName,
-                    "tenantId":tenantID if tenantID else "shikshagraha",  # Use the current entity name
+                    "tenantId":tenantID,  # Use the current entity name
                     # "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')},
                 },
                 "projection": [
@@ -383,7 +388,7 @@ class ElevateObservation:
                     "entityType": {
                         "$in": scopeEntityType
                     },
-                    "tenantId":tenantID if tenantID else "shikshagraha",
+                    "tenantId":tenantID ,
                     # "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')}
                 },
 
@@ -643,7 +648,7 @@ class ElevateObservation:
                 'internal-access-token': internal_access_token,
                 'Content-Type': 'application/json',
                 'Authorization':authorization,
-                'tenantId': tenantID if tenantID else "shikshagraha",
+                'tenantId': tenantID ,
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: adminAccessToken
                 }
@@ -1394,16 +1399,19 @@ class ElevateObservation:
         error_message = ""
         try:
             urlCreateSolutionApi = internal_kong_ip + solutioncreationapiurl
+            print(orgIDFromTemplate,"orgIDFromTemplate")
+            print(urlCreateSolutionApi,"urlCreateSolutionApi")
             headerCreateSolutionApi = {
                 'Content-Type': content_type,
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
-                'tenantId': tenantID if tenantID else "shikshagraha",
+                'tenantId': tenantID ,
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: adminAccessToken
             }
+            print(headerCreateSolutionApi,"headerCreateSolutionApi")
             queryparamsCreateSolutionApi = '?frameworkId=' + str(frameworkExternalId) + '&entityType=' + entityType
             responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi + queryparamsCreateSolutionApi,
                                                     headers=headerCreateSolutionApi)
@@ -1414,6 +1422,7 @@ class ElevateObservation:
                         "Response : " + str(responseCreateSolutionApi.text)]
             ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
             messageArr = []
+            print(responseCreateSolutionApi.text,"responseCreateSolutionApi")
             if responseCreateSolutionApi.status_code == 200:
                 responseCreateSolutionApi = responseCreateSolutionApi.json()
                 solutionId = responseCreateSolutionApi['result']['templateId']
@@ -1453,7 +1462,7 @@ class ElevateObservation:
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
                 "internal-access-token": internal_access_token,
-                'tenantId': tenantID if tenantID else "shikshagraha",
+                'tenantId': tenantID ,
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: adminAccessToken
                 }
@@ -2363,7 +2372,7 @@ class ElevateObservation:
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
                 "internal-access-token": internal_access_token,
-                'tenantId': tenantID if tenantID else "shikshagraha",
+                'tenantId': tenantID ,
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: adminAccessToken
             }
@@ -2463,7 +2472,7 @@ class ElevateObservation:
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
-                'tenantId': tenantID if tenantID else "shikshagraha",
+                'tenantId': tenantID ,
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: adminAccessToken
             }
@@ -2509,7 +2518,7 @@ class ElevateObservation:
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
-                'tenantId': tenantID if tenantID else "shikshagraha",
+                'tenantId': tenantID ,
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: adminAccessToken
             }
@@ -2534,13 +2543,17 @@ class ElevateObservation:
                     cell_value = resourceDetailsSheet["A" + str(row)].value
                     if cell_value is not None and str(cell_value).strip() == str(solutionName).strip():
                         solutionMainRole = str(resourceDetailsSheet["E" + str(row)].value).strip()
+                        print(solutionMainRole)
                         cell_F_value = resourceDetailsSheet["F" + str(row)].value
+                        print(cell_F_value,"cell_F_value")
                         solutionRolesArray = str(cell_F_value).split(",") if cell_F_value else []     
                         if solutionMainRole.strip().lower() == "teacher" and "TEACHER" not in solutionRolesArray:
                             solutionRolesArray.append("TEACHER")
 
                     solutionStartDate = resourceDetailsSheet["G" + str(row)].value
+                    print(solutionStartDate,"solutionStartDate")
                     solutionEndDate = resourceDetailsSheet["H" + str(row)].value
+                    print(solutionEndDate,"solutionEndDate")
                 return [solutionRolesArray, solutionStartDate, solutionEndDate]
             else:
                 error_message = ""
@@ -2623,7 +2636,7 @@ class ElevateObservation:
                                     'X-auth-token': accessToken,
                                     'Content-Type': content_type,
                                     'internal-access-token': internal_access_token,
-                                    'tenantId': tenantID if tenantID else "shikshagraha",
+                                    'tenantId': tenantID ,
                                     'orgid': orgIDFromTemplate,
                                     adminTokenHeaderName: adminAccessToken
                                     }
@@ -2672,7 +2685,7 @@ class ElevateObservation:
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
-                'tenantId': tenantID if tenantID else "shikshagraha",
+                'tenantId': tenantID ,
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: adminAccessToken
             }
@@ -2690,7 +2703,7 @@ class ElevateObservation:
             if responseFetchSolutionApi.status_code == 200:
                 print('Fetch solution Api Success')
                 solutionName = responseFetchSolutionJson["result"]["name"]
-                solutionLink = "Solution created successfully."
+                solutionLink = "https: Deeplink Solution created successfully."
                 return solutionLink
                 # urlFetchSolutionLinkApi = internal_kong_ip + fetchlink + solutionId
                 # headerFetchSolutionLinkApi = {
@@ -2803,10 +2816,12 @@ class ElevateObservation:
         return True
     
     def assignTenantOrgValuesToGlobalVariables(tenantIdFromTheSheets, orgIdsFromTheSheets):
+        print("swapingggggggggg")
         global tenantID 
         tenantID = ElevateObservation.clean_single_value(tenantIdFromTheSheets)
         global orgIDFromTemplate 
         orgIDFromTemplate = ElevateObservation.clean_single_value(orgIdsFromTheSheets)
+        print(orgIDFromTemplate,"2820")
 
     def validateTenantAndOrgIdsFromProgramSheet(programFileContent):
             
@@ -3498,7 +3513,7 @@ class ElevateObservation:
                             'X-auth-token': accessToken,
                             # 'X-Channel-id': config.get(environment, 'X-Channel-id'),
                             # 'appName': config.get(environment, 'appName'),
-                            'tenantId': tenantID if tenantID else "shikshagraha",
+                            'tenantId': tenantID ,
                             'orgid': orgIDFromTemplate,
                             adminTokenHeaderName: adminAccessToken
                         }
@@ -3862,7 +3877,7 @@ class ElevateObservation:
                             'X-auth-token': accessToken,
                             'X-Channel-id': x_channel_id,
                             'internal-access-token': internal_access_token,
-                            'tenantId': tenantID if tenantID else "shikshagraha",
+                            'tenantId': tenantID ,
                             'orgid': orgIDFromTemplate,
                             adminTokenHeaderName: adminAccessToken
                         }
@@ -3882,7 +3897,7 @@ class ElevateObservation:
                                 'X-auth-token': accessToken,
                                 'X-Channel-id': x_channel_id,
                                 'internal-access-token': internal_access_token,
-                                'tenantId': tenantID if tenantID else "shikshagraha",
+                                'tenantId': tenantID ,
                                 'orgid': orgIDFromTemplate,
                                 adminTokenHeaderName: adminAccessToken
                             }
@@ -4292,7 +4307,7 @@ class ElevateObservation:
                             'X-auth-token': accessToken,
                             'X-Channel-id': x_channel_id,
                             'internal-access-token': internal_access_token,
-                            'tenantId': tenantID if tenantID else "shikshagraha",
+                            'tenantId': tenantID ,
                             'orgid': orgIDFromTemplate,
                             adminTokenHeaderName: adminAccessToken
                         }
@@ -4312,7 +4327,7 @@ class ElevateObservation:
                                 'X-auth-token': accessToken,
                                 'X-Channel-id': x_channel_id,
                                 'internal-access-token': internal_access_token,
-                                'tenantId': tenantID if tenantID else "shikshagraha",
+                                'tenantId': tenantID ,
                                 'orgid': orgIDFromTemplate,
                                 adminTokenHeaderName: adminAccessToken
                             }
@@ -4439,6 +4454,11 @@ class ElevateObservation:
         if not isCourse:
             parentFolder = ElevateObservation.createFileStruct(MainFilePath, addObservationSolution)
             accessToken = ElevateObservation.generateAccessToken(parentFolder)
+            print(tenantID)
+            if not ElevateObservation.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath):
+                print("---> no program found / unable to create program....")
+                result = {programName : errorVar}
+                return result
             typeofSolution = ElevateObservation.typeofresource(addObservationSolution, accessToken, parentFolder)
             if typeofSolution == 0:
                 result = {}
@@ -4446,7 +4466,7 @@ class ElevateObservation:
             print(typeofSolution,"this is type of solution")
             wbPgm =xlrd.open_workbook(programFile, on_demand=True)
             ElevateObservation.validateTenantAndOrgIdsFromProgramSheet(wbPgm)
-            print(wbPgm,"wbPgm")
+            print(orgIDFromTemplate,"orgIDFromTemplate")
             # typeofSolution = validateSheets(addObservationSolution, accessToken, parentFolder)
             # sys.exit()
             wbObservation = xlrd.open_workbook(addObservationSolution, on_demand=True)
@@ -4475,10 +4495,7 @@ class ElevateObservation:
                             userEntity = dictProgramDetails['Targeted state at program level'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "\"Targeted state at program level\" must not be Empty in \"details\" sheet"
-            if not ElevateObservation.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath):
-                print("---> no program found / unable to create program....")
-                result = {programName : errorVar}
-                return result
+            
             if typeofSolution == 1 or typeofSolution == 5:
                 if typeofSolution == 5:
                     impLedObsFlag = True
@@ -4787,6 +4804,7 @@ class ElevateObservation:
                                 if childId[0]:
                                     solutionDetails = ElevateObservation.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, childId[0],
                                                                                         accessToken)
+                                    print(solutionDetails,"solutionDetails")
                                     if not solutionDetails:
                                         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                                         return ObsWORSolutionLink
