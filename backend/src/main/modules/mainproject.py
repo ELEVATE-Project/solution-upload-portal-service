@@ -816,7 +816,7 @@ def fetchEntityId(solutionName_for_folder_path, accessToken, entitiesNameList, s
         "_id","metaInformation.name"
     ]
     }
-    data=json.dumps(payload)
+    # data=json.dumps(payload)
     responseFetchEntityListApi = requests.post(url=urlFetchEntityListApi, headers=headerFetchEntityListApi,data=json.dumps(payload))
     messageArr = ["Entities List Fetch API executed.", "URL  : " + str(urlFetchEntityListApi),
                   "Status : " + str(responseFetchEntityListApi.status_code)]

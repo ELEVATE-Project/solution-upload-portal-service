@@ -31,7 +31,6 @@ from backend.src.main.modules.xlsxObject import xlsxObject
 from backend.src.main.modules.survey import SurveyCreate
 # from backend.src.main.modules.helper import Helpers
 from backend.src.main.modules.project import Elevateproject
-from backend.src.main.modules.ElevateObs import ElevateObservation
 # from backend.src.main.modules.commom_config import config.ini
 # from backend.src.main.modules import main
 
@@ -930,16 +929,8 @@ def fetchSurveySolutions_Csv():
 def create():
     req = request.get_json()
     projectInstance = Elevateproject
-    observationInstance = ElevateObservation
     print(req['file'],"req['file']")
     programFile=projectInstance.loadSurveyFile(req['file'])
-    # result = programFile["solutionDict"]
-    # print(result)
-    programFile = json.loads(programFile) 
-    if programFile['solutionDict'] == {}:
-        programFile=observationInstance.loadSurveyFile(req['file'])
-    # print(f"Type of programFile: {type(programFile)}")
-    
     if isinstance(programFile, str):
         try:
             programFile = json.loads(programFile)

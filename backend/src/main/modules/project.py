@@ -37,6 +37,7 @@ import threading
 import wget
 import gdown
 import jwt
+from backend.src.main.modules.ElevateObs import ElevateObservation
 
 # Global variable declaration
 criteriaLookUp = dict()
@@ -80,6 +81,7 @@ criteriaIdNameDict = dict()
 criteriaLevels = list()
 matchedShikshalokamLoginId = None
 scopeEntities = []
+ProfessionalrolesPGM = None
 scopeRoles = []
 countImps = 0
 ecmToSection = dict()
@@ -108,6 +110,9 @@ typeofSolution = 0
 programFile = ""
 solutionLink = ""
 errorVar = ""
+finalprojectsolutionlink = {}
+tenantID = None
+orgIDFromTemplate = None
 
 class Elevateproject:
 
@@ -195,21 +200,21 @@ class Elevateproject:
 
     def decodeToken(accessTokenUser):
         try:
-            accessTokenSecret = access_token_secret
+            accessTokenSecret = jwtTokenSecret
             decodedToken = jwt.decode(accessTokenUser, accessTokenSecret, algorithms=["HS256"])
             if 'data' not in decodedToken:
                 print("Data not present in decodedToken")
                 errorVar = ("Invalid Token")
-            if 'tenant_id' not in decodedToken['data']:
+            if 'tenant_code' not in decodedToken['data']:
                 print("Tenant Id is not present in decodedToken")
                 errorVar("Invalid Token")
-            if 'organization_id' not in decodedToken['data']:
-                print("Organization Id is not present in decodedToken")
-                errorVar("Invalid Token")
+            # if 'id' not in decodedToken['data']:
+            #     print("Organization Id is not present in decodedToken")
+            #     errorVar("Invalid Token")
             global tenantId
-            tenantId = Elevateproject.clean_single_value(decodedToken['data']['tenant_id'])
+            tenantId = Elevateproject.clean_single_value(decodedToken['data']['tenant_code'])
             global orgIds
-            orgIds = Elevateproject.clean_single_value(decodedToken['data']['organization_id'])
+            orgIds = Elevateproject.clean_single_value(decodedToken['data']['organizations'][0].get('id'))
 
         except jwt.exceptions.InvalidTokenError as e:
             raise Exception(f"Invalid token: {str(e)}")
@@ -367,15 +372,15 @@ class Elevateproject:
 
             # Prepare the payload for the API request
             payload = {
-                "query": {
-                    "metaInformation.name": entityName,  # Use the current entity name
-                    "tenantId" : tenantId,
-                    "orgIds": {"$in": [orgIDFromTemplate]}   # Convert org_ids to strings for payload
-                },
-                "projection": [
-                    "entityType"
-                ]
-            }
+                    "query": {
+                        "metaInformation.name": entityName,  # Use the current entity name
+                        "tenantId" : tenantId,
+                        # "orgIds": {"$in": [orgIDFromTemplate]}   # Convert org_ids to strings for payload
+                    },
+                    "projection": [
+                        "entityType"
+                    ]
+                }
             data = json.dumps(payload)
 
             # Make the API call inside the loop to send one request per entity
@@ -414,13 +419,21 @@ class Elevateproject:
     def getProgramInfo(accessTokenUser, solutionName_for_folder_path, programNameInp):
         try:
             global programID, programExternalId, programDescription, isProgramnamePresent, programName, errorVar
+            print(programNameInp,"programNameInp")
             programName = programNameInp
-            programUrl = elevateprojecthost + fetchprograminfoapiurl + programNameInp.lstrip().rstrip()
-            
-            headersProgramSearch = {'Content-Type': content_type,'authorization':authorization, 'X-auth-token': accessTokenUser,
-                                    'internal-access-token': internal_access_token}
-            
-            responseProgramSearch = requests.get(url=programUrl, headers=headersProgramSearch)
+            programUrl = elevateprojecthost + fetchprograminfoapiurl
+            payload = json.dumps({
+                    "query": {
+                        "name": programNameInp.lstrip().rstrip(),
+                        "isAPrivateProgram": False,
+                        "status": "active"
+                        },
+                        "mongoIdKeys": []
+                        })
+            print(payload,"payload")
+            headersProgramSearch = {'Content-Type': content_type,
+                                    'X-auth-token': accessTokenUser}
+            responseProgramSearch = requests.post(url=programUrl, headers=headersProgramSearch,data=payload)
             messageArr = []
             messageArr.append("Program Search API")
             messageArr.append("URL : " + programUrl)
@@ -428,11 +441,13 @@ class Elevateproject:
             messageArr.append("Response : " + str(responseProgramSearch.text))
             Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
             messageArr = []
+            print(responseProgramSearch.text,"responseProgramSearch")
             if responseProgramSearch.status_code == 200:
                 print('--->Program fetch API Success')
                 messageArr.append("--->Program fetch API Success")
                 responseProgramSearch = responseProgramSearch.json()
-                countOfPrograms = len(responseProgramSearch['result']['data'])
+                countOfPrograms = len(responseProgramSearch['result'])
+                print(countOfPrograms,"countOfPrograms")
                 messageArr.append("--->Program Count : " + str(countOfPrograms))
                 if countOfPrograms == 0:
                     messageArr.append("No program found with the name : " + str(programName.lstrip().rstrip()))
@@ -445,7 +460,7 @@ class Elevateproject:
                     return False
                 else:
                     getProgramDetails = []
-                    for eachPgm in responseProgramSearch['result']['data']:
+                    for eachPgm in responseProgramSearch['result']:
                         if eachPgm['isAPrivateProgram'] == False:
                             programID = eachPgm['_id']
                             programExternalId = eachPgm['externalId']
@@ -453,6 +468,7 @@ class Elevateproject:
                             isAPrivateProgram = eachPgm['isAPrivateProgram']
                             getProgramDetails.append([programID, programExternalId, programDescription, isAPrivateProgram])
                             if len(getProgramDetails) == 0:
+                                print("Total " + str(len(getProgramDetails)) + " backend programs found with the name : " + programName.lstrip().rstrip())
                                 messageArr.append("Total " + str(len(getProgramDetails)) + " backend programs found with the name : " + programName.lstrip().rstrip())
                                 Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
                                 fileheader = ["program find api is running","found"+str(len(
@@ -460,9 +476,8 @@ class Elevateproject:
                                     getProgramDetails))+"programs ,check logs"]
                                 Elevateproject.apicheckslog(solutionName_for_folder_path,fileheader)
                                 Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
-                                print("Aborting...")
-                                sys.exit()
                             elif len(getProgramDetails) > 1:
+                                print("Total " + str(len(getProgramDetails)) + " backend programs found with the name : " + programName.lstrip().rstrip())
                                 messageArr.append("Total " + str(len(getProgramDetails)) + " backend programs found with the name : " + programName.lstrip().rstrip())
                                 Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
                             
@@ -493,26 +508,30 @@ class Elevateproject:
     def fetchUserDetails(environment, accessToken, projectServiceId):
         global OrgName,errorVar
         try:
-            url = elevateprojecthost + userinfoapiurl
+            url = elevateprojecthost + prouserinfoapiurl
             messageArr = ["User search API called."]
-            headers = {'Content-Type': 'application/json',
+            headers = {#'Content-Type': 'application/json',
                     'internal-access-token': internal_access_token,
                     'X-auth-token': accessToken}
             responseUserSearch = requests.request("GET", url, headers=headers)
-            rootOrgId = 1  # Replace this with the actual value you need
-            OrgName = []
             if responseUserSearch.status_code == 200:
                 responseUserSearch = responseUserSearch.json()
                 if responseUserSearch['result']:
                     userKeycloak = responseUserSearch['result']['id']
                     userName = responseUserSearch['result']['name']
-                    rootOrgName = responseUserSearch['result']['organization']['name']
-                    rootOrgId = responseUserSearch['result']['organization']['id']
-                    roledetails = [role['title'] for role in responseUserSearch['result']['user_roles']]
+                    firstName = responseUserSearch['result']['name']
+                    rootOrgId = responseUserSearch['result']['organizations'][0]['id']
+                    roledetails = None
+                    roles = responseUserSearch['result']['organizations'][0]['roles']
+                    for index in roles:
+                        if rootOrgId == index['organization_id']:
+                            roledetails = index['title']
+                    print("coming to a success")
+                    return [userKeycloak, userName, firstName,roledetails,rootOrgId]
                 else:
                     print("-->Given username/email is not present in projectService platform<--.")
                     return False
-                return [userKeycloak, userName,rootOrgName,rootOrgId,roledetails]
+                return [userKeycloak, userName, firstName,roledetails,rootOrgId]
             else:
                 error_message = ""
                 if responseUserSearch.status_code in [400, 401, 403, 404, 422]:
@@ -536,18 +555,17 @@ class Elevateproject:
                 'internal-access-token': internal_access_token,
             }
             payload = {
+                    "query" : {
+                        "entityType": {"$in": scopeEntityType},
+                        "tenantId" : tenantId
+                        #  "orgIds" : {"$in" : [orgIDFromTemplate]}
+                    },
 
-            "query" : {
-                "entityType": {"$in": scopeEntityType},
-                "tenantId" : tenantId,
-                "orgIds" : {"$in" : [orgIDFromTemplate]}
-            },
-
-            "projection": [
-                "_id","metaInformation.name"
-            ]
-            }
-            data=json.dumps(payload)
+                    "projection": [
+                        "_id","metaInformation.name"
+                    ]
+                    }
+            # data=json.dumps(payload)
             responseFetchEntityListApi = requests.post(url=urlFetchEntityListApi, headers=headerFetchEntityListApi,data=json.dumps(payload))
             messageArr = ["Entities List Fetch API executed.", "URL  : " + str(urlFetchEntityListApi),
                         "Status : " + str(responseFetchEntityListApi.status_code)]
@@ -645,10 +663,13 @@ class Elevateproject:
         )
             messageArr.append("Body : " + str(payload))
             headers = {'X-auth-token': accessToken,
-                    'internal-access-token': internal_access_token,
-                    'Content-Type': content_type,
-                    'orgId' : orgIDFromTemplate
-                    }
+                'internal-access-token': internal_access_token,
+                'Content-Type': 'application/json',
+                'Authorization':authorization,
+                'tenantId': tenantID ,
+                'orgid': orgIDFromTemplate,
+                adminTokenHeaderName: adminAccessToken
+                }
             
             # program creation 
             responsePgmCreate = requests.request("POST", programCreationurl, headers=headers, data=(payload))
@@ -659,9 +680,10 @@ class Elevateproject:
             # save logs 
             Elevateproject.createAPILog(parentFolder, messageArr)
             # check status 
-            fileheader = ["pName", ('Program Sheet Validation'), ('Passed')]
+            fileheader = [pName, ('Program Sheet Validation'), ('Passed')]
             Elevateproject.createAPILog(parentFolder, messageArr)
             Elevateproject.apicheckslog(parentFolder, fileheader)
+            print(responsePgmCreate.text,"responsePgmCreate")
             if responsePgmCreate.status_code == 200:
                 responsePgmCreateResp = responsePgmCreate.json()
                 print("program created successful....")
@@ -683,6 +705,7 @@ class Elevateproject:
             print(errorVar)
 
     def programmappingpdpmsheetcreation(MainFilePath,accessToken, program_file,programexternalId,parentFolder):
+        global errorVar
         pdpmsheet = MainFilePath+ "/pdpmmapping/"
         if not os.path.exists(pdpmsheet):
             os.mkdir(pdpmsheet)
@@ -764,28 +787,31 @@ class Elevateproject:
                                     for
                                     col_index_env in range(detailsEnvSheet.ncols)}
                     if str(dictDetailsEnv['Is a SSO user?']).strip() == "YES":
-                        if dictDetailsEnv.get('projectService user id ( profile ID)'):
-                            programmanagername2 = dictDetailsEnv['projectService user id ( profile ID)']
+                        if dictDetailsEnv.get('Elevate user id ( profile ID)'):
+                            programmanagername2 = dictDetailsEnv['Elevate user id ( profile ID)']
                         else:
-                            errorVar = "\"projectService user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
+                            errorVar = "\"Elevate user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
                             
                         # programmanagername2 = dictDetailsEnv['projectService user id ( profile ID)'] if dictDetailsEnv['projectService user id ( profile ID)'] else Elevateproject.terminatingMessage("\"projectService user id ( profile ID)\" must not be Empty in \"Program details\" sheet")
                     else:
                         try :
-                            if dictDetailsEnv.get('Login ID on projectService'):
-                                programmanagername2 = dictDetailsEnv['Login ID on projectService'].encode('utf-8').decode('utf-8')
+                            if dictDetailsEnv.get('Login ID on Elevate'):
+                                programmanagername2 = dictDetailsEnv['Login ID on Elevate'].encode('utf-8').decode('utf-8')
                             else:
-                                errorVar = "\"Login ID on projectService\" must not be Empty in \"Program details\" sheet"
+                                errorVar = "\"Login ID on Elevate\" must not be Empty in \"Program details\" sheet"
                                 
                             # programmanagername2 = dictDetailsEnv['Login ID on projectService'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Login ID on projectService'] else Elevateproject.terminatingMessage("\"Login ID on projectService\" must not be Empty in \"Program details\" sheet")
+                            print("784")
                             userDetails = Elevateproject.fetchUserDetails(environment, accessToken, programmanagername2)
+                            print("userDetails",userDetails)
                         except :
-                            if dictDetailsEnv.get('projectService user id ( profile ID)'):
-                                programmanagername2 = dictDetailsEnv['projectService user id ( profile ID)'].encode('utf-8').decode('utf-8')
+                            if dictDetailsEnv.get('Elevate user id ( profile ID)'):
+                                programmanagername2 = dictDetailsEnv['Elevate user id ( profile ID)'].encode('utf-8').decode('utf-8')
                             else:
-                                errorVar = "\"projectService user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
+                                errorVar = "\"Elevate user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
                                 
                             # programmanagername2 = dictDetailsEnv['projectService user id ( profile ID)'].encode('utf-8').decode('utf-8') if dictDetailsEnv['projectService user id ( profile ID)'] else Elevateproject.terminatingMessage("\"projectService user id ( profile ID)\" must not be Empty in \"Program details\" sheet")
+                            print("792")
                             userDetails = Elevateproject.fetchUserDetails(environment, accessToken, programmanagername2)
                     creatorKeyCloakId = userDetails[0]
                     creatorName = userDetails[1]
@@ -794,7 +820,6 @@ class Elevateproject:
                     #     creatorName = userDetails[1]
                     # else:
                     #     errorVar = ("user does't have program manager role")
-
                     pdpmcolo1 = [creatorName, " ", " ", " ", creatorKeyCloakId, " ", " ","ADD","program_desiginer", extIdPGM, "programs"]
 
                     with open(pdpmsheet + 'mapping.csv', 'a',encoding='utf-8') as file:
@@ -803,6 +828,7 @@ class Elevateproject:
                     messageArr = ""
                     messageArr = ("Response : " + str(pdpmcolo1))
                     Elevateproject.createAPILog(parentFolder, messageArr)
+                    print("program manager mapped succesfully")
                     fileheader = [creatorName,"program manager mapped succesfully","Passed"]
                     Elevateproject.apicheckslog(parentFolder,fileheader)
         if errorVar == "":
@@ -929,8 +955,10 @@ class Elevateproject:
                                 errorVar = "\"Targeted entities at program level\" must not be Empty in \"Program details\" sheet"
                             # entitiesPGM = dictDetailsEnv['Targeted entities at program level'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Targeted entities at program level'] else Elevateproject.terminatingMessage("\"Targeted entities at program level\" must not be Empty in \"Program details\" sheet")
                             stateEntitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8')
+                            print("fetching")
                             entitiesType = Elevateproject.fetchEntityType(parentFolder, accessToken,
                                                     entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
+                            print("fetched")
                             # selecting entity type based on the users input 
                             if entitiesPGM:
                                 entitiesPGM = entitiesPGM
@@ -945,6 +973,7 @@ class Elevateproject:
                             if "teacher" in mainRole.strip().lower():
                                 rolesPGM = str(rolesPGM).strip() + ",TEACHER"
                             userDetails = Elevateproject.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
+                            print(userDetails,"userDetails")
                             userId = userDetails[0]
                             messageArr = []
 
@@ -971,7 +1000,7 @@ class Elevateproject:
                             # Programmappingapicall(MainFilePath, accessToken, program_file,parentFolder)
 
                             # check if program is created or not 
-                            if Elevateproject.getProgramInfo(accessToken, parentFolder, extIdPGM):
+                            if Elevateproject.getProgramInfo(accessToken, parentFolder, programNameInp):
                                 print("Program Created SuccessFully.")
                             else :
                                 print("Program creation failed! Please check logs.")
@@ -1016,6 +1045,11 @@ class Elevateproject:
                             rolesPGM = dictDetailsEnv['Targeted subrole at resource level']
                         else:
                             errorVar = "\"Targeted subrole at resource level\" must not be Empty in \"Program details\" sheet"
+                        global ProfessionalrolesPGM
+                        if dictDetailsEnv.get('Target role at the resource level'):
+                            ProfessionalrolesPGM = dictDetailsEnv['Target role at the resource level']
+                        else:
+                            errorVar = "\"Target role at the resource level\" must not be Empty in \"Program details\" sheet"
                         # rolesPGM = dictDetailsEnv['Targeted subrole at resource level'] if dictDetailsEnv['Targeted subrole at resource level'] else Elevateproject.terminatingMessage("\"Targeted subrole at resource level\" must not be Empty in \"Program details\" sheet")
                         # setting start and end dates globally. 
                         global startDateOfResource, endDateOfResource
@@ -1063,8 +1097,8 @@ class Elevateproject:
         # print(responseFetchSolutionJson)
         if responseFetchSolutionApiUrl.status_code == 200:
             print('Fetch solution Api Success')
-            
             solutionName = responseFetchSolutionJson["result"]["name"]
+            print(solutionName,"solutionName")
             xfile = openpyxl.load_workbook(programFile)
             resourceDetailsSheet = xfile['Resource Details']
             rowCountRD = resourceDetailsSheet.max_row
@@ -1078,26 +1112,29 @@ class Elevateproject:
                     if "teacher" in solutionMainRole.strip().lower():
                         solutionRolesArray.append("TEACHER")
                     solutionStartDate = resourceDetailsSheet["G" + str(row)].value
+                    print(solutionStartDate,"solutionStartDate")
                     solutionEndDate = resourceDetailsSheet["H" + str(row)].value
+                    print(solutionEndDate,"solutionEndDate")
         return [solutionRolesArray, solutionStartDate, solutionEndDate]
     
     def generateAccessToken(solutionName_for_folder_path):
         try:
             global errorVar
             # production search user api - start
-            headerKeyClockUser = {'Content-Type': content_type}
+            headerKeyClockUser = {'Content-Type': content_type,'origin': origin}
             # responseKeyClockUser = requests.post(url=config.get(environment, 'elevateuserhost') + config.get(environment, 'userlogin'), headers=headerKeyClockUser,
                                                 #  data=json.dumps(config.get(environment, 'keyclockAPIBody')))
             # Elevateproject.terminatingMessage(type(json.loads(config.get(environment, 'keyclockAPIBody'))))\
             loginBody = {
-                'email' : email,
+                'identifier' : identifier,
                 'password' : password
             }
-            responseKeyClockUser = requests.post(elevateuserhost + userlogin , headers=headerKeyClockUser, json=loginBody)
+            responseKeyClockUser = requests.post(userLoginHost + keyclockapiurl , headers=headerKeyClockUser, json=loginBody)
             messageArr = []
-            messageArr.append("URL : " + str(userlogin))
+            messageArr.append("URL : " + str(keyclockapiurl))
             messageArr.append("Body : " + str(keyclockapibody))
             messageArr.append("Status Code : " + str(responseKeyClockUser.status_code))
+            print(responseKeyClockUser.text,"responseKeyClockUser")
             if responseKeyClockUser.status_code == 200:
                 responseKeyClockUser = responseKeyClockUser.json()
                 accessTokenUser = responseKeyClockUser['result']['access_token']
@@ -1138,30 +1175,30 @@ class Elevateproject:
         ecmIds = list()
         criteriaLevels = list()
         criteriaExternalIds = list()
-        # rubrics_sheet_names = ['Instructions', 'details', 'framework', 'ECMs or Domains', 'questions','Criteria_Rubric-Scoring', 'Domain(theme)_rubric_scoring']
-        # rubrics_sheet_IMP_names = ['Instructions', 'details', 'framework', 'ECMs or Domains', 'questions','Criteria_Rubric-Scoring', 'Domain(theme)_rubric_scoring', 'Imp mapping']
-        # observation_sheet_names = ['Instructions', 'details', 'criteria', 'questions']
-        # survey_sheet_names = ['Instructions', 'details', 'questions']
+        rubrics_sheet_names = ['Instructions', 'details', 'framework', 'ECMs or Domains', 'questions','Criteria_Rubric-Scoring', 'Domain(theme)_rubric_scoring']
+        rubrics_sheet_IMP_names = ['Instructions', 'details', 'framework', 'ECMs or Domains', 'questions','Criteria_Rubric-Scoring', 'Domain(theme)_rubric_scoring', 'Imp mapping']
+        observation_sheet_names = ['Instructions', 'details', 'criteria', 'questions']
+        survey_sheet_names = ['Instructions', 'details', 'questions']
         project_sheet_names = ['Instructions', 'Project upload', 'Tasks upload','Certificate details']
 
         # 1-with rubrics , 2 - with out rubrics , 3 - survey , 4 - Project 5 - With rubric and IMP
 
         global environment, observationId, solutionName, pointBasedValue, entityType, allow_multiple_submissions, programName, userEntity, roles, isProgramnamePresent, solutionLanguage, keyWords, entityTypeId, solutionDescription, creator, dikshaLoginId
-        # if (len(rubrics_sheet_names) == len(sheetNames1)) and ((set(rubrics_sheet_names) == set(sheetNames1))):
-        #     print("--->Observation with rubrics file detected.<---")
-        #     typeofSolution = 1
-        # elif (len(observation_sheet_names) == len(sheetNames1)) and ((set(observation_sheet_names) == set(sheetNames1))):
-        #     print("--->Observation without rubrics file detected.<---")
-        #     typeofSolution = 2
-        # elif (len(survey_sheet_names) == len(sheetNames1)) and ((set(survey_sheet_names) == set(sheetNames1))):
-        #     print("--->Survey file detected.<---")
-        #     typeofSolution = 3
-        if (len(project_sheet_names) == len(sheetNames1)) and ((set(project_sheet_names) == set(sheetNames1))):
+        if (len(rubrics_sheet_names) == len(sheetNames1)) and ((set(rubrics_sheet_names) == set(sheetNames1))):
+            print("--->Observation with rubrics file detected.<---")
+            typeofSolution = 1
+        elif (len(observation_sheet_names) == len(sheetNames1)) and ((set(observation_sheet_names) == set(sheetNames1))):
+            print("--->Observation without rubrics file detected.<---")
+            typeofSolution = 2
+        elif (len(survey_sheet_names) == len(sheetNames1)) and ((set(survey_sheet_names) == set(sheetNames1))):
+            print("--->Survey file detected.<---")
+            typeofSolution = 3
+        elif (len(project_sheet_names) == len(sheetNames1)) and ((set(project_sheet_names) == set(sheetNames1))):
             print("--->Project file detected.<---")
             typeofSolution = 4
-        # elif (len(rubrics_sheet_IMP_names) == len(sheetNames1)) and ((set(rubrics_sheet_IMP_names) == set(sheetNames1))):
-        #     print("--->Observation with rubrics and IMP file detected.<---")
-        #     typeofSolution = 5
+        elif (len(rubrics_sheet_IMP_names) == len(sheetNames1)) and ((set(rubrics_sheet_IMP_names) == set(sheetNames1))):
+            print("--->Observation with rubrics and IMP file detected.<---")
+            typeofSolution = 5
         else:
             typeofSolution = 0
             print(typeofSolution)
@@ -1175,7 +1212,7 @@ class Elevateproject:
             criteria_id_arr = list()
             wbObservation1 = xlrd.open_workbook(filePathAddObs, on_demand=True)
             sheetNames1 = wbObservation1.sheet_names()
-            projectDetailsCols = ["title", "projectId", "is a SSO user?", "Elevate_loginId", "categories",
+            projectDetailsCols = ["title", "projectId", "is a SSO user?", "projectService_loginId", "categories",
                                 "objective","duration","recommendedFor","keywords"]
             detailsColCheck = wbObservation1.sheet_by_name('Project upload')
             keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
@@ -1207,10 +1244,9 @@ class Elevateproject:
                 if sheetColCheck.strip().lower() == 'Project upload'.lower():
                     print("--->Checking Project Upload sheet...")
                     detailsColCheck = wbObservation1.sheet_by_name(sheetColCheck)
-                    keysColCheckDetai = [detailsColCheck.cell(1, col_index_check).value for col_index_check in
+                    keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
                                         range(detailsColCheck.ncols)]
-                    if len(keysColCheckDetai) != len(projectDetailsCols) or set(keysColCheckDetai) == set(
-                            projectDetailsCols):
+                    if len(keysColCheckDetai) != len(projectDetailsCols) or set(keysColCheckDetai) == set(projectDetailsCols):
                         errorVar = 'Columns is missing in Project Upload sheet'
                     detailsEnvSheet = wbObservation1.sheet_by_name(sheetColCheck)
                     keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
@@ -1263,10 +1299,10 @@ class Elevateproject:
                             projectSSOuser = dictDetailsEnv['is a SSO user?']
                         else:
                             errorVar = "validation failed :is a SSO user? column must not be Empty in Project Upload sheet"
-                        if dictDetailsEnv['Elevate_loginId']:
-                            projectprojectServiceloginid = dictDetailsEnv['Elevate_loginId'].encode('utf-8').decode('utf-8')
+                        if dictDetailsEnv['projectService_loginId']:
+                            projectprojectServiceloginid = dictDetailsEnv['projectService_loginId'].encode('utf-8').decode('utf-8')
                         else:
-                            errorVar = "validation failed :Elevate_loginId column must not be Empty in Project Upload sheet"
+                            errorVar = "validation failed :projectService_loginId column must not be Empty in Project Upload sheet"
                         if dictDetailsEnv['duration']:
                             projectDuration = dictDetailsEnv['duration'].encode('utf-8').decode('utf-8')
                         else:
@@ -1471,7 +1507,7 @@ class Elevateproject:
                         (get_close_matches(cat.strip().lower().replace(" ", ""), categories_list)[0]))
             global projectCreator, projectAuthor
 
-            projectAuthor = str(dictProjectDetails["Elevate_loginId"]).encode('utf-8').decode('utf-8').strip()
+            projectAuthor = str(dictProjectDetails["projectService_loginId"]).encode('utf-8').decode('utf-8').strip()
             recommendedFor = str(dictProjectDetails["recommendedFor"]).encode('utf-8').decode('utf-8').strip()
             objective = str(dictProjectDetails["objective"]).encode('utf-8').decode('utf-8').strip()
             entityType = None
@@ -1808,6 +1844,7 @@ class Elevateproject:
                 headerCreateSolutionApi = {
                     'Content-Type': content_type,
                     'X-auth-token': accessToken,
+                    "internal-access-token" : internal_access_token,
                     'X-Channel-id': x_channel_id,
                     'orgId' : orgIDFromTemplate
                 }
@@ -1840,6 +1877,7 @@ class Elevateproject:
                     headerMapSolutionProject = {
                         'Content-Type': content_type,
                         'Authorization': authorization,
+                        'internal-access-token' : internal_access_token,
                         'X-auth-token': accessToken,
                         'X-Channel-id': x_channel_id
                     }
@@ -1868,9 +1906,13 @@ class Elevateproject:
                                             duplicateTemplateId]])
                         solutionDetails = Elevateproject.fetchSolutionDetailsFromProgramSheet(projectName_for_folder_path, programFile,
                                                                             solutionId, accessToken)
+                        print(solutionDetails,"solutionDetails")
                         if solutionDetails:
                             newRole = rolesPGM.split(",")
                             RoleArray = list(newRole)
+                            ProfessionalnewRole = ProfessionalrolesPGM.split(",")
+                            ProfessionalRoleArray = list(ProfessionalnewRole)
+                            
                             scopeEntities = entitiesPGMID
                             scopeRoles = solutionDetails[0]
                             scope = {}
@@ -1881,7 +1923,8 @@ class Elevateproject:
                                     scope[entity_type].append(entity_value)
                                 else:
                                     scope[entity_type] = [entity_value]
-                            scope["roles"] = RoleArray
+                            scope["professional_subroles"] = RoleArray
+                            scope["professional_role"] = ProfessionalRoleArray
                             bodySolutionUpdate = {
                             "scope": scope
                             }
@@ -2381,7 +2424,7 @@ class Elevateproject:
 
             urladdcertificate = elevateprojecthost + addcertificatetemplate
             headeraddcertificateApi = {
-                'Authorization': authorization,
+                #'Authorization': authorization,
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
@@ -2706,83 +2749,84 @@ class Elevateproject:
         if responseFetchSolutionApi.status_code == 200:
             print('Fetch solution Api Success')
             solutionName = responseFetchSolutionJson["result"]["name"]
-        urlFetchSolutionLinkApi = elevateprojecthost + fetchlink + solutionId
-        headerFetchSolutionLinkApi = {
-            'Authorization': authorization,
-            'X-auth-token': accessToken,
-            'X-Channel-id': x_channel_id,
-            'internal-access-token': internal_access_token
-        }
-        payloadFetchSolutionLinkApi = {}
+        # urlFetchSolutionLinkApi = elevateprojecthost + fetchlink + solutionId
+        # headerFetchSolutionLinkApi = {
+        #     'Authorization': authorization,
+        #     'X-auth-token': accessToken,
+        #     'X-Channel-id': x_channel_id,
+        #     'internal-access-token': internal_access_token
+        # }
+        # payloadFetchSolutionLinkApi = {}
 
-        responseFetchSolutionLinkApi = requests.get(url=urlFetchSolutionLinkApi, headers=headerFetchSolutionLinkApi,
-                                                    data=payloadFetchSolutionLinkApi)
-        messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
-        messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
-        Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
-        if responseFetchSolutionLinkApi.status_code == 200:
-            print('Fetch solution Link Api Success')
-            responseProjectUploadJson = responseFetchSolutionLinkApi.json()
-            solutionLink = responseProjectUploadJson["result"]
-            messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
-            Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
-            # Ensure programFile is formatted correctly
-            programFileBase = str(programFile).replace(".xlsx", "")
-            success_file_path = os.path.join(MainFilePath, programFileBase + '-SuccessSheet.xlsx')
+        # responseFetchSolutionLinkApi = requests.get(url=urlFetchSolutionLinkApi, headers=headerFetchSolutionLinkApi,
+        #                                             data=payloadFetchSolutionLinkApi)
+        # messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
+        # messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
+        # Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
+        # if responseFetchSolutionLinkApi.status_code == 200:
+        #     print('Fetch solution Link Api Success')
+        #     responseProjectUploadJson = responseFetchSolutionLinkApi.json()
+        #     solutionLink = responseProjectUploadJson["result"]
+        #     messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
+        #     Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
+        #     # Ensure programFile is formatted correctly
+        #     programFileBase = str(programFile).replace(".xlsx", "")
+        #     success_file_path = os.path.join(MainFilePath, programFileBase + '-SuccessSheet.xlsx')
 
-            # Ensure directory exists
-            os.makedirs(os.path.dirname(success_file_path), exist_ok=True)
+        #     # Ensure directory exists
+        #     os.makedirs(os.path.dirname(success_file_path), exist_ok=True)
 
-            # Load the workbook correctly
-            if os.path.exists(success_file_path):
-                xfile = openpyxl.load_workbook(success_file_path)
-            else:
-                xfile = openpyxl.load_workbook(programFile)
+        #     # Load the workbook correctly
+        #     if os.path.exists(success_file_path):
+        #         xfile = openpyxl.load_workbook(success_file_path)
+        #     else:
+        #         xfile = openpyxl.load_workbook(programFile)
 
-            # Use the correct way to get the sheet
-            resourceDetailsSheet = xfile["Resource Details"]  # Instead of get_sheet_by_name
+        #     # Use the correct way to get the sheet
+        #     resourceDetailsSheet = xfile["Resource Details"]  # Instead of get_sheet_by_name
 
-            print(resourceDetailsSheet)
+        #     print(resourceDetailsSheet)
 
-            # Define fill color
-            greenFill = PatternFill(start_color='0000FF00', end_color='0000FF00', fill_type='solid')
+        #     # Define fill color
+        #     greenFill = PatternFill(start_color='0000FF00', end_color='0000FF00', fill_type='solid')
 
-            # Get row and column count
-            rowCountRD = resourceDetailsSheet.max_row
-            columnCountRD = resourceDetailsSheet.max_column
+        #     # Get row and column count
+        #     rowCountRD = resourceDetailsSheet.max_row
+        #     columnCountRD = resourceDetailsSheet.max_column
 
-            for row in range(3, rowCountRD + 1):
-                if str(resourceDetailsSheet["B" + str(row)].value).strip().lower() == "course":
-                    resourceDetailsSheet["D1"].value = ""
-                    resourceDetailsSheet["E1"].value = ""
-                    resourceDetailsSheet['I2'].value = "External id of the resource"
-                    resourceDetailsSheet['J2'].value = "link to access the resource/Response"
+        #     for row in range(3, rowCountRD + 1):
+        #         if str(resourceDetailsSheet["B" + str(row)].value).strip().lower() == "course":
+        #             resourceDetailsSheet["D1"].value = ""
+        #             resourceDetailsSheet["E1"].value = ""
+        #             resourceDetailsSheet['I2'].value = "External id of the resource"
+        #             resourceDetailsSheet['J2'].value = "link to access the resource/Response"
 
-                    resourceDetailsSheet['I2'].fill = greenFill
-                    resourceDetailsSheet['J2'].fill = greenFill
-                    resourceDetailsSheet['I' + str(row)].value = solutionExternalId
-                    resourceDetailsSheet['J' + str(row)].value = "The course has been successfully mapped to the program"
+        #             resourceDetailsSheet['I2'].fill = greenFill
+        #             resourceDetailsSheet['J2'].fill = greenFill
+        #             resourceDetailsSheet['I' + str(row)].value = solutionExternalId
+        #             resourceDetailsSheet['J' + str(row)].value = "The course has been successfully mapped to the program"
 
-                    resourceDetailsSheet['I' + str(row)].fill = greenFill
-                    resourceDetailsSheet['J' + str(row)].fill = greenFill
+        #             resourceDetailsSheet['I' + str(row)].fill = greenFill
+        #             resourceDetailsSheet['J' + str(row)].fill = greenFill
 
-                elif str(resourceDetailsSheet["A" + str(row)].value).strip() == solutionName:
-                    resourceDetailsSheet["D1"].value = ""
-                    resourceDetailsSheet["E1"].value = ""
-                    resourceDetailsSheet['I2'].value = "External id of the resource"
-                    resourceDetailsSheet['J2'].value = "link to access the resource/Response"
+        #         elif str(resourceDetailsSheet["A" + str(row)].value).strip() == solutionName:
+        #             resourceDetailsSheet["D1"].value = ""
+        #             resourceDetailsSheet["E1"].value = ""
+        #             resourceDetailsSheet['I2'].value = "External id of the resource"
+        #             resourceDetailsSheet['J2'].value = "link to access the resource/Response"
 
-                    resourceDetailsSheet['I2'].fill = greenFill
-                    resourceDetailsSheet['J2'].fill = greenFill
-                    resourceDetailsSheet['I' + str(row)].value = solutionExternalId
-                    resourceDetailsSheet['J' + str(row)].value = solutionLink
+        #             resourceDetailsSheet['I2'].fill = greenFill
+        #             resourceDetailsSheet['J2'].fill = greenFill
+        #             resourceDetailsSheet['I' + str(row)].value = solutionExternalId
+        #             resourceDetailsSheet['J' + str(row)].value = solutionLink
 
-                    resourceDetailsSheet['I' + str(row)].fill = greenFill
-                    resourceDetailsSheet['J' + str(row)].fill = greenFill
+        #             resourceDetailsSheet['I' + str(row)].fill = greenFill
+        #             resourceDetailsSheet['J' + str(row)].fill = greenFill
 
-            # Save the file
-            xfile.save(success_file_path)
+        #     # Save the file
+        #     xfile.save(success_file_path)
             print("Program success sheet is created")
+            solutionLink = "https: Deeplink Project created successfully."
             return solutionLink
             
     def projectSolutionDeepLink(MainFilePath, programFile, solutionId,accessToken):
@@ -2826,195 +2870,205 @@ class Elevateproject:
             errorVar
             print(errorVar,"---> API-Error")
     
-    def mainFunc(MainFilePath, programFile, addObservationSolution, millisecond, isProgramnamePresent, isCourse,
+    def mainFunc(MainFilePath, programFile, addObservationSolution,resourceName, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType):
         scopeEntityType = scopeEntityType
-        global solutionLink, errorVar
+        global solutionLink, errorVar, ObservationOrSurveyResult, finalprojectsolutionlink
+        observationInstance = ElevateObservation
         if not isCourse:
             parentFolder = Elevateproject.createFileStructre(MainFilePath, addObservationSolution)
             accessToken = Elevateproject.generateAccessToken(parentFolder)
-            Elevateproject.validateTenantAndOrgIdsFromProgramSheet(xlrd.open_workbook(programFile, on_demand=True))
-            typeofSolution = Elevateproject.typeofresource(addObservationSolution, accessToken, parentFolder)
-            if typeofSolution == 0:
-                result = {}
-                return result
             
+            
+            typeofSolution = Elevateproject.typeofresource(addObservationSolution, accessToken, parentFolder)
+            if typeofSolution != 4:
+                
+                ObservationOrSurveyResult=observationInstance.loadSurveyFile(programFile,resourceName)
+                ObservationOrSurveyResult = json.loads(ObservationOrSurveyResult)
+                solution_dict = ObservationOrSurveyResult["solutionDict"]
+                print(solution_dict,"solution_dict")
+                # ObservationOrSurveyResult["solutionDict"].update(finalprojectsolutionlink)
+                return solution_dict
             # sys.exit()
-            wbObservation = xlrd.open_workbook(addObservationSolution, on_demand=True)
-            wbProgram = xlrd.open_workbook(programFile, on_demand=True)
-            if typeofSolution == 4:
-                wbprogram = xlrd.open_workbook(programFile, on_demand=True)
-                programSheetNames = wbprogram.sheet_names()
+            else:
+                wbObservation = xlrd.open_workbook(addObservationSolution, on_demand=True)
+                wbProgram = xlrd.open_workbook(programFile, on_demand=True)
+                if typeofSolution == 4:
+                    wbprogram = xlrd.open_workbook(programFile, on_demand=True)
+                    programSheetNames = wbprogram.sheet_names()
 
-                wbproject = xlrd.open_workbook(addObservationSolution, on_demand=True)
-                projectSheetNames = wbproject.sheet_names()
-                for programSheets in programSheetNames:
-                    if programSheets.strip().lower() == 'program details':
-                        print("Checking program details sheet...")
-                        programDetailsSheet = wbprogram.sheet_by_name(programSheets)
-                        keysEnv = [programDetailsSheet.cell(1, col_index_env).value for col_index_env in
-                                range(programDetailsSheet.ncols)]
-                        for row_index_env in range(2, programDetailsSheet.nrows):
-                            dictProgramDetails = {
-                                keysEnv[col_index_env]: programDetailsSheet.cell(row_index_env, col_index_env).value
-                                for col_index_env in range(programDetailsSheet.ncols)}
-                            programName = dictProgramDetails['Title of the Program'].encode('utf-8').decode('utf-8')
-                            isProgramnamePresent = False
-                            if programName == "":
+                    wbproject = xlrd.open_workbook(addObservationSolution, on_demand=True)
+                    projectSheetNames = wbproject.sheet_names()
+                    for programSheets in programSheetNames:
+                        if programSheets.strip().lower() == 'program details':
+                            print("Checking program details sheet...")
+                            programDetailsSheet = wbprogram.sheet_by_name(programSheets)
+                            keysEnv = [programDetailsSheet.cell(1, col_index_env).value for col_index_env in
+                                    range(programDetailsSheet.ncols)]
+                            for row_index_env in range(2, programDetailsSheet.nrows):
+                                dictProgramDetails = {
+                                    keysEnv[col_index_env]: programDetailsSheet.cell(row_index_env, col_index_env).value
+                                    for col_index_env in range(programDetailsSheet.ncols)}
+                                programName = dictProgramDetails['Title of the Program'].encode('utf-8').decode('utf-8')
                                 isProgramnamePresent = False
-                            else:
-                                isProgramnamePresent = True
-                            scopeEntityType = scopeEntityType
-                            userEntity = dictProgramDetails['Targeted entities at program level'].encode('utf-8').decode('utf-8').lstrip().rstrip().split(",")
+                                if programName == "":
+                                    isProgramnamePresent = False
+                                else:
+                                    isProgramnamePresent = True
+                                scopeEntityType = scopeEntityType
+                                userEntity = dictProgramDetails['Targeted entities at program level'].encode('utf-8').decode('utf-8').lstrip().rstrip().split(",")
+                                
+                    for sheets in projectSheetNames:
+                        if sheets.strip().lower() == 'Project upload'.lower():
+                            print("Checking project upload sheet...")
+                            projectsheet = wbproject.sheet_by_name(sheets)
+                            keysEnv = [projectsheet.cell(1, col_index_env).value for col_index_env in
+                                    range(projectsheet.ncols)]
+                            for row_index_env in range(1, projectsheet.nrows):
+                                projectDetails = {keysEnv[col_index_env]: projectsheet.cell(row_index_env, col_index_env).value
+                                                for col_index_env in range(projectsheet.ncols)}
+
+                                ProjectName = projectDetails["title"].encode('utf-8').decode('utf-8')
+                                entityType = "school"
+                    if not Elevateproject.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath):
+                        finalprojectSolutionLink = {ProjectName: errorVar}
+                        return finalprojectSolutionLink
+                    Elevateproject.validateTenantAndOrgIdsFromProgramSheet(xlrd.open_workbook(programFile, on_demand=True))
+                    try:
+
+                        # Adds a project by processing the input file, creating necessary folders,copying files, and preparing project and task sheets.
+                        def addProjectFunc(filePathAddProject, projectName_for_folder_path, millisAddObs,typeofSolution):
+                            validationResult =  Elevateproject.projectValidate(filePathAddProject, accessToken, parentFolder)
+                            print(validationResult,"validationResult")
+                            if not validationResult: 
+                                global finalprojectsolutionlink  
+                                print(errorVar,"---->Validation Failed")
+                                finalprojectsolutionlink = {ProjectName: errorVar} 
+                                
+                                print(finalprojectsolutionlink)  
+                                return finalprojectsolutionlink  
+                            print('Add Project Function Called')
+                            # try:
+                            #     config.get(environment, 'internal-access-token')
+                            # except:
+                            #     print("Invalid Environment...")
+                            #     sys.exit()
+
+                            projectName_for_folder = None
                             
-                for sheets in projectSheetNames:
-                    if sheets.strip().lower() == 'Project upload'.lower():
-                        print("Checking project upload sheet...")
-                        projectsheet = wbproject.sheet_by_name(sheets)
-                        keysEnv = [projectsheet.cell(1, col_index_env).value for col_index_env in
-                                range(projectsheet.ncols)]
-                        for row_index_env in range(1, projectsheet.nrows):
-                            projectDetails = {keysEnv[col_index_env]: projectsheet.cell(row_index_env, col_index_env).value
-                                            for col_index_env in range(projectsheet.ncols)}
+                            if not path.exists(projectName_for_folder_path):
+                                os.mkdir(projectName_for_folder_path)
 
-                            ProjectName = projectDetails["title"].encode('utf-8').decode('utf-8')
-                            entityType = "school"
-                if not Elevateproject.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath):
-                    # print(solutionLink)
-                    finalprojectSolutionLink = {ProjectName: errorVar}
-                    return finalprojectSolutionLink
-                try:
+                            # copy input file to drive file
+                            if not path.exists(projectName_for_folder_path + "/user_input_file"):
+                                os.mkdir(projectName_for_folder_path + "/user_input_file")
 
-                    # Adds a project by processing the input file, creating necessary folders,copying files, and preparing project and task sheets.
-                    def addProjectFunc(filePathAddProject, projectName_for_folder_path, millisAddObs,typeofSolution):
-                        validationResult =  Elevateproject.projectValidate(filePathAddProject, accessToken, parentFolder)
-                        print(validationResult,"validationResult")
-                        if not validationResult:   
-                            print(errorVar,"---->Validation Failed")
-                            finalprojectsolutionlink = {ProjectName: errorVar}   
-                            return finalprojectsolutionlink  
-                        print('Add Project Function Called')
-                        # try:
-                        #     config.get(environment, 'internal-access-token')
-                        # except:
-                        #     print("Invalid Environment...")
-                        #     sys.exit()
+                            shutil.copy(filePathAddProject, projectName_for_folder_path + "/user_input_file")
+                            shutil.copy(programFile, projectName_for_folder_path + "/user_input_file")
+                            messageArr = ["Access token generated.", "Access token : " + accessToken, "Solution file created.",
+                                        "Path : " + projectName_for_folder_path]
+                            Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
 
-                        projectName_for_folder = None
-                        
-                        if not path.exists(projectName_for_folder_path):
-                            os.mkdir(projectName_for_folder_path)
+                            wbproject = xlrd.open_workbook(filePathAddProject, on_demand=True)
+                            projectsheetforcertificate = wbproject.sheet_names()
+                            for prosheet in projectsheetforcertificate:
+                                if prosheet.strip().lower() == 'Project upload'.lower():
+                                    detailsColCheck = wbproject.sheet_by_name(prosheet)
+                                    keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
+                                                        range(detailsColCheck.ncols)]
 
-                        # copy input file to drive file
-                        if not path.exists(projectName_for_folder_path + "/user_input_file"):
-                            os.mkdir(projectName_for_folder_path + "/user_input_file")
-
-                        shutil.copy(filePathAddProject, projectName_for_folder_path + "/user_input_file")
-                        shutil.copy(programFile, projectName_for_folder_path + "/user_input_file")
-                        messageArr = ["Access token generated.", "Access token : " + accessToken, "Solution file created.",
-                                    "Path : " + projectName_for_folder_path]
-                        Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
-
-                        wbproject = xlrd.open_workbook(filePathAddProject, on_demand=True)
-                        projectsheetforcertificate = wbproject.sheet_names()
-                        for prosheet in projectsheetforcertificate:
-                            if prosheet.strip().lower() == 'Project upload'.lower():
-                                detailsColCheck = wbproject.sheet_by_name(prosheet)
-                                keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
-                                                    range(detailsColCheck.ncols)]
-
-                                detailsEnvSheet = wbproject.sheet_by_name(prosheet)
-                                keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
-                                        range(detailsEnvSheet.ncols)]
-                                for row_index_env in range(2, detailsEnvSheet.nrows):
-                                    # print(dictDetailsEnv)
-                                    # sys.exit()
-                                    dictDetailsEnv = {
-                                        keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
-                                        for
-                                        col_index_env in range(detailsEnvSheet.ncols)}
-                                    if str(dictDetailsEnv['has certificate']).lower() == 'No'.lower():
-                                        Elevateproject.prepareProjectAndTasksSheets(addObservationSolution, projectName_for_folder_path,
-                                                                    accessToken)
+                                    detailsEnvSheet = wbproject.sheet_by_name(prosheet)
+                                    keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
+                                            range(detailsEnvSheet.ncols)]
+                                    for row_index_env in range(2, detailsEnvSheet.nrows):
+                                        # print(dictDetailsEnv)
                                         # sys.exit()
-                                        if not Elevateproject.projectUpload(addObservationSolution, projectName_for_folder_path, accessToken):
-                                            finalprojectsolutionlink = {ProjectName: errorVar}
-                                            return finalprojectsolutionlink
-                                        if not Elevateproject.taskUpload(addObservationSolution, projectName_for_folder_path, accessToken):
-                                            finalprojectsolutionlink = {ProjectName: errorVar}
-                                            return finalprojectsolutionlink
-                                        ProjectSolutionResp = Elevateproject.solutionCreationAndMapping(projectName_for_folder_path,
-                                                                                        entityToUpload,
-                                                                                        listOfFoundRoles, accessToken,programFile)
-                                        if not ProjectSolutionResp:
-                                            finalprojectsolutionlink = {ProjectName: errorVar}
-                                            return finalprojectsolutionlink
-                                        ProjectSolutionExternalId = ProjectSolutionResp[0]
-                                        ProjectSolutionId = ProjectSolutionResp[1]
-                                        # print("reached here")
-                                        solutionLink = Elevateproject.prepareProgramSuccessSheet(MainFilePath, projectName_for_folder_path, programFile,
-                                                                ProjectSolutionExternalId,
-                                                                ProjectSolutionId, accessToken)
-                                        if not solutionLink:
-                                            print(solutionLink)
-                                            finalprojectsolutionlink = {ProjectName: errorVar}
-                                            return finalprojectsolutionlink
-                                        else:
-                                            finalprojectsolutionlink = {ProjectName: solutionLink}
-                                            return finalprojectsolutionlink
-                                    
-                                    elif str(dictDetailsEnv['has certificate']).lower()== 'Yes'.lower():
-                                        print("---->this is certificate with project<---")
-                                        baseTemplate_id=Elevateproject.fetchCertificateBaseTemplate(filePathAddProject,accessToken,projectName_for_folder_path)
-                                        if not baseTemplate_id:
-                                            finalprojectsolutionlink = {ProjectName: errorVar}
-                                            return finalprojectsolutionlink
-                                        Elevateproject.downloadlogosign(filePathAddProject,projectName_for_folder_path)
-                                        if not Elevateproject.editsvg(accessToken,filePathAddProject,projectName_for_folder_path,baseTemplate_id):
-                                            finalprojectsolutionlink = {ProjectName: errorVar}
-                                            return finalprojectsolutionlink
-                                        Elevateproject.prepareProjectAndTasksSheets(addObservationSolution, projectName_for_folder_path,accessToken)
-                                        if not Elevateproject.projectUpload(addObservationSolution, projectName_for_folder_path, accessToken):
-                                            finalprojectsolutionlink = {ProjectName: errorVar}
-                                            return finalprojectsolutionlink
-                                        if not Elevateproject.taskUpload(addObservationSolution, projectName_for_folder_path, accessToken):
-                                            finalprojectsolutionlink = {ProjectName: errorVar}
-                                            return finalprojectsolutionlink
-                                        ProjectSolutionResp = Elevateproject.solutionCreationAndMapping(projectName_for_folder_path,entityToUpload,listOfFoundRoles, accessToken, programFile)
-                                        if not ProjectSolutionResp:
-                                            finalprojectsolutionlink = {ProjectName: errorVar}
-                                            return finalprojectsolutionlink
-                                        ProjectSolutionExternalId = ProjectSolutionResp[0]
-                                        ProjectSolutionId = ProjectSolutionResp[1]
-                                        certificatetemplateid= Elevateproject.prepareaddingcertificatetemp(filePathAddProject,projectName_for_folder_path, accessToken,ProjectSolutionId,programID,baseTemplate_id)
-                                        if not certificatetemplateid:
-                                            finalprojectsolutionlink = {ProjectName: errorVar}
-                                            return finalprojectsolutionlink
+                                        dictDetailsEnv = {
+                                            keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
+                                            for
+                                            col_index_env in range(detailsEnvSheet.ncols)}
+                                        if str(dictDetailsEnv['has certificate']).lower() == 'No'.lower():
+                                            Elevateproject.prepareProjectAndTasksSheets(addObservationSolution, projectName_for_folder_path,
+                                                                        accessToken)
+                                            # sys.exit()
+                                            if not Elevateproject.projectUpload(addObservationSolution, projectName_for_folder_path, accessToken):
+                                                finalprojectsolutionlink = {ProjectName: errorVar}
+                                                return finalprojectsolutionlink
+                                            if not Elevateproject.taskUpload(addObservationSolution, projectName_for_folder_path, accessToken):
+                                                finalprojectsolutionlink = {ProjectName: errorVar}
+                                                return finalprojectsolutionlink
+                                            ProjectSolutionResp = Elevateproject.solutionCreationAndMapping(projectName_for_folder_path,
+                                                                                            entityToUpload,
+                                                                                            listOfFoundRoles, accessToken,programFile)
+                                            if not ProjectSolutionResp:
+                                                finalprojectsolutionlink = {ProjectName: errorVar}
+                                                return finalprojectsolutionlink
+                                            ProjectSolutionExternalId = ProjectSolutionResp[0]
+                                            ProjectSolutionId = ProjectSolutionResp[1]
+                                            # print("reached here")
+                                            solutionLink = Elevateproject.prepareProgramSuccessSheet(MainFilePath, projectName_for_folder_path, programFile,
+                                                                    ProjectSolutionExternalId,
+                                                                    ProjectSolutionId, accessToken)
+                                            if not solutionLink:
+                                                print(solutionLink)
+                                                finalprojectsolutionlink = {ProjectName: errorVar}
+                                                return finalprojectsolutionlink
+                                            else:
+                                                finalprojectsolutionlink = {ProjectName: solutionLink}
+                                                return finalprojectsolutionlink
                                         
-                                        solutionlink = Elevateproject.prepareProgramSuccessSheet(MainFilePath, projectName_for_folder_path, programFile,
-                                                                ProjectSolutionExternalId,
-                                                                ProjectSolutionId, accessToken)
-                                        if not solutionlink:
-                                            finalprojectsolutionlink = {ProjectName: errorVar}
-                                            return finalprojectsolutionlink
-                                        else:
-                                            print(solutionlink)
-                                            finalprojectsolutionlink = {ProjectName: solutionlink}
-                                            return finalprojectsolutionlink  
-                    projectSolutionLink = addProjectFunc(addObservationSolution, parentFolder, millisecond, typeofSolution)
-                    print("Done.")
-                    return projectSolutionLink
-                except Exception as e:
-                    print(f"Error occurred during project creation: {str(e)}")
-                    # raise RuntimeError("The project creation failed due to an unexpected error")
-                    solutionError = str(e)
-                    print(errorVar,"3266")
-                    if errorVar == "":
-                        projectSolutionLink = {ProjectName: solutionError}
-                    else:
-                        projectSolutionLink = {ProjectName: errorVar}
-                    # print(projectSolutionLink, "3247")
-                    return projectSolutionLink
+                                        elif str(dictDetailsEnv['has certificate']).lower()== 'Yes'.lower():
+                                            print("---->this is certificate with project<---")
+                                            baseTemplate_id=Elevateproject.fetchCertificateBaseTemplate(filePathAddProject,accessToken,projectName_for_folder_path)
+                                            if not baseTemplate_id:
+                                                finalprojectsolutionlink = {ProjectName: errorVar}
+                                                return finalprojectsolutionlink
+                                            Elevateproject.downloadlogosign(filePathAddProject,projectName_for_folder_path)
+                                            if not Elevateproject.editsvg(accessToken,filePathAddProject,projectName_for_folder_path,baseTemplate_id):
+                                                finalprojectsolutionlink = {ProjectName: errorVar}
+                                                return finalprojectsolutionlink
+                                            Elevateproject.prepareProjectAndTasksSheets(addObservationSolution, projectName_for_folder_path,accessToken)
+                                            if not Elevateproject.projectUpload(addObservationSolution, projectName_for_folder_path, accessToken):
+                                                finalprojectsolutionlink = {ProjectName: errorVar}
+                                                return finalprojectsolutionlink
+                                            if not Elevateproject.taskUpload(addObservationSolution, projectName_for_folder_path, accessToken):
+                                                finalprojectsolutionlink = {ProjectName: errorVar}
+                                                return finalprojectsolutionlink
+                                            ProjectSolutionResp = Elevateproject.solutionCreationAndMapping(projectName_for_folder_path,entityToUpload,listOfFoundRoles, accessToken, programFile)
+                                            if not ProjectSolutionResp:
+                                                finalprojectsolutionlink = {ProjectName: errorVar}
+                                                return finalprojectsolutionlink
+                                            ProjectSolutionExternalId = ProjectSolutionResp[0]
+                                            ProjectSolutionId = ProjectSolutionResp[1]
+                                            certificatetemplateid= Elevateproject.prepareaddingcertificatetemp(filePathAddProject,projectName_for_folder_path, accessToken,ProjectSolutionId,programID,baseTemplate_id)
+                                            if not certificatetemplateid:
+                                                finalprojectsolutionlink = {ProjectName: errorVar}
+                                                return finalprojectsolutionlink
+                                            
+                                            solutionlink = Elevateproject.prepareProgramSuccessSheet(MainFilePath, projectName_for_folder_path, programFile,
+                                                                    ProjectSolutionExternalId,
+                                                                    ProjectSolutionId, accessToken)
+                                            if not solutionlink:
+                                                finalprojectsolutionlink = {ProjectName: errorVar}
+                                                return finalprojectsolutionlink
+                                            else:
+                                                print(solutionlink)
+                                                finalprojectsolutionlink = {ProjectName: solutionlink}
+                                                return finalprojectsolutionlink  
+                        projectSolutionLink = addProjectFunc(addObservationSolution, parentFolder, millisecond, typeofSolution)
+                        print("Done.")
+                        return projectSolutionLink
+                    except Exception as e:
+                        print(f"Error occurred during project creation: {str(e)}")
+                        # raise RuntimeError("The project creation failed due to an unexpected error")
+                        solutionError = str(e)
+                        print(errorVar,"3266")
+                        if errorVar == "":
+                            projectSolutionLink = {ProjectName: solutionError}
+                        else:
+                            projectSolutionLink = {ProjectName: errorVar}
+                        # print(projectSolutionLink, "3247")
+                        return projectSolutionLink
 
                 
         else:
@@ -3088,7 +3142,7 @@ class Elevateproject:
         global downloaded_file
         global addObservationSolution
         # if downloaded_file is None:
-        downloaded_file = []
+        downloaded_file = {}
         print(downloaded_file, "downloaded_file 3044")
 
         wbPgm = xlrd.open_workbook(programFile, on_demand=True)
@@ -3148,20 +3202,21 @@ class Elevateproject:
                                 if not os.path.isdir('InputFiles'):
                                     os.mkdir('InputFiles')
                                 dest_file = 'InputFiles'
+                                
                                 download_file = wget.download(file_url, dest_file)
-                                downloaded_file.append(download_file)
+                                downloaded_file[download_file] = resourceNamePGM
 
             print("--->Solution input file successfully downloaded: " + str(downloaded_file))
-            for addObservationSolution in downloaded_file:
-                print(f"Processing file: {addObservationSolution}")
-                solutionSL = Elevateproject.mainFunc(MainFilePath, programFile, addObservationSolution, millisecond, isProgramnamePresent, isCourse,
+            for addObservationSolution, resourceName in downloaded_file.items():
+                print(f"Processing file: {addObservationSolution} for resource: {resourceName}")
+                solutionSL = Elevateproject.mainFunc(MainFilePath, programFile, addObservationSolution,resourceName, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType)
                 print(solutionSL)
                 print(solutionSL.items(),"3400")
                 for resourceName, solutionLink in solutionSL.items():
                     solutionDict[resourceName] = solutionLink
                     print()
-            downloaded_file = None
+            downloaded_file = {}
 
         else:
             print("Stand alone Project file Detected")
@@ -3169,7 +3224,7 @@ class Elevateproject:
             addObservationSolution = programFile
             wbPgm = xlrd.open_workbook(programFile, on_demand=True)
             millisecond = int(time.time() * 1000)
-            Elevateproject.mainFunc(MainFilePath, programFile, addObservationSolution,millisecond ,isProgramnamePresent =True,isCourse=True)
+            Elevateproject.mainFunc(MainFilePath, programFile, addObservationSolution,resourceName,millisecond ,isProgramnamePresent =True,isCourse=True)
         # Combine solutionDict and programName into a single dictionary for returning
         result = {
             "solutionDict": solutionDict,

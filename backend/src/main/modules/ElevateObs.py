@@ -255,6 +255,7 @@ class ElevateObservation:
                 'identifier': identifier,
                 'password': password
             }
+            print(loginBody)
             responseKeyClockUser = requests.post(
                 userLoginHost + keyclockapiurl,
                 headers=headerKeyClockUser,
@@ -550,6 +551,7 @@ class ElevateObservation:
             #     body = "{\n  \"request\": {\n    \"filters\": {\n    \t\"userName\": \"" + dikshaId.lstrip().rstrip() + "\"\n    },\n      \"fields\" :[],\n    \"limit\": 1000,\n    \"sort_by\": {\"createdDate\": \"desc\"}\n  }\n}"
             
             responseUserSearch = requests.request("GET", url, headers=headers)
+            print(responseUserSearch.text,"responseUserSearch")
             if responseUserSearch.status_code == 200:
                 responseUserSearch = responseUserSearch.json()
                 if responseUserSearch['result']:
@@ -3307,10 +3309,10 @@ class ElevateObservation:
                             # page = dictDetailsEnv['page'].encode('utf-8').decode('utf-8') if dictDetailsEnv['page'] else terminatingMessage("\"page\" must not be Empty in \"questions\" sheet")
                             # question_number = dictDetailsEnv['question_number'] if dictDetailsEnv['question_number'] else terminatingMessage("\"question_number\" must not be Empty in \"questions\" sheet")
                             # question_primary_language = dictDetailsEnv['question_primary_language'].encode('utf-8').decode('utf-8') if dictDetailsEnv['question_primary_language'] else terminatingMessage("\"question_primary_language\" must not be Empty in \"questions\" sheet")
-                            if dictDetailsEnv['response_required'] in (True,False):
-                                response_required = dictDetailsEnv['response_required']
-                            else:
-                                errorVar = "validation failed :response_required column must not be Empty in questions sheet"
+                            # if dictDetailsEnv['response_required'] in (True,False):
+                            #     response_required = dictDetailsEnv['response_required']
+                            # else:
+                            #     errorVar = "validation failed :response_required column must not be Empty in questions sheet"
                             if dictDetailsEnv['question_id']:
                                 question_id = dictDetailsEnv['question_id']
                             else:
@@ -3456,10 +3458,11 @@ class ElevateObservation:
                             question_response_typeSUR = dictDetailsEnv['question_response_type']
                         else:
                             errorVar = "validation failed :question_response_type column must not be Empty in questions sheet"
-                        if dictDetailsEnv['response_required']:
-                            response_requiredSUR = dictDetailsEnv['response_required']
-                        else:
-                            errorVar = "validation failed :response_required column must not be Empty in questions sheet"
+                        # print(dictDetailsEnv['response_required'])
+                        # if dictDetailsEnv['response_required']:
+                        #     response_required = dictDetailsEnv['response_required']
+                        # else:
+                        #     errorVar = "validation failed :response_required column must not be Empty in questions sheet"
             if errorVar == "":
                 return True
             else:
@@ -4448,25 +4451,23 @@ class ElevateObservation:
         
     def mainFunc(MainFilePath, programFile, addObservationSolution, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType):
+        print("entering mainFUnc")
         global errorVar,pointBasedValue
         errorVar = ""
         scopeEntityType = scopeEntityType
         if not isCourse:
+            print(MainFilePath,"MainFilePath")
+            print(addObservationSolution,"addObservationSolution")
             parentFolder = ElevateObservation.createFileStruct(MainFilePath, addObservationSolution)
+            print("its here")
             accessToken = ElevateObservation.generateAccessToken(parentFolder)
             print(tenantID)
-            if not ElevateObservation.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath):
-                print("---> no program found / unable to create program....")
-                result = {programName : errorVar}
-                return result
             typeofSolution = ElevateObservation.typeofresource(addObservationSolution, accessToken, parentFolder)
             if typeofSolution == 0:
                 result = {}
                 return result
             print(typeofSolution,"this is type of solution")
-            wbPgm =xlrd.open_workbook(programFile, on_demand=True)
-            ElevateObservation.validateTenantAndOrgIdsFromProgramSheet(wbPgm)
-            print(orgIDFromTemplate,"orgIDFromTemplate")
+            
             # typeofSolution = validateSheets(addObservationSolution, accessToken, parentFolder)
             # sys.exit()
             wbObservation = xlrd.open_workbook(addObservationSolution, on_demand=True)
@@ -4495,6 +4496,12 @@ class ElevateObservation:
                             userEntity = dictProgramDetails['Targeted state at program level'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "\"Targeted state at program level\" must not be Empty in \"details\" sheet"
+            if not ElevateObservation.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath):
+                print("---> no program found / unable to create program....")
+                result = {programName : errorVar}
+                return result
+            wbPgm =xlrd.open_workbook(programFile, on_demand=True)
+            ElevateObservation.validateTenantAndOrgIdsFromProgramSheet(wbPgm)
             
             if typeofSolution == 1 or typeofSolution == 5:
                 if typeofSolution == 5:
@@ -4876,7 +4883,7 @@ class ElevateObservation:
                             return ObsWORSolutionLink
 
                 elif typeofSolution == 3 and sheets.strip().lower() == 'details'.lower():
-                    ElevateObservation.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath)
+                    # ElevateObservation.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath)
                     wbPgm= xlrd.open_workbook(programFile, on_demand=True)
                     programSheetNames = wbPgm.sheet_names()
                     wbSurvey = xlrd.open_workbook(addObservationSolution, on_demand=True)
@@ -5275,11 +5282,11 @@ class ElevateObservation:
                         surveySollink = {SurveyResourceName: errorVar}
                     return surveySollink
                 
-    def loadSurveyFile(programFile):
+    def loadSurveyFile(programFile,resourceName):
         print(programFile,"infile")
         print("entering the loadfile")
         global downloaded_file
-        downloaded_file = []
+        downloaded_file = ""
         solutionDict = {}
         # start_time = time.time()
         # parser = argparse.ArgumentParser()
@@ -5329,39 +5336,47 @@ class ElevateObservation:
                                         for
                                         col_index_env in range(detailsEnvSheet.ncols)}
                         resourceNamePGM = dictDetailsEnv['Name of resources in program'].encode('utf-8').decode('utf-8')
+                        print(resourceNamePGM,"resourceNamePGM")
                         resourceTypePGM = dictDetailsEnv['Type of resources'].encode('utf-8').decode('utf-8')
                         resourceLinkOrExtPGM = dictDetailsEnv['Resource Link']
                         if str(dictDetailsEnv['Type of resources']).lower().strip() == "course":
                             isCourse = False
                         else:
                             isCourse = False
-                            resourceStatus = dictDetailsEnv['Resource Status']
-                            if resourceStatus.strip()=="New Upload":
-                                print("--->Resource Name : "+str(resourceNamePGM))
-                                resourceLinkOrExtPGM = str(resourceLinkOrExtPGM).split('/')[5]
-                                file_url = 'https://docs.google.com/spreadsheets/d/' + resourceLinkOrExtPGM + '/export?format=xlsx'
-                                if not os.path.isdir('InputFiles'):
-                                    os.mkdir('InputFiles')
-                                dest_file = 'InputFiles'
-                                download_file = wget.download(file_url, dest_file)
-                                # print("--->solution input file successfully downloaded" + str(addObservationSolution))
-                                # ElevateObservation.mainFunc(MainFilePath, programFile, addObservationSolution, millisecond, isProgramnamePresent,isCourse, )\
-                                downloaded_file.append(download_file)
+                            print(resourceName)
+                            print(resourceNamePGM)
+                            if resourceNamePGM == resourceName:
+                                resourceStatus = dictDetailsEnv['Resource Status']
+                                if resourceStatus.strip()=="New Upload":
+                                    print("--->Resource Name : "+str(resourceNamePGM))
+                                    resourceLinkOrExtPGM = str(resourceLinkOrExtPGM).split('/')[5]
+                                    file_url = 'https://docs.google.com/spreadsheets/d/' + resourceLinkOrExtPGM + '/export?format=xlsx'
+                                    if not os.path.isdir('InputFiles'):
+                                        os.mkdir('InputFiles')
+                                    dest_file = 'InputFiles'
+                                    download_file = wget.download(file_url, dest_file)
+                                    # print("--->solution input file successfully downloaded" + str(addObservationSolution))
+                                    # ElevateObservation.mainFunc(MainFilePath, programFile, addObservationSolution, millisecond, isProgramnamePresent,isCourse, )\
+                                    downloaded_file = download_file
+                                    break
+                            else:
+                                continue
+                                # Result = solutionDict[resourceName] = "Not Found"
+                                # return Result
 
             print("--->Solution input file successfully downloaded: " + str(downloaded_file))
-            for addObservationSolution in downloaded_file:
-                print(f"Processing file: {addObservationSolution}")
-                solutionSL = ElevateObservation.mainFunc(MainFilePath, programFile, addObservationSolution, millisecond, isProgramnamePresent, isCourse,
-             scopeEntityType=scopeEntityType)
-                print(solutionSL)
-                print(solutionSL.items(),"3400")
-                for resourceName, solutionLink in solutionSL.items():
-                    solutionDict[resourceName] = solutionLink
+            # for addObservationSolution in downloaded_file:
+            print(f"Processing file: {downloaded_file}")
+            solutionSL = ElevateObservation.mainFunc(MainFilePath, programFile, downloaded_file, millisecond, isProgramnamePresent, isCourse,scopeEntityType=scopeEntityType)
+            print(solutionSL)
+            print(solutionSL.items(),"3400")
+            for resourceName, solutionLink in solutionSL.items():
+                solutionDict[resourceName] = solutionLink
             downloaded_file = None
         else :
             MainFilePath = ElevateObservation.createFileStructForProgram(programFile)
             print(programFile,"58222")
-            addObservationSolution = programFile
+            downloaded_file = programFile
             wbPgm = xlrd.open_workbook(programFile, on_demand=True)
             millisecond = int(time.time() * 1000)
             # Specify the local path of the Excel file
