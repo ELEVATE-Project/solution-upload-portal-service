@@ -237,7 +237,9 @@ class Elevateproject:
                                         for
                                         col_index_env in range(programDetailsSheet.ncols)}
                     tenantIdFromProgramFile = dictDetailsEnv.get('Tenant ID')
+                    print(tenantIdFromProgramFile,"tenantid")
                     orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
+                    print(orgIdsFromProgramFile)
 
         # global roleOfResourceCreator
         # if roleOfResourceCreator not in ['org_admin', 'tenant_admin'] and not tenantIdFromProgramFile:
@@ -292,6 +294,7 @@ class Elevateproject:
     def assignTenantOrgValuesToGlobalVariables(tenantIdFromTheSheets, orgIdsFromTheSheets):
         global tenantIDFromTemplate
         tenantIDFromTemplate = Elevateproject.clean_single_value(tenantIdFromTheSheets)
+        print(tenantIDFromTemplate,"tenantIDFromTemplate297")
         global orgIDFromTemplate
         orgIDFromTemplate = Elevateproject.clean_single_value(orgIdsFromTheSheets)
 
@@ -361,7 +364,8 @@ class Elevateproject:
             'Content-Type': content_type,
             'internal-access-token': internal_access_token,
         }
-
+        print(urlFetchEntityListApi,"urlFetchEntityListApi")
+        print(headerFetchEntityListApi,"headerFetchEntityListApi")
         # Initialize a dictionary to store entity types for each entity
         entityTypes = []
 
@@ -371,10 +375,11 @@ class Elevateproject:
             print(entityName, "Processing entity...")  # Log the entity being processed
 
             # Prepare the payload for the API request
+            print(tenantIDFromTemplate,"tenantIDFromTemplate")
             payload = {
                     "query": {
                         "metaInformation.name": entityName,  # Use the current entity name
-                        "tenantId" : tenantId,
+                        "tenantId" : tenantIDFromTemplate,
                         # "orgIds": {"$in": [orgIDFromTemplate]}   # Convert org_ids to strings for payload
                     },
                     "projection": [
@@ -382,10 +387,10 @@ class Elevateproject:
                     ]
                 }
             data = json.dumps(payload)
-
+            print(payload,"payload")
             # Make the API call inside the loop to send one request per entity
             responseFetchEntityListApi = requests.post(url=urlFetchEntityListApi, headers=headerFetchEntityListApi, data=data)
-            
+            print(responseFetchEntityListApi.text,"responseFetchEntityListApi")
             # Log API call details
             messageArr = ["Entities List Fetch API executed for entity: " + entityName, 
                         "URL  : " + str(urlFetchEntityListApi),
@@ -419,7 +424,6 @@ class Elevateproject:
     def getProgramInfo(accessTokenUser, solutionName_for_folder_path, programNameInp):
         try:
             global programID, programExternalId, programDescription, isProgramnamePresent, programName, errorVar
-            print(programNameInp,"programNameInp")
             programName = programNameInp
             programUrl = elevateprojecthost + fetchprograminfoapiurl
             payload = json.dumps({
@@ -430,7 +434,6 @@ class Elevateproject:
                         },
                         "mongoIdKeys": []
                         })
-            print(payload,"payload")
             headersProgramSearch = {'Content-Type': content_type,
                                     'X-auth-token': accessTokenUser}
             responseProgramSearch = requests.post(url=programUrl, headers=headersProgramSearch,data=payload)
@@ -441,7 +444,6 @@ class Elevateproject:
             messageArr.append("Response : " + str(responseProgramSearch.text))
             Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
             messageArr = []
-            print(responseProgramSearch.text,"responseProgramSearch")
             if responseProgramSearch.status_code == 200:
                 print('--->Program fetch API Success')
                 messageArr.append("--->Program fetch API Success")
@@ -557,7 +559,7 @@ class Elevateproject:
             payload = {
                     "query" : {
                         "entityType": {"$in": scopeEntityType},
-                        "tenantId" : tenantId
+                        "tenantId" : tenantIDFromTemplate
                         #  "orgIds" : {"$in" : [orgIDFromTemplate]}
                     },
 
@@ -662,11 +664,11 @@ class Elevateproject:
         }
         )
             messageArr.append("Body : " + str(payload))
-            headers = {'X-auth-token': accessToken,
+            headers = {
                 'internal-access-token': internal_access_token,
                 'Content-Type': 'application/json',
                 'Authorization':authorization,
-                'tenantId': tenantID ,
+                'tenantId': tenantIDFromTemplate ,
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: adminAccessToken
                 }
@@ -683,7 +685,6 @@ class Elevateproject:
             fileheader = [pName, ('Program Sheet Validation'), ('Passed')]
             Elevateproject.createAPILog(parentFolder, messageArr)
             Elevateproject.apicheckslog(parentFolder, fileheader)
-            print(responsePgmCreate.text,"responsePgmCreate")
             if responsePgmCreate.status_code == 200:
                 responsePgmCreateResp = responsePgmCreate.json()
                 print("program created successful....")
@@ -801,9 +802,7 @@ class Elevateproject:
                                 errorVar = "\"Login ID on Elevate\" must not be Empty in \"Program details\" sheet"
                                 
                             # programmanagername2 = dictDetailsEnv['Login ID on projectService'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Login ID on projectService'] else Elevateproject.terminatingMessage("\"Login ID on projectService\" must not be Empty in \"Program details\" sheet")
-                            print("784")
                             userDetails = Elevateproject.fetchUserDetails(environment, accessToken, programmanagername2)
-                            print("userDetails",userDetails)
                         except :
                             if dictDetailsEnv.get('Elevate user id ( profile ID)'):
                                 programmanagername2 = dictDetailsEnv['Elevate user id ( profile ID)'].encode('utf-8').decode('utf-8')
@@ -811,8 +810,7 @@ class Elevateproject:
                                 errorVar = "\"Elevate user id ( profile ID)\" must not be Empty in \"Program details\" sheet"
                                 
                             # programmanagername2 = dictDetailsEnv['projectService user id ( profile ID)'].encode('utf-8').decode('utf-8') if dictDetailsEnv['projectService user id ( profile ID)'] else Elevateproject.terminatingMessage("\"projectService user id ( profile ID)\" must not be Empty in \"Program details\" sheet")
-                            print("792")
-                            userDetails = Elevateproject.fetchUserDetails(environment, accessToken, programmanagername2)
+                    userDetails = Elevateproject.fetchUserDetails(environment, accessToken, programmanagername2)
                     creatorKeyCloakId = userDetails[0]
                     creatorName = userDetails[1]
                     # if "program_manager" in userDetails[4]:
@@ -955,10 +953,8 @@ class Elevateproject:
                                 errorVar = "\"Targeted entities at program level\" must not be Empty in \"Program details\" sheet"
                             # entitiesPGM = dictDetailsEnv['Targeted entities at program level'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Targeted entities at program level'] else Elevateproject.terminatingMessage("\"Targeted entities at program level\" must not be Empty in \"Program details\" sheet")
                             stateEntitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8')
-                            print("fetching")
                             entitiesType = Elevateproject.fetchEntityType(parentFolder, accessToken,
                                                     entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
-                            print("fetched")
                             # selecting entity type based on the users input 
                             if entitiesPGM:
                                 entitiesPGM = entitiesPGM
@@ -1112,9 +1108,7 @@ class Elevateproject:
                     if "teacher" in solutionMainRole.strip().lower():
                         solutionRolesArray.append("TEACHER")
                     solutionStartDate = resourceDetailsSheet["G" + str(row)].value
-                    print(solutionStartDate,"solutionStartDate")
                     solutionEndDate = resourceDetailsSheet["H" + str(row)].value
-                    print(solutionEndDate,"solutionEndDate")
         return [solutionRolesArray, solutionStartDate, solutionEndDate]
     
     def generateAccessToken(solutionName_for_folder_path):
@@ -1122,6 +1116,7 @@ class Elevateproject:
             global errorVar
             # production search user api - start
             headerKeyClockUser = {'Content-Type': content_type,'origin': origin}
+            print(headerKeyClockUser,"headerKeyClockUser")
             # responseKeyClockUser = requests.post(url=config.get(environment, 'elevateuserhost') + config.get(environment, 'userlogin'), headers=headerKeyClockUser,
                                                 #  data=json.dumps(config.get(environment, 'keyclockAPIBody')))
             # Elevateproject.terminatingMessage(type(json.loads(config.get(environment, 'keyclockAPIBody'))))\
@@ -1129,12 +1124,13 @@ class Elevateproject:
                 'identifier' : identifier,
                 'password' : password
             }
+            print(loginBody,"loginbody")
+            print(userLoginHost + keyclockapiurl,"url")
             responseKeyClockUser = requests.post(userLoginHost + keyclockapiurl , headers=headerKeyClockUser, json=loginBody)
             messageArr = []
             messageArr.append("URL : " + str(keyclockapiurl))
             messageArr.append("Body : " + str(keyclockapibody))
             messageArr.append("Status Code : " + str(responseKeyClockUser.status_code))
-            print(responseKeyClockUser.text,"responseKeyClockUser")
             if responseKeyClockUser.status_code == 200:
                 responseKeyClockUser = responseKeyClockUser.json()
                 accessTokenUser = responseKeyClockUser['result']['access_token']
@@ -1143,7 +1139,7 @@ class Elevateproject:
                 fileheader = ["Access Token","Access Token succesfully genarated","Passed"]
                 Elevateproject.apicheckslog(solutionName_for_folder_path,fileheader)
                 print("--->Access Token Generated!")
-                Elevateproject.decodeToken(accessTokenUser)
+                # Elevateproject.decodeToken(accessTokenUser)
                 return accessTokenUser
             
             else:
@@ -1906,7 +1902,6 @@ class Elevateproject:
                                             duplicateTemplateId]])
                         solutionDetails = Elevateproject.fetchSolutionDetailsFromProgramSheet(projectName_for_folder_path, programFile,
                                                                             solutionId, accessToken)
-                        print(solutionDetails,"solutionDetails")
                         if solutionDetails:
                             newRole = rolesPGM.split(",")
                             RoleArray = list(newRole)
@@ -1935,10 +1930,8 @@ class Elevateproject:
                                     projectCreator = userDetails[1]
                                     bodySolutionUpdate = {
                                         "creator": projectCreator, "author": matchedShikshalokamLoginId}
-                                    print("i reached till here boss.................")
                                     Elevateproject.solutionUpdate(projectName_for_folder_path, accessToken, solutionId, bodySolutionUpdate)
                                     # Below script will convert date DD-MM-YYYY TO YYYY-MM-DD 00:00:00 to match the code syntax
-                                    print(solutionDetails[1],solutionDetails[2],"solutionDetails[1]")
                                     if ReffstartDateOfProgram <= solutionDetails[1] <= ReffendDateOfProgram and ReffstartDateOfProgram <= solutionDetails[2] <= ReffendDateOfProgram:
                                         if solutionDetails[1]:
                                             startDateArr = str(solutionDetails[1]).split("-")
@@ -2738,7 +2731,6 @@ class Elevateproject:
 
         responseFetchSolutionApi = requests.get(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
                                                 data=payloadFetchSolutionApi)
-        print(responseFetchSolutionApi.text,"responseFetchSolutionApi")
         responseFetchSolutionJson = responseFetchSolutionApi.json()
         messageArr = ["Solution Fetch Link.",
                     "solution name : " + responseFetchSolutionJson["result"]["name"],
@@ -2845,7 +2837,6 @@ class Elevateproject:
             # messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
             # messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
             # Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
-            print(responseFetchSolutionLinkApi.text)
             if responseFetchSolutionLinkApi.status_code == 200:
                 print('Fetch solution Link Api Success')
                 responseProjectUploadJson = responseFetchSolutionLinkApi.json()
@@ -2870,6 +2861,22 @@ class Elevateproject:
             errorVar
             print(errorVar,"---> API-Error")
     
+    def OrgCheckingAndTenantChecking(tenantIDFromTemplate,orgIDFromTemplate,accessToken):
+        
+        url = "https://saas-qa.tekdinext.com/user/v1/tenant/read/shikshagraha"
+
+        payload = {}
+        headers = {
+        'Content-Type': content_type,
+        'origin': origin,
+        'X-auth-token': accessToken
+        }
+
+        response = requests.request("GET", url, headers=headers, data=payload)
+
+        print(response.text)
+            
+
     def mainFunc(MainFilePath, programFile, addObservationSolution,resourceName, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType):
         scopeEntityType = scopeEntityType
@@ -2878,6 +2885,8 @@ class Elevateproject:
         if not isCourse:
             parentFolder = Elevateproject.createFileStructre(MainFilePath, addObservationSolution)
             accessToken = Elevateproject.generateAccessToken(parentFolder)
+            Elevateproject.validateTenantAndOrgIdsFromProgramSheet(xlrd.open_workbook(programFile, on_demand=True))
+            print(tenantIDFromTemplate)
             
             
             typeofSolution = Elevateproject.typeofresource(addObservationSolution, accessToken, parentFolder)
@@ -2886,8 +2895,6 @@ class Elevateproject:
                 ObservationOrSurveyResult=observationInstance.loadSurveyFile(programFile,resourceName)
                 ObservationOrSurveyResult = json.loads(ObservationOrSurveyResult)
                 solution_dict = ObservationOrSurveyResult["solutionDict"]
-                print(solution_dict,"solution_dict")
-                # ObservationOrSurveyResult["solutionDict"].update(finalprojectsolutionlink)
                 return solution_dict
             # sys.exit()
             else:
@@ -2917,7 +2924,9 @@ class Elevateproject:
                                     isProgramnamePresent = True
                                 scopeEntityType = scopeEntityType
                                 userEntity = dictProgramDetails['Targeted entities at program level'].encode('utf-8').decode('utf-8').lstrip().rstrip().split(",")
-                                
+                    if not Elevateproject.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath):
+                        finalprojectSolutionLink = {ProjectName: errorVar}
+                        return finalprojectSolutionLink            
                     for sheets in projectSheetNames:
                         if sheets.strip().lower() == 'Project upload'.lower():
                             print("Checking project upload sheet...")
@@ -2930,16 +2939,12 @@ class Elevateproject:
 
                                 ProjectName = projectDetails["title"].encode('utf-8').decode('utf-8')
                                 entityType = "school"
-                    if not Elevateproject.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath):
-                        finalprojectSolutionLink = {ProjectName: errorVar}
-                        return finalprojectSolutionLink
-                    Elevateproject.validateTenantAndOrgIdsFromProgramSheet(xlrd.open_workbook(programFile, on_demand=True))
+                    
                     try:
 
                         # Adds a project by processing the input file, creating necessary folders,copying files, and preparing project and task sheets.
                         def addProjectFunc(filePathAddProject, projectName_for_folder_path, millisAddObs,typeofSolution):
                             validationResult =  Elevateproject.projectValidate(filePathAddProject, accessToken, parentFolder)
-                            print(validationResult,"validationResult")
                             if not validationResult: 
                                 global finalprojectsolutionlink  
                                 print(errorVar,"---->Validation Failed")
@@ -3148,8 +3153,6 @@ class Elevateproject:
         wbPgm = xlrd.open_workbook(programFile, on_demand=True)
         sheetNames = wbPgm.sheet_names()
         pgmSheets = ["Instructions", "Program Details", "Resource Details", "Program Manager Details"]
-        print(sheetNames)
-        print(pgmSheets)
 
         solutionDict = {}
         programName = ""  # Initialize the programName variable

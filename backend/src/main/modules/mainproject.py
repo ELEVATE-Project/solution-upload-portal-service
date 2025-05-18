@@ -471,7 +471,7 @@ def programsFileCheck(filePathAddPgm, accessToken, parentFolder, MainFilePath):
                         programCreation(accessToken,parentFolder,extIdPGM,programNameInp,proDesc,programRoleArray,userId)
                         # accessToken, parentFolder, extIdPGM, programNameInp, descriptionPGM,keywordsPGM.lstrip().rstrip().split(","),mainRole,rolesPGM
                         # sys.exit()
-                        programmappingpdpmsheetcreation(MainFilePath, accessToken, program_file, extIdPGM,parentFolder)
+                        # programmappingpdpmsheetcreation(MainFilePath, accessToken, program_file, extIdPGM,parentFolder)
 
                         # map PM / PD to the program 
                         # Programmappingapicall(MainFilePath, accessToken, program_file,parentFolder)
