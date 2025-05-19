@@ -510,12 +510,15 @@ class Elevateproject:
     def fetchUserDetails(environment, accessToken, projectServiceId):
         global OrgName,errorVar
         try:
-            url = elevateprojecthost + prouserinfoapiurl
+            url = userLoginHost + userinfoapiurl
+            print(url,"url514")
             messageArr = ["User search API called."]
             headers = {#'Content-Type': 'application/json',
                     'internal-access-token': internal_access_token,
                     'X-auth-token': accessToken}
+            print(headers,"headers")
             responseUserSearch = requests.request("GET", url, headers=headers)
+            print(responseUserSearch.text,"responseUserSearch")
             if responseUserSearch.status_code == 200:
                 responseUserSearch = responseUserSearch.json()
                 if responseUserSearch['result']:
@@ -623,6 +626,7 @@ class Elevateproject:
         # program creation url 
         try: 
             programCreationurl = elevateprojecthost + programcreationurl
+            print(programCreationurl,"programCreationurl")
             messageArr.append("Program Creation URL : " + programCreationurl)
 
             # adding state entities
@@ -666,13 +670,14 @@ class Elevateproject:
             messageArr.append("Body : " + str(payload))
             headers = {
                 'internal-access-token': internal_access_token,
+                'X-auth-token': accessToken,
                 'Content-Type': 'application/json',
                 'Authorization':authorization,
                 'tenantId': tenantIDFromTemplate ,
                 'orgid': orgIDFromTemplate,
-                adminTokenHeaderName: adminAccessToken
+                adminTokenHeaderName: projAdminAccessToken
                 }
-            
+            print(headers,"headers")
             # program creation 
             responsePgmCreate = requests.request("POST", programCreationurl, headers=headers, data=(payload))
             messageArr.append("Program Creation Status Code : " + str(responsePgmCreate.status_code))
@@ -685,6 +690,7 @@ class Elevateproject:
             fileheader = [pName, ('Program Sheet Validation'), ('Passed')]
             Elevateproject.createAPILog(parentFolder, messageArr)
             Elevateproject.apicheckslog(parentFolder, fileheader)
+            print(responsePgmCreate.text,"responsePgmCreate")
             if responsePgmCreate.status_code == 200:
                 responsePgmCreateResp = responsePgmCreate.json()
                 print("program created successful....")
@@ -1837,6 +1843,7 @@ class Elevateproject:
                 solutionExternalId = projectExternalId + "-PROJECT-SOLUTION"
 
                 urlCreateProjectSolutionApi = elevateprojecthost + projectsolutioncreationapi
+                print(urlCreateProjectSolutionApi,"urlCreateProjectSolutionApi")
                 headerCreateSolutionApi = {
                     'Content-Type': content_type,
                     'X-auth-token': accessToken,
@@ -1859,7 +1866,9 @@ class Elevateproject:
                     "startDate": startDateOfProgram,
                     "endDate": endDateOfProgram,
                 }
+                print(sol_payload,"sol_payload")
                 responseCreateSolutionApi = requests.post(url=urlCreateProjectSolutionApi,headers=headerCreateSolutionApi, data=json.dumps(sol_payload))
+                print(responseCreateSolutionApi.text,"responseCreateSolutionApi")
                 messageArr = ["Project Solution Created.","URL : " + str(urlCreateProjectSolutionApi),"Status Code : " + str(responseCreateSolutionApi.status_code),"Response : " + str(responseCreateSolutionApi.text)]
                 if responseCreateSolutionApi.status_code == 200:
                     responseCreateSolutionApi = responseCreateSolutionApi.json()
@@ -2009,6 +2018,7 @@ class Elevateproject:
                         typeOfCertificate = dictDetailsEnv["Type of certificate"]
                         
             urldbFind = elevateprojecthost + dbfindapi
+            print(urldbFind,"urldbFind")
             headerdbFindApi = {
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
@@ -2020,9 +2030,10 @@ class Elevateproject:
                 "query": {},
                 "mongoIdKeys": []
             })
-
+            print(payload,"payload")
             responsedbFindApi = requests.request("POST", url=urldbFind, headers=headerdbFindApi,
                                                 data=payload)
+            print(responsedbFindApi.text,"responsedbFindApi")
             if responsedbFindApi.status_code == 200:
                 responseaddcetificate = responsedbFindApi.json()
                 result_list = responseaddcetificate['result']
@@ -2031,8 +2042,10 @@ class Elevateproject:
                     baseTemplateLookup[i['code']] = i['_id']
                 typeOfCertificate=typeOfCertificate.lower()
                 typeOfCertificate=typeOfCertificate.replace(" ","")
+                typeOfCertificate
                 baseTemplateCode= certificatetypeof[typeOfCertificate]
-
+                print(baseTemplateCode,"baseTemplateCode")
+                print(baseTemplateLookup,"baseTemplateLookup")
                 return baseTemplateLookup[baseTemplateCode]
                 
             else:
@@ -2310,16 +2323,23 @@ class Elevateproject:
                             payload['signatureTitle1a'] = authrigeddesignation1
                             payload['signatureTitle2a'] = authrigeddesignation2
                             baseTemplateId=baseTemplate_id
-
+                        print(baseTemplateId,"baseTemplateId")
                         urleditnigsvgApi = elevateprojecthost + editsvgtemp + baseTemplateId
+                        print(urleditnigsvgApi,"urleditnigsvgApi")
+                        print(accessToken,"accessToken")
                         headereditingsvgApi = {
                             'Authorization': authorization,
                             'X-auth-token': accessToken,
                             'X-Channel-id': x_channel_id,
-                            'internal-access-token': internal_access_token
+                            'internal-access-token': internal_access_token,
+                            'tenantId': tenantIDFromTemplate ,
+                            'orgid': "blr",
 
                         }
+                        print(headereditingsvgApi,"headereditingsvgApi")
+                        print(payload,"payload")
                         responseeditsvg = requests.request("POST",url=urleditnigsvgApi, headers=headereditingsvgApi,data=payload, files=downloadedfiles)
+                        print(responseeditsvg.text)
 
                         if responseeditsvg.status_code == 200:
                             responseeditsvg = responseeditsvg.json()
@@ -2741,89 +2761,89 @@ class Elevateproject:
         if responseFetchSolutionApi.status_code == 200:
             print('Fetch solution Api Success')
             solutionName = responseFetchSolutionJson["result"]["name"]
-        # urlFetchSolutionLinkApi = elevateprojecthost + fetchlink + solutionId
-        # headerFetchSolutionLinkApi = {
-        #     'Authorization': authorization,
-        #     'X-auth-token': accessToken,
-        #     'X-Channel-id': x_channel_id,
-        #     'internal-access-token': internal_access_token
-        # }
-        # payloadFetchSolutionLinkApi = {}
+        urlFetchSolutionLinkApi = elevateprojecthost + fetchlink + solutionId
+        headerFetchSolutionLinkApi = {
+            'Authorization': authorization,
+            'X-auth-token': accessToken,
+            'X-Channel-id': x_channel_id,
+            'internal-access-token': internal_access_token
+        }
+        payloadFetchSolutionLinkApi = {}
 
-        # responseFetchSolutionLinkApi = requests.get(url=urlFetchSolutionLinkApi, headers=headerFetchSolutionLinkApi,
-        #                                             data=payloadFetchSolutionLinkApi)
-        # messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
-        # messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
-        # Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
-        # if responseFetchSolutionLinkApi.status_code == 200:
-        #     print('Fetch solution Link Api Success')
-        #     responseProjectUploadJson = responseFetchSolutionLinkApi.json()
-        #     solutionLink = responseProjectUploadJson["result"]
-        #     messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
-        #     Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
-        #     # Ensure programFile is formatted correctly
-        #     programFileBase = str(programFile).replace(".xlsx", "")
-        #     success_file_path = os.path.join(MainFilePath, programFileBase + '-SuccessSheet.xlsx')
+        responseFetchSolutionLinkApi = requests.get(url=urlFetchSolutionLinkApi, headers=headerFetchSolutionLinkApi,
+                                                    data=payloadFetchSolutionLinkApi)
+        messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
+        messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
+        Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
+        if responseFetchSolutionLinkApi.status_code == 200:
+            print('Fetch solution Link Api Success')
+            responseProjectUploadJson = responseFetchSolutionLinkApi.json()
+            solutionLink = responseProjectUploadJson["result"]
+            messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
+            Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
+            # Ensure programFile is formatted correctly
+            programFileBase = str(programFile).replace(".xlsx", "")
+            success_file_path = os.path.join(MainFilePath, programFileBase + '-SuccessSheet.xlsx')
 
-        #     # Ensure directory exists
-        #     os.makedirs(os.path.dirname(success_file_path), exist_ok=True)
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(success_file_path), exist_ok=True)
 
-        #     # Load the workbook correctly
-        #     if os.path.exists(success_file_path):
-        #         xfile = openpyxl.load_workbook(success_file_path)
-        #     else:
-        #         xfile = openpyxl.load_workbook(programFile)
+            # Load the workbook correctly
+            if os.path.exists(success_file_path):
+                xfile = openpyxl.load_workbook(success_file_path)
+            else:
+                xfile = openpyxl.load_workbook(programFile)
 
-        #     # Use the correct way to get the sheet
-        #     resourceDetailsSheet = xfile["Resource Details"]  # Instead of get_sheet_by_name
+            # Use the correct way to get the sheet
+            resourceDetailsSheet = xfile["Resource Details"]  # Instead of get_sheet_by_name
 
-        #     print(resourceDetailsSheet)
+            print(resourceDetailsSheet)
 
-        #     # Define fill color
-        #     greenFill = PatternFill(start_color='0000FF00', end_color='0000FF00', fill_type='solid')
+            # Define fill color
+            greenFill = PatternFill(start_color='0000FF00', end_color='0000FF00', fill_type='solid')
 
-        #     # Get row and column count
-        #     rowCountRD = resourceDetailsSheet.max_row
-        #     columnCountRD = resourceDetailsSheet.max_column
+            # Get row and column count
+            rowCountRD = resourceDetailsSheet.max_row
+            columnCountRD = resourceDetailsSheet.max_column
 
-        #     for row in range(3, rowCountRD + 1):
-        #         if str(resourceDetailsSheet["B" + str(row)].value).strip().lower() == "course":
-        #             resourceDetailsSheet["D1"].value = ""
-        #             resourceDetailsSheet["E1"].value = ""
-        #             resourceDetailsSheet['I2'].value = "External id of the resource"
-        #             resourceDetailsSheet['J2'].value = "link to access the resource/Response"
+            for row in range(3, rowCountRD + 1):
+                if str(resourceDetailsSheet["B" + str(row)].value).strip().lower() == "course":
+                    resourceDetailsSheet["D1"].value = ""
+                    resourceDetailsSheet["E1"].value = ""
+                    resourceDetailsSheet['I2'].value = "External id of the resource"
+                    resourceDetailsSheet['J2'].value = "link to access the resource/Response"
 
-        #             resourceDetailsSheet['I2'].fill = greenFill
-        #             resourceDetailsSheet['J2'].fill = greenFill
-        #             resourceDetailsSheet['I' + str(row)].value = solutionExternalId
-        #             resourceDetailsSheet['J' + str(row)].value = "The course has been successfully mapped to the program"
+                    resourceDetailsSheet['I2'].fill = greenFill
+                    resourceDetailsSheet['J2'].fill = greenFill
+                    resourceDetailsSheet['I' + str(row)].value = solutionExternalId
+                    resourceDetailsSheet['J' + str(row)].value = "The course has been successfully mapped to the program"
 
-        #             resourceDetailsSheet['I' + str(row)].fill = greenFill
-        #             resourceDetailsSheet['J' + str(row)].fill = greenFill
+                    resourceDetailsSheet['I' + str(row)].fill = greenFill
+                    resourceDetailsSheet['J' + str(row)].fill = greenFill
 
-        #         elif str(resourceDetailsSheet["A" + str(row)].value).strip() == solutionName:
-        #             resourceDetailsSheet["D1"].value = ""
-        #             resourceDetailsSheet["E1"].value = ""
-        #             resourceDetailsSheet['I2'].value = "External id of the resource"
-        #             resourceDetailsSheet['J2'].value = "link to access the resource/Response"
+                elif str(resourceDetailsSheet["A" + str(row)].value).strip() == solutionName:
+                    resourceDetailsSheet["D1"].value = ""
+                    resourceDetailsSheet["E1"].value = ""
+                    resourceDetailsSheet['I2'].value = "External id of the resource"
+                    resourceDetailsSheet['J2'].value = "link to access the resource/Response"
 
-        #             resourceDetailsSheet['I2'].fill = greenFill
-        #             resourceDetailsSheet['J2'].fill = greenFill
-        #             resourceDetailsSheet['I' + str(row)].value = solutionExternalId
-        #             resourceDetailsSheet['J' + str(row)].value = solutionLink
+                    resourceDetailsSheet['I2'].fill = greenFill
+                    resourceDetailsSheet['J2'].fill = greenFill
+                    resourceDetailsSheet['I' + str(row)].value = solutionExternalId
+                    resourceDetailsSheet['J' + str(row)].value = solutionLink
 
-        #             resourceDetailsSheet['I' + str(row)].fill = greenFill
-        #             resourceDetailsSheet['J' + str(row)].fill = greenFill
+                    resourceDetailsSheet['I' + str(row)].fill = greenFill
+                    resourceDetailsSheet['J' + str(row)].fill = greenFill
 
-        #     # Save the file
-        #     xfile.save(success_file_path)
+            # Save the file
+            xfile.save(success_file_path)
             print("Program success sheet is created")
-            solutionLink = "https: Deeplink Project created successfully."
             return solutionLink
             
     def projectSolutionDeepLink(MainFilePath, programFile, solutionId,accessToken):
         try:
             urlFetchSolutionLinkApi = elevateprojecthost + fetchlink + solutionId
+        
             headerFetchSolutionLinkApi = {
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
@@ -2834,6 +2854,7 @@ class Elevateproject:
 
             responseFetchSolutionLinkApi = requests.get(url=urlFetchSolutionLinkApi, headers=headerFetchSolutionLinkApi,
                                                         data=payloadFetchSolutionLinkApi)
+            print(responseFetchSolutionLinkApi.text,"responseFetchSolutionLinkApi")
             # messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
             # messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
             # Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
@@ -2861,20 +2882,62 @@ class Elevateproject:
             errorVar
             print(errorVar,"---> API-Error")
     
-    def OrgCheckingAndTenantChecking(tenantIDFromTemplate,orgIDFromTemplate,accessToken):
-        
-        url = "https://saas-qa.tekdinext.com/user/v1/tenant/read/shikshagraha"
+    def validateTenantAndOrgIdFromAPI(accessToken, tenant_id, org_id):
+        try:
+            urlFetchSolutionApi = userLoginHost + tenantFetch + tenant_id
 
-        payload = {}
-        headers = {
-        'Content-Type': content_type,
-        'origin': origin,
-        'X-auth-token': accessToken
-        }
+            headers = {
+                'Content-Type': 'application/json',
+                'origin': 'https://dev.elevate-mentoring.shikshalokam.org',
+                'X-auth-token': accessToken
+            }
 
-        response = requests.request("GET", url, headers=headers, data=payload)
+            response = requests.get(urlFetchSolutionApi, headers=headers)
 
-        print(response.text)
+            if response.status_code not in (200, 202):
+                return {
+                    "success": False,
+                    "message": f"API request failed with status {response.status_code}",
+                    "status_code": response.status_code
+                }
+
+            api_data = response.json()
+            result = api_data.get("result", {})
+
+            tenant_code_from_api = result.get("code")
+            org_ids_from_api = [str(org.get("id")) for org in result.get("organizations", [])]
+
+            if tenant_id and str(tenant_id).strip() != str(tenant_code_from_api).strip():
+                return {
+                    "success": False,
+                    "message": f" Tenant ID '{tenant_id}' does not match API tenant code '{tenant_code_from_api}'",
+                    "status_code": 400
+                }
+
+            if org_id:
+                org_id_list = [id.strip() for id in str(org_id).split(",")]
+                missing_org_ids = [oid for oid in org_id_list if oid not in org_ids_from_api]
+
+                if missing_org_ids:
+                    return {
+                        "success": False,
+                        "message": f"Org ID(s) '{', '.join(missing_org_ids)}' not found in API organizations",
+                        "status_code": 400
+                    }
+
+            return {
+                "success": True,
+                "message": "Tenant ID and Org ID(s) validated successfully.",
+                "data": api_data,
+                "status_code": 200
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Exception occurred: {str(e)}",
+                "status_code": 500
+            }
             
 
     def mainFunc(MainFilePath, programFile, addObservationSolution,resourceName, millisecond, isProgramnamePresent, isCourse,
@@ -2887,7 +2950,7 @@ class Elevateproject:
             accessToken = Elevateproject.generateAccessToken(parentFolder)
             Elevateproject.validateTenantAndOrgIdsFromProgramSheet(xlrd.open_workbook(programFile, on_demand=True))
             print(tenantIDFromTemplate)
-            
+            Elevateproject.validateTenantAndOrgIdFromAPI(accessToken, tenantIDFromTemplate, orgIDFromTemplate)
             
             typeofSolution = Elevateproject.typeofresource(addObservationSolution, accessToken, parentFolder)
             if typeofSolution != 4:

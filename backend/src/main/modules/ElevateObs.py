@@ -527,11 +527,12 @@ class ElevateObservation:
             data=decoded_token.get('data')
             user_id = data.get('id')  
             url = userLoginHost + userinfoapiurl
+            print(url,"url530")
             messageArr = ["User search API called."]
             headers = {# 'Content-Type': 'application/json',
                     'internal-access-token': internal_access_token,
                     'X-auth-token': accessToken}
-        
+            print(headers,"headers")
             # isEmail = checkEmailValidation(dikshaId.lstrip().rstrip())
             # if isEmail:
             #     body = "{\n  \"request\": {\n    \"filters\": {\n    \t\"email\": \"" + dikshaId.lstrip().rstrip() + "\"\n    },\n      \"fields\" :[],\n    \"limit\": 1000,\n    \"sort_by\": {\"createdDate\": \"desc\"}\n  }\n}"
@@ -539,6 +540,7 @@ class ElevateObservation:
             #     body = "{\n  \"request\": {\n    \"filters\": {\n    \t\"userName\": \"" + dikshaId.lstrip().rstrip() + "\"\n    },\n      \"fields\" :[],\n    \"limit\": 1000,\n    \"sort_by\": {\"createdDate\": \"desc\"}\n  }\n}"
             
             responseUserSearch = requests.request("GET", url, headers=headers)
+            print(responseUserSearch.text,"responseUserSearch")
             if responseUserSearch.status_code == 200:
                 responseUserSearch = responseUserSearch.json()
                 if responseUserSearch['result']:
@@ -561,6 +563,7 @@ class ElevateObservation:
                     #         # rootOrgName = index['orgName']
                     #         # OrgName.append(index['orgName'])
                     # print(roledetails)
+                    # sys.exit()
                     return [userKeycloak, userName, firstName,roledetails,rootOrgId]
                 else:
                     print("-->Given username/email is not present in the platform<--.")
@@ -1081,7 +1084,10 @@ class ElevateObservation:
                 "internal-access-token": internal_access_token,
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id
+                'X-Channel-id': x_channel_id,
+                'tenantId': tenantID ,
+                'orgid': orgIDFromTemplate,
+                adminTokenHeaderName: adminAccessToken
             }
             filesCriteria = {
                 'criteria': open(solutionName_for_folder_path + '/criteriaUpload/uploadSheet.csv', 'rb')
@@ -1258,7 +1264,10 @@ class ElevateObservation:
             headerFrameworkUploadApi = {'Authorization': authorization,
                                         "internal-access-token": internal_access_token,
                                         'X-auth-token': accessToken,
-                                        'X-Channel-id': x_channel_id}
+                                        'X-Channel-id': x_channel_id,
+                                        'tenantId': tenantID ,
+                                        'orgid': orgIDFromTemplate,
+                                        adminTokenHeaderName: adminAccessToken}
             filesFramework = {'framework': open(solutionName_for_folder_path + '/framework/uploadFile.json', 'rb')}
 
             responseFrameworkUploadApi = requests.post(url=urlCreateFrameworkApi, headers=headerFrameworkUploadApi,
@@ -1348,7 +1357,10 @@ class ElevateObservation:
             headerThemesUploadApi = {'Authorization': authorization,
                                     "internal-access-token": internal_access_token,
                                     'X-auth-token': accessToken,
-                                    'X-Channel-id': x_channel_id}
+                                    'X-Channel-id': x_channel_id,
+                                    'tenantId': tenantID ,
+                                    'orgid': orgIDFromTemplate,
+                                    adminTokenHeaderName: adminAccessToken}
             filesThemes = {'themes': open(solutionName_for_folder_path + '/themeUpload/uploadSheet.csv', 'rb')}
             responseThemeUploadApi = requests.post(url=urlThemesUploadApi, headers=headerThemesUploadApi, files=filesThemes)
             messageArr = ["Themes upload sheet prepared.",
@@ -1386,6 +1398,7 @@ class ElevateObservation:
         error_message = ""
         try:
             urlCreateSolutionApi = internal_kong_ip + solutioncreationapiurl
+            print(urlCreateSolutionApi)
             headerCreateSolutionApi = {
                 'Content-Type': content_type,
                 'Authorization': authorization,
@@ -1396,7 +1409,9 @@ class ElevateObservation:
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: adminAccessToken
             }
+            print(headerCreateSolutionApi,"headerCreateSolutionApi")
             queryparamsCreateSolutionApi = '?frameworkId=' + str(frameworkExternalId) + '&entityType=' + entityType
+            print(queryparamsCreateSolutionApi,"queryparamsCreateSolutionApi")
             responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi + queryparamsCreateSolutionApi,
                                                     headers=headerCreateSolutionApi)
 
@@ -1406,6 +1421,7 @@ class ElevateObservation:
                         "Response : " + str(responseCreateSolutionApi.text)]
             ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
             messageArr = []
+            print(responseCreateSolutionApi.text,"responseCreateSolutionApi")
             if responseCreateSolutionApi.status_code == 200:
                 responseCreateSolutionApi = responseCreateSolutionApi.json()
                 solutionId = responseCreateSolutionApi['result']['templateId']
@@ -2192,15 +2208,22 @@ class ElevateObservation:
             return False
         try:
             urlQuestionsUploadApi = internal_kong_ip + questionuploadapiurl
+            print(urlQuestionsUploadApi)
             headerQuestionUploadApi = {'Authorization': authorization,
                                        "internal-access-token": internal_access_token,
                                     'X-auth-token': accessToken,
-                                    'X-Channel-id': x_channel_id}
+                                    'X-Channel-id': x_channel_id,
+                                    'tenantId': tenantID ,
+                                    'orgid': orgIDFromTemplate,
+                                    adminTokenHeaderName: adminAccessToken
+                                    }
+            print(headerQuestionUploadApi,"headerQuestionUploadApi")
             filesQuestion = {
                 'questions': open(solutionName_for_folder_path + '/questionUpload/uploadSheet.csv', 'rb')
             }
             responseQuestionUploadApi = requests.post(url=urlQuestionsUploadApi, headers=headerQuestionUploadApi,
                                                     files=filesQuestion)
+            print(responseQuestionUploadApi.text,"responseQuestionUploadApi")
             messageArr = ["Question Upload sheet prepared.",
                         "File loc : " + solutionName_for_folder_path + '/questionUpload/uploadSheet.csv',
                         "Question upload API called.", "Status code : " + str(responseQuestionUploadApi.status_code)]
@@ -2240,7 +2263,10 @@ class ElevateObservation:
             headers = {
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
-                'internal-access-token': internal_access_token
+                'internal-access-token': internal_access_token,
+                'tenantId': tenantID ,
+                'orgid': orgIDFromTemplate,
+                adminTokenHeaderName: adminAccessToken
             }
 
             response = requests.request("POST", url, headers=headers)
@@ -3501,6 +3527,7 @@ class ElevateObservation:
                         fileheader = [surveySolutionCreationReqBody['name'].encode('utf-8').decode('utf-8'),'Program Sheet Validation'," "]
                         ElevateObservation.createAPILog(parentFolder, messageArr)
                         ElevateObservation.apicheckslog(parentFolder,fileheader)
+                        print(responseCreateSolutionApi.text,"responseCreateSolutionApi")
                         if responseCreateSolutionApi.status_code == 200:
                             responseCreateSolutionApi = responseCreateSolutionApi.json()
                             urlSearchSolution = internal_kong_ip + fetchsolutiondetails + "survey&page=1&limit=10&search=" + str(surveySolutionExternalId)
@@ -3827,7 +3854,10 @@ class ElevateObservation:
                         "internal-access-token": internal_access_token,
                         'Authorization': authorization,
                         'X-auth-token': accessToken,
-                        'X-Channel-id': x_channel_id
+                        'X-Channel-id': x_channel_id,
+                        'tenantId': tenantID ,
+                        'orgid': orgIDFromTemplate,
+                        adminTokenHeaderName: adminAccessToken
                     }
                     filesQuestion = {
                         'questions': open(parentFolder + '/questionUpload/uploadSheet.csv', 'rb')
@@ -4529,9 +4559,9 @@ class ElevateObservation:
                                 section.update({dictECMs['section_id']: dictECMs['section_name']})
                                 ecm_sections[EMC_ID] = dictECMs['section_id']
                                 if 'Is ECM Mandatory?' in dictECMs and dictECMs['Is ECM Mandatory?'] is not None:
-                                    if dictECMs['Is ECM Mandatory?'] == "TRUE" or dictECMs['Is ECM Mandatory?'] == 1:
+                                    if dictECMs['Is ECM Mandatory?'] == "TRUE" or dictECMs['Is ECM Mandatory?'] == "1":
                                         dictECMs['Is ECM Mandatory?'] = False
-                                    elif dictECMs['Is ECM Mandatory?'] == "FALSE" or dictECMs['Is ECM Mandatory?'] == 0:
+                                    elif dictECMs['Is ECM Mandatory?'] == "FALSE" or dictECMs['Is ECM Mandatory?'] == "0":
                                         dictECMs['Is ECM Mandatory?'] = True
                                 else:
                                     dictECMs['Is ECM Mandatory?'] = False
