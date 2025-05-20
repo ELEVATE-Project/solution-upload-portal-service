@@ -237,9 +237,7 @@ class Elevateproject:
                                         for
                                         col_index_env in range(programDetailsSheet.ncols)}
                     tenantIdFromProgramFile = dictDetailsEnv.get('Tenant ID')
-                    print(tenantIdFromProgramFile,"tenantid")
                     orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
-                    print(orgIdsFromProgramFile)
 
         # global roleOfResourceCreator
         # if roleOfResourceCreator not in ['org_admin', 'tenant_admin'] and not tenantIdFromProgramFile:
@@ -294,7 +292,6 @@ class Elevateproject:
     def assignTenantOrgValuesToGlobalVariables(tenantIdFromTheSheets, orgIdsFromTheSheets):
         global tenantIDFromTemplate
         tenantIDFromTemplate = Elevateproject.clean_single_value(tenantIdFromTheSheets)
-        print(tenantIDFromTemplate,"tenantIDFromTemplate297")
         global orgIDFromTemplate
         orgIDFromTemplate = Elevateproject.clean_single_value(orgIdsFromTheSheets)
 
@@ -364,8 +361,6 @@ class Elevateproject:
             'Content-Type': content_type,
             'internal-access-token': internal_access_token,
         }
-        print(urlFetchEntityListApi,"urlFetchEntityListApi")
-        print(headerFetchEntityListApi,"headerFetchEntityListApi")
         # Initialize a dictionary to store entity types for each entity
         entityTypes = []
 
@@ -375,7 +370,6 @@ class Elevateproject:
             print(entityName, "Processing entity...")  # Log the entity being processed
 
             # Prepare the payload for the API request
-            print(tenantIDFromTemplate,"tenantIDFromTemplate")
             payload = {
                     "query": {
                         "metaInformation.name": entityName,  # Use the current entity name
@@ -387,10 +381,8 @@ class Elevateproject:
                     ]
                 }
             data = json.dumps(payload)
-            print(payload,"payload")
             # Make the API call inside the loop to send one request per entity
             responseFetchEntityListApi = requests.post(url=urlFetchEntityListApi, headers=headerFetchEntityListApi, data=data)
-            print(responseFetchEntityListApi.text,"responseFetchEntityListApi")
             # Log API call details
             messageArr = ["Entities List Fetch API executed for entity: " + entityName, 
                         "URL  : " + str(urlFetchEntityListApi),
@@ -511,14 +503,11 @@ class Elevateproject:
         global OrgName,errorVar
         try:
             url = userLoginHost + userinfoapiurl
-            print(url,"url514")
             messageArr = ["User search API called."]
             headers = {#'Content-Type': 'application/json',
                     'internal-access-token': internal_access_token,
                     'X-auth-token': accessToken}
-            print(headers,"headers")
             responseUserSearch = requests.request("GET", url, headers=headers)
-            print(responseUserSearch.text,"responseUserSearch")
             if responseUserSearch.status_code == 200:
                 responseUserSearch = responseUserSearch.json()
                 if responseUserSearch['result']:
@@ -626,7 +615,6 @@ class Elevateproject:
         # program creation url 
         try: 
             programCreationurl = elevateprojecthost + programcreationurl
-            print(programCreationurl,"programCreationurl")
             messageArr.append("Program Creation URL : " + programCreationurl)
 
             # adding state entities
@@ -677,7 +665,6 @@ class Elevateproject:
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: projAdminAccessToken
                 }
-            print(headers,"headers")
             # program creation 
             responsePgmCreate = requests.request("POST", programCreationurl, headers=headers, data=(payload))
             messageArr.append("Program Creation Status Code : " + str(responsePgmCreate.status_code))
@@ -1077,13 +1064,15 @@ class Elevateproject:
     def fetchSolutionDetailsFromProgramSheet(solutionName_for_folder_path, programFile, solutionId, accessToken):
         global solutionRolesArray, solutionStartDate, solutionEndDate
         urlFetchSolutionApi = elevateprojecthost + fetchsolutiondoc + solutionId
-        
         headerFetchSolutionApi = {
             'Content-Type': 'application/json',
             'Authorization': authorization,
             'X-auth-token': accessToken,
             'X-Channel-id': x_channel_id,
-            'internal-access-token': internal_access_token
+            'internal-access-token': internal_access_token,
+            'tenantId': tenantIDFromTemplate ,
+            'orgid': orgIDFromTemplate,
+            adminTokenHeaderName: projAdminAccessToken
         }
         payloadFetchSolutionApi = {}
         responseFetchSolutionApiUrl = requests.get(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
@@ -1100,7 +1089,6 @@ class Elevateproject:
         if responseFetchSolutionApiUrl.status_code == 200:
             print('Fetch solution Api Success')
             solutionName = responseFetchSolutionJson["result"]["name"]
-            print(solutionName,"solutionName")
             xfile = openpyxl.load_workbook(programFile)
             resourceDetailsSheet = xfile['Resource Details']
             rowCountRD = resourceDetailsSheet.max_row
@@ -1122,7 +1110,6 @@ class Elevateproject:
             global errorVar
             # production search user api - start
             headerKeyClockUser = {'Content-Type': content_type,'origin': origin}
-            print(headerKeyClockUser,"headerKeyClockUser")
             # responseKeyClockUser = requests.post(url=config.get(environment, 'elevateuserhost') + config.get(environment, 'userlogin'), headers=headerKeyClockUser,
                                                 #  data=json.dumps(config.get(environment, 'keyclockAPIBody')))
             # Elevateproject.terminatingMessage(type(json.loads(config.get(environment, 'keyclockAPIBody'))))\
@@ -1130,8 +1117,6 @@ class Elevateproject:
                 'identifier' : identifier,
                 'password' : password
             }
-            print(loginBody,"loginbody")
-            print(userLoginHost + keyclockapiurl,"url")
             responseKeyClockUser = requests.post(userLoginHost + keyclockapiurl , headers=headerKeyClockUser, json=loginBody)
             messageArr = []
             messageArr.append("URL : " + str(keyclockapiurl))
@@ -1441,7 +1426,10 @@ class Elevateproject:
             'Content-Type': content_type,
             'X-auth-token': accessToken,
             'X-Channel-id': x_channel_id,
-            "internal-access-token": internal_access_token
+            "internal-access-token": internal_access_token,
+            'tenantId': tenantIDFromTemplate ,
+            'orgid': orgIDFromTemplate,
+            adminTokenHeaderName: projAdminAccessToken
             }
         responseUpdateSolutionApi = requests.post(url=solutionUpdateApiurl, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
         messageArr = ["Solution Update API called.", "URL : " + str(solutionUpdateApiurl), "Body : " + str(bodySolutionUpdate),"Response : " + str(responseUpdateSolutionApi.text),"Status Code : " + str(responseUpdateSolutionApi.status_code)]
@@ -1682,7 +1670,9 @@ class Elevateproject:
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
-                'orgId' : orgIDFromTemplate
+                'tenantId': tenantIDFromTemplate,
+                'orgId' : orgIDFromTemplate,
+                adminTokenHeaderName: projAdminAccessToken
             }
             project_payload = {}
             filesProject = {
@@ -1729,14 +1719,16 @@ class Elevateproject:
             for projectInternal in projectInternalfile:
                 projectExternalId = projectInternal["externalId"]
                 project_id = projectInternal["_SYSTEM_ID"]
-                print(project_id,"project_id")
                 if str(project_id).strip() == "Could not pushed to kafka":
                     fetchProjectIdApi = elevateentityhost + fetchsolutiondetails
                     headerfetchProjectIdApi = {
                         'Authorization': authorization,
                         'X-auth-token': accessToken,
                         'X-Channel-id': x_channel_id,
-                        'internal-access-token': internal_access_token
+                        'internal-access-token': internal_access_token,
+                        'tenantId': tenantIDFromTemplate,
+                        'orgId' : orgIDFromTemplate,
+                        adminTokenHeaderName: projAdminAccessToken
                     }
                     fetchProjectIdPayload = {}
 
@@ -1776,7 +1768,9 @@ class Elevateproject:
                     'X-auth-token': accessToken,
                     'X-Channel-id': x_channel_id,
                     'internal-access-token': internal_access_token,
-                    'orgId' : orgIDFromTemplate
+                    'tenantId': tenantIDFromTemplate,
+                    'orgId' : orgIDFromTemplate,
+                    adminTokenHeaderName: projAdminAccessToken
                 }
                 task_payload = {}
                 filesTasks = {
@@ -1843,13 +1837,14 @@ class Elevateproject:
                 solutionExternalId = projectExternalId + "-PROJECT-SOLUTION"
 
                 urlCreateProjectSolutionApi = elevateprojecthost + projectsolutioncreationapi
-                print(urlCreateProjectSolutionApi,"urlCreateProjectSolutionApi")
                 headerCreateSolutionApi = {
                     'Content-Type': content_type,
                     'X-auth-token': accessToken,
                     "internal-access-token" : internal_access_token,
                     'X-Channel-id': x_channel_id,
-                    'orgId' : orgIDFromTemplate
+                    'tenantId': tenantIDFromTemplate,
+                    'orgId' : orgIDFromTemplate,
+                    adminTokenHeaderName: projAdminAccessToken
                 }
                 sol_payload = {
                     "createdFor": orgIds,
@@ -1866,13 +1861,12 @@ class Elevateproject:
                     "startDate": startDateOfProgram,
                     "endDate": endDateOfProgram,
                 }
-                print(sol_payload,"sol_payload")
                 responseCreateSolutionApi = requests.post(url=urlCreateProjectSolutionApi,headers=headerCreateSolutionApi, data=json.dumps(sol_payload))
-                print(responseCreateSolutionApi.text,"responseCreateSolutionApi")
                 messageArr = ["Project Solution Created.","URL : " + str(urlCreateProjectSolutionApi),"Status Code : " + str(responseCreateSolutionApi.status_code),"Response : " + str(responseCreateSolutionApi.text)]
                 if responseCreateSolutionApi.status_code == 200:
                     responseCreateSolutionApi = responseCreateSolutionApi.json()
                     solutionId = responseCreateSolutionApi['result']['_id']
+                    print(solutionId,"solutionId")
                     messageArr.append("Solution Generated : " + str(solutionId))
                     Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
                     print("ProjectSolutionCreationApi Success")
@@ -1884,7 +1878,10 @@ class Elevateproject:
                         'Authorization': authorization,
                         'internal-access-token' : internal_access_token,
                         'X-auth-token': accessToken,
-                        'X-Channel-id': x_channel_id
+                        'X-Channel-id': x_channel_id,
+                        'tenantId': tenantIDFromTemplate,
+                        'orgId' : orgIDFromTemplate,
+                        adminTokenHeaderName: projAdminAccessToken
                     }
                     payloadMapSolutionProject = {
                         "externalId": duplicateTemplateExtId,
@@ -1911,6 +1908,7 @@ class Elevateproject:
                                             duplicateTemplateId]])
                         solutionDetails = Elevateproject.fetchSolutionDetailsFromProgramSheet(projectName_for_folder_path, programFile,
                                                                             solutionId, accessToken)
+                        print("solutionDetails",solutionDetails)
                         if solutionDetails:
                             newRole = rolesPGM.split(",")
                             RoleArray = list(newRole)
@@ -1974,6 +1972,7 @@ class Elevateproject:
                             print("Map project to solution api failed.")
                             return False
                         if errorVar =="":
+                            print("its created......................")
                             return [solutionExternalId, solutionId]
                         else:
                             return errorVar
@@ -2018,22 +2017,22 @@ class Elevateproject:
                         typeOfCertificate = dictDetailsEnv["Type of certificate"]
                         
             urldbFind = elevateprojecthost + dbfindapi
-            print(urldbFind,"urldbFind")
             headerdbFindApi = {
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
-                'Content-Type': content_type
+                'Content-Type': content_type,
+                'tenantId': tenantIDFromTemplate,
+                'orgId' : orgIDFromTemplate,
+                adminTokenHeaderName: projAdminAccessToken
             }
             payload = json.dumps({
                 "query": {},
                 "mongoIdKeys": []
             })
-            print(payload,"payload")
             responsedbFindApi = requests.request("POST", url=urldbFind, headers=headerdbFindApi,
                                                 data=payload)
-            print(responsedbFindApi.text,"responsedbFindApi")
             if responsedbFindApi.status_code == 200:
                 responseaddcetificate = responsedbFindApi.json()
                 result_list = responseaddcetificate['result']
@@ -2044,8 +2043,6 @@ class Elevateproject:
                 typeOfCertificate=typeOfCertificate.replace(" ","")
                 typeOfCertificate
                 baseTemplateCode= certificatetypeof[typeOfCertificate]
-                print(baseTemplateCode,"baseTemplateCode")
-                print(baseTemplateLookup,"baseTemplateLookup")
                 return baseTemplateLookup[baseTemplateCode]
                 
             else:
@@ -2323,23 +2320,17 @@ class Elevateproject:
                             payload['signatureTitle1a'] = authrigeddesignation1
                             payload['signatureTitle2a'] = authrigeddesignation2
                             baseTemplateId=baseTemplate_id
-                        print(baseTemplateId,"baseTemplateId")
                         urleditnigsvgApi = elevateprojecthost + editsvgtemp + baseTemplateId
-                        print(urleditnigsvgApi,"urleditnigsvgApi")
-                        print(accessToken,"accessToken")
                         headereditingsvgApi = {
                             'Authorization': authorization,
                             'X-auth-token': accessToken,
                             'X-Channel-id': x_channel_id,
                             'internal-access-token': internal_access_token,
-                            'tenantId': tenantIDFromTemplate ,
-                            'orgid': "blr",
-
+                            'tenantId': tenantIDFromTemplate,
+                            'orgId' : orgIDFromTemplate,
+                            adminTokenHeaderName: projAdminAccessToken
                         }
-                        print(headereditingsvgApi,"headereditingsvgApi")
-                        print(payload,"payload")
                         responseeditsvg = requests.request("POST",url=urleditnigsvgApi, headers=headereditingsvgApi,data=payload, files=downloadedfiles)
-                        print(responseeditsvg.text)
 
                         if responseeditsvg.status_code == 200:
                             responseeditsvg = responseeditsvg.json()
@@ -2442,7 +2433,9 @@ class Elevateproject:
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
                 'Content-Type': content_type,
-                'orgId' : orgIDFromTemplate
+                'tenantId': tenantIDFromTemplate,
+                'orgId' : orgIDFromTemplate,
+                adminTokenHeaderName: projAdminAccessToken
             }
 
             if str(projectLevelEvidance).strip().lower() == "yes":
@@ -2634,7 +2627,10 @@ class Elevateproject:
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
-                'internal-access-token': internal_access_token
+                'internal-access-token': internal_access_token,
+                'tenantId': tenantIDFromTemplate,
+                    'orgId' : orgIDFromTemplate,
+                    adminTokenHeaderName: projAdminAccessToken
             }
             task_payload = {}
             task_file = []
@@ -2656,7 +2652,10 @@ class Elevateproject:
                     'X-auth-token': accessToken,
                     'X-Channel-id': x_channel_id,
                     'internal-access-token': internal_access_token,
-                    'Content-Type': content_type
+                    'Content-Type': content_type,
+                    'tenantId': tenantIDFromTemplate,
+                    'orgId' : orgIDFromTemplate,
+                    adminTokenHeaderName: projAdminAccessToken
                 }
 
                 certificate_payload = json.dumps({
@@ -2692,7 +2691,10 @@ class Elevateproject:
                     'X-auth-token': accessToken,
                     'X-Channel-id': x_channel_id,
                     'internal-access-token': internal_access_token,
-                    'Content-Type': content_type
+                    'Content-Type': content_type,
+                    'tenantId': tenantIDFromTemplate,
+                    'orgId' : orgIDFromTemplate,
+                    adminTokenHeaderName: projAdminAccessToken
                 }
 
                 certificate_payload = json.dumps({
@@ -2745,7 +2747,10 @@ class Elevateproject:
             'Authorization': authorization,
             'X-auth-token': accessToken,
             'X-Channel-id': x_channel_id,
-            'internal-access-token': internal_access_token
+            'internal-access-token': internal_access_token,
+            'tenantId': tenantIDFromTemplate,
+                    'orgId' : orgIDFromTemplate,
+                    adminTokenHeaderName: projAdminAccessToken
         }
         payloadFetchSolutionApi = {}
 
@@ -2766,7 +2771,10 @@ class Elevateproject:
             'Authorization': authorization,
             'X-auth-token': accessToken,
             'X-Channel-id': x_channel_id,
-            'internal-access-token': internal_access_token
+            'internal-access-token': internal_access_token,
+            'tenantId': tenantIDFromTemplate,
+                    'orgId' : orgIDFromTemplate,
+                    adminTokenHeaderName: projAdminAccessToken
         }
         payloadFetchSolutionLinkApi = {}
 
@@ -2848,13 +2856,15 @@ class Elevateproject:
                 'Authorization': authorization,
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
-                'internal-access-token': internal_access_token
+                'internal-access-token': internal_access_token,
+                'tenantId': tenantIDFromTemplate,
+                    'orgId' : orgIDFromTemplate,
+                    adminTokenHeaderName: projAdminAccessToken
             }
             payloadFetchSolutionLinkApi = {}
 
             responseFetchSolutionLinkApi = requests.get(url=urlFetchSolutionLinkApi, headers=headerFetchSolutionLinkApi,
                                                         data=payloadFetchSolutionLinkApi)
-            print(responseFetchSolutionLinkApi.text,"responseFetchSolutionLinkApi")
             # messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
             # messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
             # Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
@@ -3077,6 +3087,7 @@ class Elevateproject:
                                             solutionLink = Elevateproject.prepareProgramSuccessSheet(MainFilePath, projectName_for_folder_path, programFile,
                                                                     ProjectSolutionExternalId,
                                                                     ProjectSolutionId, accessToken)
+                                            print(solutionLink,"solutionLink")
                                             if not solutionLink:
                                                 print(solutionLink)
                                                 finalprojectsolutionlink = {ProjectName: errorVar}

@@ -433,7 +433,6 @@ class ElevateObservation:
             if programNameInp:
                 global programID, programExternalId, programDescription, isProgramnamePresent, programName
                 programName = programNameInp
-                print(programName,"programName")
                 programUrl = internal_kong_ip + fetchprograminfoapiurl
                 # print(programUrl,"payload")
                 payload = json.dumps({
@@ -527,12 +526,10 @@ class ElevateObservation:
             data=decoded_token.get('data')
             user_id = data.get('id')  
             url = userLoginHost + userinfoapiurl
-            print(url,"url530")
             messageArr = ["User search API called."]
             headers = {# 'Content-Type': 'application/json',
                     'internal-access-token': internal_access_token,
                     'X-auth-token': accessToken}
-            print(headers,"headers")
             # isEmail = checkEmailValidation(dikshaId.lstrip().rstrip())
             # if isEmail:
             #     body = "{\n  \"request\": {\n    \"filters\": {\n    \t\"email\": \"" + dikshaId.lstrip().rstrip() + "\"\n    },\n      \"fields\" :[],\n    \"limit\": 1000,\n    \"sort_by\": {\"createdDate\": \"desc\"}\n  }\n}"
@@ -540,7 +537,6 @@ class ElevateObservation:
             #     body = "{\n  \"request\": {\n    \"filters\": {\n    \t\"userName\": \"" + dikshaId.lstrip().rstrip() + "\"\n    },\n      \"fields\" :[],\n    \"limit\": 1000,\n    \"sort_by\": {\"createdDate\": \"desc\"}\n  }\n}"
             
             responseUserSearch = requests.request("GET", url, headers=headers)
-            print(responseUserSearch.text,"responseUserSearch")
             if responseUserSearch.status_code == 200:
                 responseUserSearch = responseUserSearch.json()
                 if responseUserSearch['result']:
@@ -1398,7 +1394,6 @@ class ElevateObservation:
         error_message = ""
         try:
             urlCreateSolutionApi = internal_kong_ip + solutioncreationapiurl
-            print(urlCreateSolutionApi)
             headerCreateSolutionApi = {
                 'Content-Type': content_type,
                 'Authorization': authorization,
@@ -1409,9 +1404,7 @@ class ElevateObservation:
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: adminAccessToken
             }
-            print(headerCreateSolutionApi,"headerCreateSolutionApi")
             queryparamsCreateSolutionApi = '?frameworkId=' + str(frameworkExternalId) + '&entityType=' + entityType
-            print(queryparamsCreateSolutionApi,"queryparamsCreateSolutionApi")
             responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi + queryparamsCreateSolutionApi,
                                                     headers=headerCreateSolutionApi)
 
@@ -1421,7 +1414,6 @@ class ElevateObservation:
                         "Response : " + str(responseCreateSolutionApi.text)]
             ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
             messageArr = []
-            print(responseCreateSolutionApi.text,"responseCreateSolutionApi")
             if responseCreateSolutionApi.status_code == 200:
                 responseCreateSolutionApi = responseCreateSolutionApi.json()
                 solutionId = responseCreateSolutionApi['result']['templateId']
@@ -2208,7 +2200,6 @@ class ElevateObservation:
             return False
         try:
             urlQuestionsUploadApi = internal_kong_ip + questionuploadapiurl
-            print(urlQuestionsUploadApi)
             headerQuestionUploadApi = {'Authorization': authorization,
                                        "internal-access-token": internal_access_token,
                                     'X-auth-token': accessToken,
@@ -2217,13 +2208,11 @@ class ElevateObservation:
                                     'orgid': orgIDFromTemplate,
                                     adminTokenHeaderName: adminAccessToken
                                     }
-            print(headerQuestionUploadApi,"headerQuestionUploadApi")
             filesQuestion = {
                 'questions': open(solutionName_for_folder_path + '/questionUpload/uploadSheet.csv', 'rb')
             }
             responseQuestionUploadApi = requests.post(url=urlQuestionsUploadApi, headers=headerQuestionUploadApi,
                                                     files=filesQuestion)
-            print(responseQuestionUploadApi.text,"responseQuestionUploadApi")
             messageArr = ["Question Upload sheet prepared.",
                         "File loc : " + solutionName_for_folder_path + '/questionUpload/uploadSheet.csv',
                         "Question upload API called.", "Status code : " + str(responseQuestionUploadApi.status_code)]
@@ -3502,7 +3491,6 @@ class ElevateObservation:
                     SurveyTemplateEndDate = dictDetailsEnv["survey_end_date"]
                     try: 
                         urlCreateSolutionApi = internal_kong_ip+ surveysolutioncreationapiurl
-                        print('tenantId',tenantID)
                         headerCreateSolutionApi = {
                             'Content-Type': content_type,
                             "internal-access-token": internal_access_token,
@@ -3514,12 +3502,10 @@ class ElevateObservation:
                             'orgid': orgIDFromTemplate,
                             adminTokenHeaderName: adminAccessToken
                         }
-                        print(headerCreateSolutionApi,"headerCreateSolutionApi")
                         responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi,
                                                                 headers=headerCreateSolutionApi,
                                                                 data=json.dumps(surveySolutionCreationReqBody))
                         responseInText = responseCreateSolutionApi.text
-                        print(responseInText,"responseInText")
                         messageArr = ["********* Create Survey Solution *********", "URL : " + urlCreateSolutionApi,
                                     "BODY : " + str(surveySolutionCreationReqBody),
                                     "Status code : " + str(responseCreateSolutionApi.status_code),
@@ -3527,11 +3513,9 @@ class ElevateObservation:
                         fileheader = [surveySolutionCreationReqBody['name'].encode('utf-8').decode('utf-8'),'Program Sheet Validation'," "]
                         ElevateObservation.createAPILog(parentFolder, messageArr)
                         ElevateObservation.apicheckslog(parentFolder,fileheader)
-                        print(responseCreateSolutionApi.text,"responseCreateSolutionApi")
                         if responseCreateSolutionApi.status_code == 200:
                             responseCreateSolutionApi = responseCreateSolutionApi.json()
                             urlSearchSolution = internal_kong_ip + fetchsolutiondetails + "survey&page=1&limit=10&search=" + str(surveySolutionExternalId)
-                            print(urlSearchSolution,"urlSearchSolution3506")
                             responseSearchSolution = requests.request("GET", urlSearchSolution,
                                                                     headers=headerCreateSolutionApi)
                             messageArr = ["********* Search Survey Solution *********", "URL : " + urlSearchSolution,
@@ -3539,13 +3523,11 @@ class ElevateObservation:
                                         "Response : " + responseSearchSolution.text]
                             ElevateObservation.createAPILog(parentFolder, messageArr)
                             ElevateObservation.apicheckslog(parentFolder, messageArr)
-                            print(responseSearchSolution.text,"responseSearchSolution3514")
                             if responseSearchSolution.status_code == 200:
                                 responseSearchSolutionApi = responseSearchSolution.json()
                                 surveySolutionExternalId = None
                                 surveySolutionExternalId = responseSearchSolutionApi['result']['data'][0]['externalId']
                                 # return True
-                                print("its true")
                             else:
                                 error_message = ""
                                 if responseSearchSolution.status_code in [400, 401, 403, 404, 422]:
@@ -3555,15 +3537,12 @@ class ElevateObservation:
                                 else:
                                     error_message = f"SearchSolution-Unexpected Error {responseSearchSolution.status_code}: {responseSearchSolution.text}"
                                 errorVar = error_message
-                                print(error_message,"3530")
                                 messageArr.append(f"Error Response: {error_message}")
                                 ElevateObservation.createAPILog(messageArr,messageArr) 
                                 # return False
-                            print("its not true")
                             solutionId = None
                             solutionId = responseCreateSolutionApi["result"]["solutionId"]
                             bodySolutionUpdate = {"creator": dictDetailsEnv['Name_of_the_creator'].encode('utf-8').decode('utf-8')}
-                            print(bodySolutionUpdate,"bodySolutionUpdate3537")
                             if ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
                                 return [solutionId, surveySolutionExternalId]
                             else:
@@ -4459,7 +4438,6 @@ class ElevateObservation:
             accessToken = ElevateObservation.generateAccessToken(parentFolder)
             wbPgm =xlrd.open_workbook(programFile, on_demand=True)
             ElevateObservation.validateTenantAndOrgIdsFromProgramSheet(wbPgm)
-            print(tenantID,"tenantID")
             typeofSolution = ElevateObservation.typeofresource(addObservationSolution, accessToken, parentFolder)
             if typeofSolution == 0:
                 result = {
@@ -4559,9 +4537,9 @@ class ElevateObservation:
                                 section.update({dictECMs['section_id']: dictECMs['section_name']})
                                 ecm_sections[EMC_ID] = dictECMs['section_id']
                                 if 'Is ECM Mandatory?' in dictECMs and dictECMs['Is ECM Mandatory?'] is not None:
-                                    if dictECMs['Is ECM Mandatory?'] == "TRUE" or dictECMs['Is ECM Mandatory?'] == "1":
+                                    if dictECMs['Is ECM Mandatory?'] == "TRUE" or dictECMs['Is ECM Mandatory?'] == 1:
                                         dictECMs['Is ECM Mandatory?'] = False
-                                    elif dictECMs['Is ECM Mandatory?'] == "FALSE" or dictECMs['Is ECM Mandatory?'] == "0":
+                                    elif dictECMs['Is ECM Mandatory?'] == "FALSE" or dictECMs['Is ECM Mandatory?'] == 0:
                                         dictECMs['Is ECM Mandatory?'] = True
                                 else:
                                     dictECMs['Is ECM Mandatory?'] = False
