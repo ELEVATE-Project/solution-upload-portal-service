@@ -607,7 +607,7 @@ class Elevateproject:
             errorVar
             print(errorVar,"---> API-Error")
 
-    def programCreation(accessToken,parentFolder,externalId,pName,pDescription,roles,userId):
+    def programCreation(accessToken,parentFolder,externalId,pName,pDescription,roles,userId,mainRoleproff):
         # accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,entitiesPGM,mainRole,rolesPGM
         global errorVar
         messageArr = []
@@ -623,38 +623,36 @@ class Elevateproject:
             entitiesTypeStr = entitiesType[0]
             # program creation payload
             payload = json.dumps({
-                "externalId" : externalId,
-            "name" : pName,
-            "description" : pDescription,
-            "isDeleted" : False,
-            "resourceType" : [ 
-                "program"
-            ],
-            "language" : [ 
-                "English"
-            ],
-            "metaInformation" : {
-                "state" : entities,
-                "recommendedFor" : role
-            },
-            "keywords" : [],
-            "concepts" : [],
-            "userId":userId,
-            "imageCompression" : {
-                "quality" : 10
-            },
-            "startDate": startDateOfProgram,
-                "endDate": endDateOfProgram,
-            "components" : [
-            ],
-            "scope": {
-                    entitiesTypeStr: entitiesPGMID,
-                    "roles": roles
-                },
-                
-            "requestForPIIConsent" : True
-        }
-        )
+                        "externalId": externalId,
+                        "name": pName,
+                        "description": pDescription,
+                        "isDeleted": False,
+                        "resourceType": [
+                            "program"
+                        ],
+                        "language": [
+                            "English"
+                        ],
+                        "metaInformation": {
+                            "state": entities,
+                            "recommendedFor": role
+                        },
+                        "keywords": [],
+                        "concepts": [],
+                        "userId":userId,
+                        "imageCompression": {
+                            "quality": 10
+                        },
+                        "startDate": startDateOfProgram,
+                        "endDate": endDateOfProgram,
+                        "components": [],
+                        "scope": {
+                                entitiesTypeStr: entitiesPGMID,
+                            "roles": mainRoleproff
+                        },
+                        "requestForPIIConsent": True
+                    }
+            )
             messageArr.append("Body : " + str(payload))
             headers = {
                 'internal-access-token': internal_access_token,
@@ -677,7 +675,6 @@ class Elevateproject:
             fileheader = [pName, ('Program Sheet Validation'), ('Passed')]
             Elevateproject.createAPILog(parentFolder, messageArr)
             Elevateproject.apicheckslog(parentFolder, fileheader)
-            print(responsePgmCreate.text,"responsePgmCreate")
             if responsePgmCreate.status_code == 200:
                 responsePgmCreateResp = responsePgmCreate.json()
                 print("program created successful....")
@@ -911,6 +908,23 @@ class Elevateproject:
                         endDateOfProgram = endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"
                         global mainRole
                         mainRole = dictDetailsEnv['Targeted role at program level']
+                        global rolesPGM
+                        rolesPGM = dictDetailsEnv['Targeted subrole at program level'] if dictDetailsEnv['Targeted subrole at program level'] else terminatingMessage("\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet")  
+                        global rolesPGMID
+                        mainRoles = str(mainRole).strip().encode('utf-8').decode('utf-8').split(",")
+                        subRoles = str(rolesPGM).strip().encode('utf-8').decode('utf-8').split(",")
+
+                        mainRoles = [r.strip() for r in mainRoles if r.strip()]
+                        subRoles = [r.strip() for r in subRoles if r.strip()]
+
+                        verifiedRoles = Elevateproject.validate_roles_against_api(mainRoles, subRoles)
+                        global mainRoleproff
+
+                        mainRoleproff = verifiedRoles[0]
+                        rolesPGMID = verifiedRoles[1]
+
+                        print("mainRole", mainRole)
+                        print("rolesPGMID", rolesPGMID)
                         global scopeEntityType
                         scopeEntityType = "state"
                         global entitiesType
@@ -953,14 +967,14 @@ class Elevateproject:
                                 entitiesPGM = entitiesPGM
                                 scopeEntityType = entitiesType
 
-                            global rolesPGM
-                            if dictDetailsEnv.get('Targeted subrole at program level'):
-                                rolesPGM = dictDetailsEnv['Targeted subrole at program level'].encode('utf-8').decode('utf-8')
-                            else:
-                                errorVar = "\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet"
+                            # global rolesPGM
+                            # if dictDetailsEnv.get('Targeted subrole at program level'):
+                            #     rolesPGM = dictDetailsEnv['Targeted subrole at program level'].encode('utf-8').decode('utf-8')
+                            # else:
+                            #     errorVar = "\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet"
                             # rolesPGM = dictDetailsEnv['Targeted subrole at program level'] if dictDetailsEnv['Targeted subrole at program level'] else Elevateproject.terminatingMessage("\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet")
-                            if "teacher" in mainRole.strip().lower():
-                                rolesPGM = str(rolesPGM).strip() + ",TEACHER"
+                            # if "teacher" in mainRole.strip().lower():
+                            #     rolesPGM = str(rolesPGM).strip() + ",TEACHER"
                             userDetails = Elevateproject.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
                             print(userDetails,"userDetails")
                             userId = userDetails[0]
@@ -977,7 +991,7 @@ class Elevateproject:
                             # sys.exit()
 
                             # call function to create program 
-                            if not Elevateproject.programCreation(accessToken,parentFolder,extIdPGM,programNameInp,proDesc,programRoleArray,userId):
+                            if not Elevateproject.programCreation(accessToken,parentFolder,extIdPGM,programNameInp,proDesc,programRoleArray,userId,mainRoleproff):
                                 return False
                             # accessToken, parentFolder, extIdPGM, programNameInp, descriptionPGM,keywordsPGM.lstrip().rstrip().split(","),mainRole,rolesPGM
                             # sys.exit()
@@ -1096,14 +1110,12 @@ class Elevateproject:
             for row in range(3, rowCountRD + 1):
                 solutionNameCell = resourceDetailsSheet[f"A{row}"].value
                 if resourceDetailsSheet["A" + str(row)].value == solutionName:
-                    solutionMainRole = str(resourceDetailsSheet["E" + str(row)].value).strip()
+                    solutionMainRole = str(resourceDetailsSheet["E" + str(row)].value).split(",")
                     solutionRolesArray = str(resourceDetailsSheet["F" + str(row)].value).split(",") if str(
                         resourceDetailsSheet["E" + str(row)].value).split(",") else []
-                    if "teacher" in solutionMainRole.strip().lower():
-                        solutionRolesArray.append("TEACHER")
                     solutionStartDate = resourceDetailsSheet["G" + str(row)].value
                     solutionEndDate = resourceDetailsSheet["H" + str(row)].value
-        return [solutionRolesArray, solutionStartDate, solutionEndDate]
+        return [solutionMainRole,solutionRolesArray, solutionStartDate, solutionEndDate]
     
     def generateAccessToken(solutionName_for_folder_path):
         try:
@@ -1910,13 +1922,14 @@ class Elevateproject:
                                                                             solutionId, accessToken)
                         print("solutionDetails",solutionDetails)
                         if solutionDetails:
-                            newRole = rolesPGM.split(",")
-                            RoleArray = list(newRole)
-                            ProfessionalnewRole = ProfessionalrolesPGM.split(",")
-                            ProfessionalRoleArray = list(ProfessionalnewRole)
-                            
-                            scopeEntities = entitiesPGMID
                             scopeRoles = solutionDetails[0]
+                            scopeSubRoles = solutionDetails[1]
+                            verifiedRoles = Elevateproject.validate_roles_against_api(scopeRoles, scopeSubRoles)
+                            mainRoleproff = verifiedRoles[0]
+                            rolesPGMID = verifiedRoles[1]
+                            print("mainRole", mainRoleproff)
+                            print("rolesPGMID", rolesPGMID)
+                            scopeEntities = entitiesPGMID
                             scope = {}
                             for i in range(len(entitiesType)):
                                 entity_type = entitiesType[i]
@@ -1925,8 +1938,8 @@ class Elevateproject:
                                     scope[entity_type].append(entity_value)
                                 else:
                                     scope[entity_type] = [entity_value]
-                            scope["professional_subroles"] = RoleArray
-                            scope["professional_role"] = ProfessionalRoleArray
+                            scope["professional_subroles"] = rolesPGMID
+                            scope["professional_role"] = mainRoleproff
                             bodySolutionUpdate = {
                             "scope": scope
                             }
@@ -1939,14 +1952,14 @@ class Elevateproject:
                                         "creator": projectCreator, "author": matchedShikshalokamLoginId}
                                     Elevateproject.solutionUpdate(projectName_for_folder_path, accessToken, solutionId, bodySolutionUpdate)
                                     # Below script will convert date DD-MM-YYYY TO YYYY-MM-DD 00:00:00 to match the code syntax
-                                    if ReffstartDateOfProgram <= solutionDetails[1] <= ReffendDateOfProgram and ReffstartDateOfProgram <= solutionDetails[2] <= ReffendDateOfProgram:
+                                    if ReffstartDateOfProgram <= solutionDetails[2] <= ReffendDateOfProgram and ReffstartDateOfProgram <= solutionDetails[3] <= ReffendDateOfProgram:
                                         if solutionDetails[1]:
-                                            startDateArr = str(solutionDetails[1]).split("-")
+                                            startDateArr = str(solutionDetails[2]).split("-")
                                             bodySolutionUpdate = {
                                                 "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
                                             Elevateproject.solutionUpdate(projectName_for_folder_path, accessToken, solutionId, bodySolutionUpdate)
                                         if solutionDetails[2]:
-                                            endDateArr = str(solutionDetails[2]).split("-")
+                                            endDateArr = str(solutionDetails[3]).split("-")
                                             bodySolutionUpdate = {
                                                 "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
                                             Elevateproject.solutionUpdate(projectName_for_folder_path, accessToken, solutionId, bodySolutionUpdate)
@@ -2948,7 +2961,70 @@ class Elevateproject:
                 "message": f"Exception occurred: {str(e)}",
                 "status_code": 500
             }
-            
+
+    def validate_roles_against_api(mainRoles, subRoles):
+        print(mainRoles, "mainRoles")
+        print(subRoles, "subRoles")
+
+        urlFetchRoleList = userLoginHost + fetchprofessionalRole
+        headers = {
+            'Content-Type': content_type,
+            'tenantId': tenantIDFromTemplate,
+            'X-Channel-id': x_channel_id,
+        }
+
+
+        response = requests.get(urlFetchRoleList, headers=headers, data=json.dumps({}))
+
+        messageArr = []
+        messageArr.append("Fetched professional roles from: " + urlFetchRoleList)
+        messageArr.append("Status Code: " + str(response.status_code))
+
+        if response.status_code != 200:
+            messageArr.append("Error fetching roles.")
+            print("Error fetching roles.")
+            return [], []
+
+        role_data = response.json()
+        validated_main_role_ids = []
+        validated_subrole_ids_list = []
+
+        remaining_subroles = [s.strip() for s in subRoles]
+
+        for role in mainRoles:
+            matched = next((r for r in role_data['result']
+                            if r.get('externalId', '').strip() == role.strip() or
+                            r.get('name', '').strip() == role.strip()), None)
+
+            if matched:
+                main_role_id = matched['_id']
+                validated_main_role_ids.append(main_role_id)
+                subrole_url = f"{userLoginHost}entity-management/v1/entities/subEntityList/{main_role_id}?type=professional_subroles"
+                subrole_resp = requests.get(subrole_url, headers=headers)
+                if subrole_resp.status_code == 200:
+                    subroles_data = subrole_resp.json()
+                    for item in subroles_data['result']['data']:
+                        sub_external_id = item.get('externalId', '').strip()
+                        sub_name = item.get('name', '').strip()
+                        if sub_external_id in remaining_subroles or sub_name in remaining_subroles:
+                            validated_subrole_ids_list.append(item['_id'])
+                            if sub_external_id in remaining_subroles:
+                                remaining_subroles.remove(sub_external_id)
+                            elif sub_name in remaining_subroles:
+                                remaining_subroles.remove(sub_name)
+                            print(f"Subrole '{sub_external_id}' validated under mainRole '{role}'")
+                else:
+                    messageArr.append(f"Failed to fetch subroles for mainRole '{role}'")
+            else:
+                messageArr.append(f"MainRole '{role}' not found in API")
+
+        for s in remaining_subroles:
+            messageArr.append(f"Subrole '{s}' not found in any of the provided mainRoles.")
+
+        for msg in messageArr:
+            print(msg)
+
+        return validated_main_role_ids, validated_subrole_ids_list        
 
     def mainFunc(MainFilePath, programFile, addObservationSolution,resourceName, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType):
@@ -2961,7 +3037,7 @@ class Elevateproject:
             Elevateproject.validateTenantAndOrgIdsFromProgramSheet(xlrd.open_workbook(programFile, on_demand=True))
             print(tenantIDFromTemplate)
             Elevateproject.validateTenantAndOrgIdFromAPI(accessToken, tenantIDFromTemplate, orgIDFromTemplate)
-            
+            print(tenantIDFromTemplate,"print(tenantIDFromTemplate)")
             typeofSolution = Elevateproject.typeofresource(addObservationSolution, accessToken, parentFolder)
             if typeofSolution != 4:
                 

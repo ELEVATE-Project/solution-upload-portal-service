@@ -309,11 +309,12 @@ class ElevateObservation:
 
     def fetchEntityType(solutionName_for_folder_path, accessToken, entitiesPGM, scopeEntityType):
         urlFetchEntityListApi = elevateentityhost + searchforlocation
+        print(urlFetchEntityListApi,"urlFetchEntityListApi")
         headerFetchEntityListApi = {
             'Content-Type': content_type,
             'internal-access-token': internal_access_token,
         }
-
+        print(headerFetchEntityListApi,"headerFetchEntityListApi")
         # Initialize a dictionary to store entity types for each entity
         entityTypes = []
         # Loop through each entity name in the entitiesPGM list
@@ -332,10 +333,11 @@ class ElevateObservation:
                 ]
             }
             data = json.dumps(payload)
-
+            print(data,"data")
             # Make the API call inside the loop to send one request per entity
             responseFetchEntityListApi = requests.post(url=urlFetchEntityListApi, headers=headerFetchEntityListApi, data=data)
             # Log API call details
+            print(responseFetchEntityListApi.text,"responseFetchEntityListApi")
             messageArr = ["Entities List Fetch API executed for entity: " + entityName, 
                         "URL  : " + str(urlFetchEntityListApi),
                         "Status : " + str(responseFetchEntityListApi.status_code)]
@@ -751,8 +753,22 @@ class ElevateObservation:
                             errorVar = "\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet"
                         # rolesPGM = dictDetailsEnv['Targeted subrole at program level'] if dictDetailsEnv['Targeted subrole at program level'] else ElevateObservation.terminatingMessage("\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet")  
                         global rolesPGMID
-                        mainRole = mainRole.lstrip().rstrip().split(",")
-                        rolesPGMID=rolesPGM.lstrip().rstrip().split(",")
+
+                        mainRoles = str(mainRole).strip().encode('utf-8').decode('utf-8').split(",")
+                        subRoles = str(rolesPGM).strip().encode('utf-8').decode('utf-8').split(",")
+
+                        mainRoles = [r.strip() for r in mainRoles if r.strip()]
+                        subRoles = [r.strip() for r in subRoles if r.strip()]
+
+                        verifiedRoles = ElevateObservation.validate_roles_against_api(mainRoles, subRoles)
+                        global mainRoleproff
+
+                        print(verifiedRoles,"verifiedRoles")
+                        mainRoleproff = verifiedRoles[0]
+                        rolesPGMID = verifiedRoles[1]
+
+                        print("mainRole", mainRoleproff)
+                        print("rolesPGMID", rolesPGMID)
                         global startDateOfProgram, endDateOfProgram, ReffstartDateOfProgram, ReffendDateOfProgram
                         if dictDetailsEnv.get('Start date of program'):
                             startDateOfProgram = dictDetailsEnv['Start date of program']
@@ -835,11 +851,11 @@ class ElevateObservation:
                             # fetch sub-role details 
                             # rolesPGMID = fetchScopeRole(parentFolder, accessToken, rolesPGM.lstrip().rstrip().split(","))
                             # global rolesPGMID
-                            mainRole=mainRole.lstrip().rstrip().split(",")
-                            rolesPGMID=rolesPGM.lstrip().rstrip().split(",")
+                            # mainRole=mainRole.lstrip().rstrip().split(",")
+                            # rolesPGMID=rolesPGM.lstrip().rstrip().split(",")
                             # sys.exit()
                             # call function to create program 
-                            if not ElevateObservation.programCreation(accessToken, parentFolder, extIdPGM, programNameInp, descriptionPGM,keywordsPGM.lstrip().rstrip().split(","), entitiesPGMID, rolesPGMID, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM):
+                            if not ElevateObservation.programCreation(accessToken, parentFolder, extIdPGM, programNameInp, descriptionPGM,keywordsPGM.lstrip().rstrip().split(","), entitiesPGMID, rolesPGMID, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRoleproff,rolesPGM):
                                 return False
                             # sys.exit()
                             # programmappingpdpmsheetcreation(MainFilePath, accessToken, program_file, extIdPGM,parentFolder)
@@ -2524,6 +2540,7 @@ class ElevateObservation:
             payloadFetchSolutionApi = {}
             responseFetchSolutionApiUrl = requests.post(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
                                                     data=payloadFetchSolutionApi)
+            print(responseFetchSolutionApiUrl.text,'responseFetchSolutionApiUrl')
             responseFetchSolutionJson = responseFetchSolutionApiUrl.json()
             messageArr = ["Solution Fetch Link.",
                         "solution name : " + responseFetchSolutionJson["result"]["name"],
@@ -2532,6 +2549,7 @@ class ElevateObservation:
             ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
             if responseFetchSolutionApiUrl.status_code == 200:
                 solutionName = responseFetchSolutionJson["result"]["name"]
+                print(solutionName,"solutionName")
                 xfile = openpyxl.load_workbook(programFile)
                 sheet_name = 'Resource Details'.strip()
                 resourceDetailsSheet = xfile[sheet_name]
@@ -2540,15 +2558,14 @@ class ElevateObservation:
                 for row in range(3, rowCountRD + 1):
                     cell_value = resourceDetailsSheet["A" + str(row)].value
                     if cell_value is not None and str(cell_value).strip() == str(solutionName).strip():
-                        solutionMainRole = str(resourceDetailsSheet["E" + str(row)].value).strip()
-                        cell_F_value = resourceDetailsSheet["F" + str(row)].value
-                        solutionRolesArray = str(cell_F_value).split(",") if cell_F_value else []     
-                        if solutionMainRole.strip().lower() == "teacher" and "TEACHER" not in solutionRolesArray:
-                            solutionRolesArray.append("TEACHER")
-
-                        solutionStartDate = resourceDetailsSheet["G" + str(row)].value
-                        solutionEndDate = resourceDetailsSheet["H" + str(row)].value
-                        return [solutionRolesArray, solutionStartDate, solutionEndDate]
+                        solutionNameCell = resourceDetailsSheet[f"A{row}"].value
+                        if resourceDetailsSheet["A" + str(row)].value == solutionName:
+                            solutionMainRole = str(resourceDetailsSheet["E" + str(row)].value).split(",")
+                            solutionRolesArray = str(resourceDetailsSheet["F" + str(row)].value).split(",") if str(
+                                resourceDetailsSheet["E" + str(row)].value).split(",") else []
+                            solutionStartDate = resourceDetailsSheet["G" + str(row)].value
+                            solutionEndDate = resourceDetailsSheet["H" + str(row)].value
+                            return [solutionMainRole,solutionRolesArray, solutionStartDate, solutionEndDate]
                 
             else:
                 error_message = ""
@@ -3901,9 +3918,15 @@ class ElevateObservation:
                                 solutionExtIdSuc = responseImportSoluTemplateApi["result"]["solutionExternalId"]
                                 print("Survey Child Id : " + str(solutionExtIdSuc))
                                 solutionDetails = ElevateObservation.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionIdSuc,
-                                                                                    accessToken)
-                                scopeEntities = entitiesPGMID
+                                                                                    accessToken)   
                                 scopeRoles = solutionDetails[0]
+                                scopeSubRoles = solutionDetails[1]
+                                verifiedRoles = ElevateObservation.validate_roles_against_api(scopeRoles, scopeSubRoles)
+                                mainRoleproff = verifiedRoles[0]
+                                rolesPGMID = verifiedRoles[1]
+                                print("mainRole", mainRoleproff)
+                                print("rolesPGMID", rolesPGMID)
+                                scopeEntities = entitiesPGMID
                                 scope = {}
                                 for i in range(len(entitiesType)):
                                     entity_type = entitiesType[i]
@@ -3912,26 +3935,24 @@ class ElevateObservation:
                                         scope[entity_type].append(entity_value)
                                     else:
                                         scope[entity_type] = [entity_value]
-                                # bodySolutionUpdate = {
-                                #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-                                    scope["professional_subroles"] = rolesPGMID
-                                    scope["professional_role"] = mainRole
-                                    bodySolutionUpdate = {
-                                        "scope": scope
-                                    }
-                                    ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
-                                    # solutionStartDate1 = ElevateObservation.convert_to_date(solutionDetails[1])
-                                    # solutionEndDate1 = ElevateObservation.convert_to_date(solutionDetails[2])
-                                    # SurveyTemplateStartDate1 = ElevateObservation.convert_to_date(SurveyTemplateStartDate)
-                                    # SurveyTemplateEndDate1 = ElevateObservation.convert_to_date(SurveyTemplateEndDate)
-                                    # if SurveyTemplateStartDate1 == solutionStartDate1 and SurveyTemplateEndDate1 == solutionEndDate1:
-                                    if solutionDetails[1]:
-                                        startDateArr = str(solutionDetails[1]).split("-")
+                                scope["professional_subroles"] = rolesPGMID
+                                scope["professional_role"] = mainRoleproff
+                                bodySolutionUpdate = {
+                                "scope": scope
+                                }
+                                ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
+                                solutionStartDate1 = ElevateObservation.convert_to_date(solutionDetails[2])
+                                solutionEndDate1 = ElevateObservation.convert_to_date(solutionDetails[3])
+                                SurveyTemplateStartDate1 = ElevateObservation.convert_to_date(SurveyTemplateStartDate)
+                                SurveyTemplateEndDate1 = ElevateObservation.convert_to_date(SurveyTemplateEndDate)
+                                if SurveyTemplateStartDate1 == solutionStartDate1 and SurveyTemplateEndDate1 == solutionEndDate1:
+                                    if solutionDetails[2]:
+                                        startDateArr = str(solutionDetails[2]).split("-")
                                         bodySolutionUpdate = {
                                             "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
                                         ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
-                                    if solutionDetails[2]:
-                                        endDateArr = str(solutionDetails[2]).split("-")
+                                    if solutionDetails[3]:
+                                        endDateArr = str(solutionDetails[3]).split("-")
                                         bodySolutionUpdate = {
                                             "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
                                         ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
@@ -4329,13 +4350,19 @@ class ElevateObservation:
                                 print("Survey Child Id : " + str(solutionExtIdSuc))
                                 solutionDetails = ElevateObservation.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionIdSuc,
                                                                                     accessToken)
-                                solutionStartDate1 = ElevateObservation.convert_to_date(solutionDetails[1])
-                                solutionEndDate1 = ElevateObservation.convert_to_date(solutionDetails[2])
+                                solutionStartDate1 = ElevateObservation.convert_to_date(solutionDetails[2])
+                                solutionEndDate1 = ElevateObservation.convert_to_date(solutionDetails[3])
                                 SurveyTemplateStartDate1 = ElevateObservation.convert_to_date(SurveyTemplateStartDate)
                                 SurveyTemplateEndDate1 = ElevateObservation.convert_to_date(SurveyTemplateEndDate)
                                 if SurveyTemplateStartDate1 == solutionStartDate1 and SurveyTemplateEndDate1 == solutionEndDate1:
-                                    scopeEntities = entitiesPGMID
                                     scopeRoles = solutionDetails[0]
+                                    scopeSubRoles = solutionDetails[1]
+                                    verifiedRoles = ElevateObservation.validate_roles_against_api(scopeRoles, scopeSubRoles)
+                                    mainRoleproff = verifiedRoles[0]
+                                    rolesPGMID = verifiedRoles[1]
+                                    print("mainRole", mainRoleproff)
+                                    print("rolesPGMID", rolesPGMID)
+                                    scopeEntities = entitiesPGMID
                                     scope = {}
                                     for i in range(len(entitiesType)):
                                         entity_type = entitiesType[i]
@@ -4344,21 +4371,19 @@ class ElevateObservation:
                                             scope[entity_type].append(entity_value)
                                         else:
                                             scope[entity_type] = [entity_value]
-                                # bodySolutionUpdate = {
-                                #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
                                     scope["professional_subroles"] = rolesPGMID
-                                    scope["professional_role"] = mainRole
+                                    scope["professional_role"] = mainRoleproff
                                     bodySolutionUpdate = {
-                                        "scope": scope
+                                    "scope": scope
                                     }
                                     ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
-                                    if solutionDetails[1]:
-                                        startDateArr = str(solutionDetails[1]).split("-")
+                                    if solutionDetails[2]:
+                                        startDateArr = str(solutionDetails[2]).split("-")
                                         bodySolutionUpdate = {
                                             "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
                                         ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
-                                    if solutionDetails[2]:
-                                        endDateArr = str(solutionDetails[2]).split("-")
+                                    if solutionDetails[3]:
+                                        endDateArr = str(solutionDetails[3]).split("-")
                                         bodySolutionUpdate = {
                                             "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
                                         ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
@@ -4427,6 +4452,68 @@ class ElevateObservation:
         else:
             return errorVar
         
+    def validate_roles_against_api(mainRoles, subRoles):
+        print(mainRoles, "mainRoles")
+        print(subRoles, "subRoles")
+
+        urlFetchRoleList = userLoginHost + fetchprofessionalRole
+        headers = {
+            'Content-Type': content_type,
+            'tenantId': tenantID,
+            'X-Channel-id': x_channel_id,
+        }
+        response = requests.get(urlFetchRoleList, headers=headers, data=json.dumps({}))
+
+        messageArr = []
+        messageArr.append("Fetched professional roles from: " + urlFetchRoleList)
+        messageArr.append("Status Code: " + str(response.status_code))
+
+        if response.status_code != 200:
+            messageArr.append("Error fetching roles.")
+            print("Error fetching roles.")
+            return [], []
+
+        role_data = response.json()
+        validated_main_role_ids = []
+        validated_subrole_ids_list = []
+
+        remaining_subroles = [s.strip() for s in subRoles]
+
+        for role in mainRoles:
+            matched = next((r for r in role_data['result']
+                            if r.get('externalId', '').strip() == role.strip() or
+                            r.get('name', '').strip() == role.strip()), None)
+
+            if matched:
+                main_role_id = matched['_id']
+                validated_main_role_ids.append(main_role_id)
+                subrole_url = f"{userLoginHost}entity-management/v1/entities/subEntityList/{main_role_id}?type=professional_subroles"
+                subrole_resp = requests.get(subrole_url, headers=headers)
+                if subrole_resp.status_code == 200:
+                    subroles_data = subrole_resp.json()
+                    for item in subroles_data['result']['data']:
+                        sub_external_id = item.get('externalId', '').strip()
+                        sub_name = item.get('name', '').strip()
+                        if sub_external_id in remaining_subroles or sub_name in remaining_subroles:
+                            validated_subrole_ids_list.append(item['_id'])
+                            if sub_external_id in remaining_subroles:
+                                remaining_subroles.remove(sub_external_id)
+                            elif sub_name in remaining_subroles:
+                                remaining_subroles.remove(sub_name)
+                            print(f"Subrole '{sub_external_id}' validated under mainRole '{role}'")
+                else:
+                    messageArr.append(f"Failed to fetch subroles for mainRole '{role}'")
+            else:
+                messageArr.append(f"MainRole '{role}' not found in API")
+
+        for s in remaining_subroles:
+            messageArr.append(f"Subrole '{s}' not found in any of the provided mainRoles.")
+
+        for msg in messageArr:
+            print(msg)
+
+        return validated_main_role_ids, validated_subrole_ids_list   
+
     def mainFunc(MainFilePath, programFile, addObservationSolution, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType):
         print("entering mainFUnc")
@@ -4614,13 +4701,21 @@ class ElevateObservation:
                                     finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                     return finalObsRubricSolutionLink
                                 if childId[0]:
+                                    print("fetching details")
                                     solutionDetails = ElevateObservation.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, childId[0],
                                                                                         accessToken)
+                                    print(solutionDetails,"solutionDetails")
                                     if not solutionDetails:
                                         finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                         return finalObsRubricSolutionLink
-                                    scopeEntities = entitiesPGMID
                                     scopeRoles = solutionDetails[0]
+                                    scopeSubRoles = solutionDetails[1]
+                                    verifiedRoles = ElevateObservation.validate_roles_against_api(scopeRoles, scopeSubRoles)
+                                    mainRoleproff = verifiedRoles[0]
+                                    rolesPGMID = verifiedRoles[1]
+                                    print("mainRole", mainRoleproff)
+                                    print("rolesPGMID", rolesPGMID)
+                                    scopeEntities = entitiesPGMID
                                     scope = {}
                                     for i in range(len(entitiesType)):
                                         entity_type = entitiesType[i]
@@ -4629,28 +4724,26 @@ class ElevateObservation:
                                             scope[entity_type].append(entity_value)
                                         else:
                                             scope[entity_type] = [entity_value]
-                                    # bodySolutionUpdate = {
-                                    #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
                                     scope["professional_subroles"] = rolesPGMID
-                                    scope["professional_role"] = mainRole
+                                    scope["professional_role"] = mainRoleproff
                                     bodySolutionUpdate = {
-                                        "scope": scope
+                                    "scope": scope
                                     }
-                                    
+
                                     if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
                                         finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                         return finalObsRubricSolutionLink
-                                    if ReffstartDateOfProgram <= solutionDetails[1] <= ReffendDateOfProgram and ReffstartDateOfProgram <= solutionDetails[2] <= ReffendDateOfProgram:
-                                        if solutionDetails[1]:
-                                            startDateArr = str(solutionDetails[1]).split("-")
+                                    if ReffstartDateOfProgram <= solutionDetails[2] <= ReffendDateOfProgram and ReffstartDateOfProgram <= solutionDetails[3] <= ReffendDateOfProgram:
+                                        if solutionDetails[2]:
+                                            startDateArr = str(solutionDetails[2]).split("-")
                                             bodySolutionUpdate = {
                                                 "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[
                                                     0] + " 00:00:00"}
                                             if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
                                                 finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                                 return finalObsRubricSolutionLink
-                                        if solutionDetails[2]:
-                                            endDateArr = str(solutionDetails[2]).split("-")
+                                        if solutionDetails[3]:
+                                            endDateArr = str(solutionDetails[3]).split("-")
                                             bodySolutionUpdate = {
                                                 "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
                                             if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
@@ -4789,8 +4882,14 @@ class ElevateObservation:
                                     if not solutionDetails:
                                         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                                         return ObsWORSolutionLink
-                                    scopeEntities = entitiesPGMID
                                     scopeRoles = solutionDetails[0]
+                                    scopeSubRoles = solutionDetails[1]
+                                    verifiedRoles = ElevateObservation.validate_roles_against_api(scopeRoles, scopeSubRoles)
+                                    mainRoleproff = verifiedRoles[0]
+                                    rolesPGMID = verifiedRoles[1]
+                                    print("mainRole", mainRoleproff)
+                                    print("rolesPGMID", rolesPGMID)
+                                    scopeEntities = entitiesPGMID
                                     scope = {}
                                     for i in range(len(entitiesType)):
                                         entity_type = entitiesType[i]
@@ -4799,27 +4898,25 @@ class ElevateObservation:
                                             scope[entity_type].append(entity_value)
                                         else:
                                             scope[entity_type] = [entity_value]
-                                    # bodySolutionUpdate = {
-                                    #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
                                     scope["professional_subroles"] = rolesPGMID
-                                    scope["professional_role"] = mainRole
+                                    scope["professional_role"] = mainRoleproff
                                     bodySolutionUpdate = {
-                                        "scope": scope
+                                    "scope": scope
                                     }
                                     if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
                                         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                                         return ObsWORSolutionLink
-                                    if ReffstartDateOfProgram <= solutionDetails[1] <= ReffendDateOfProgram and ReffstartDateOfProgram <= solutionDetails[2] <= ReffendDateOfProgram:
-                                        if solutionDetails[1]:
-                                            startDateArr = str(solutionDetails[1]).split("-")
+                                    if ReffstartDateOfProgram <= solutionDetails[2] <= ReffendDateOfProgram and ReffstartDateOfProgram <= solutionDetails[3] <= ReffendDateOfProgram:
+                                        if solutionDetails[2]:
+                                            startDateArr = str(solutionDetails[2]).split("-")
                                             bodySolutionUpdate = {
                                                 "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[
                                                     0] + " 00:00:00"}
                                             if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
                                                 ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                                                 return ObsWORSolutionLink
-                                        if solutionDetails[2]:
-                                            endDateArr = str(solutionDetails[2]).split("-")
+                                        if solutionDetails[3]:
+                                            endDateArr = str(solutionDetails[3]).split("-")
                                             bodySolutionUpdate = {
                                                 "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
                                             if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
