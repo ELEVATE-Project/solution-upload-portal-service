@@ -2426,7 +2426,7 @@ class ElevateObservation:
             print(errorVar,"---> API-Error")
 
     def uploadThemeRubrics(solutionName_for_folder_path, wbObservation, accessToken, frameworkExternalId, withRubricsFlag):
-        global errorVar
+        global errorVar,criteriaLevels
         error_message = ""
         themeRubricUploadFieldnames = ["externalId", "name", "weightage"]
         themeRubricsFilePath = os.path.join(solutionName_for_folder_path, "themeRubrics/")
@@ -2438,11 +2438,12 @@ class ElevateObservation:
             keys = [themeRubricSheet.cell(1, col_index).value for col_index in range(themeRubricSheet.ncols)]
             themeRubricUploadFieldnames = ["externalId", "name", "weightage"]
             if withRubricsFlag:
+                print(criteriaLevels,"criteriaLevels")
                 for cl in criteriaLevels:
                     themeRubricUploadFieldnames.append("L" + str(cl))
             else:
                 themeRubricUploadFieldnames.append("L1")
-
+            print(themeRubricUploadFieldnames,"themeRubricUploadFieldnames")
             for row_index in range(2, themeRubricSheet.nrows):
                 file_exists_ques = os.path.isfile(solutionName_for_folder_path + '/themeRubrics/uploadSheet.csv')
                 with open(solutionName_for_folder_path + '/themeRubrics/uploadSheet.csv', 'a',
@@ -2897,7 +2898,7 @@ class ElevateObservation:
 
     def ObsWRValidate(wbObservation1, accessToken, parentFolder,typeofSolution):
         print("Validating Observation temp....")
-        global errorVar, entityType, solutionName, solutionDescription, scopeEntityType, dikshaLoginId, pointBasedValue
+        global errorVar, entityType, solutionName, solutionDescription, scopeEntityType, dikshaLoginId, pointBasedValue, criteriaLevels
         ObsImpFlag = False
         print(typeofSolution)
         try:
@@ -3008,6 +3009,7 @@ class ElevateObservation:
                             for i in range(1, countLevelUp):
                                 if not i in criteriaLevels:
                                     criteriaLevels.append(i)
+                            print(criteriaLevels,"criteriaLevels")
 
                             if dictDetailsEnv['Criteria ID'].encode('utf-8').decode('utf-8'):
                                 if not [dictDetailsEnv['Domain ID'], dictDetailsEnv['Criteria ID']] in listOfThemeCriteria:
@@ -3120,6 +3122,8 @@ class ElevateObservation:
                             for cl in criteriaLevels:
                                 listOfCRs.append("L" + str(cl)+" "+"SCORE")
                             listOfCRs.append("Ln SCORE")
+
+                            print(listOfCRs,"listOfCRs")
                             for keyys in keysEnv:
                                 if not keyys in listOfCRs:
                                     print("--->" + keyys + " : unwanted column detected...")

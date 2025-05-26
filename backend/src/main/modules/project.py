@@ -665,6 +665,7 @@ class Elevateproject:
                 }
             # program creation 
             responsePgmCreate = requests.request("POST", programCreationurl, headers=headers, data=(payload))
+            print(responsePgmCreate.text,"responsePgmCreate")
             messageArr.append("Program Creation Status Code : " + str(responsePgmCreate.status_code))
             messageArr.append("Program Creation Response : " + str(responsePgmCreate.text))
             messageArr.append("Program body : " + str(payload))
@@ -1678,6 +1679,7 @@ class Elevateproject:
             global errorVar
             error_message = ""
             urlProjectUploadApi = elevateprojecthost + projectuploadapi
+            print(urlProjectUploadApi,"urlProjectUploadApi")
             headerProjectUploadApi = {
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
@@ -1691,6 +1693,7 @@ class Elevateproject:
                 'projectTemplates': open(projectName_for_folder_path + '/projectUpload/projectUpload.csv', 'rb')
             }
             responseProjectUploadApi = requests.post(url=urlProjectUploadApi, headers=headerProjectUploadApi,data=project_payload,files=filesProject)
+            print(responseProjectUploadApi.text,"responseProjectUploadApi")
             messageArr = ["program mapping is success.","File path : " + projectName_for_folder_path + '/projectUpload/projectUpload.csv']
             messageArr.append("Upload status code : " + str(responseProjectUploadApi.status_code))
             Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
@@ -1824,6 +1827,7 @@ class Elevateproject:
 
     def solutionCreationAndMapping(projectName_for_folder_path, entityToUpload, listOfFoundRoles, accessToken, programFile):
         try:
+            print("solutionCreationAndMapping....")
             global errorVar
             error_message = ""
             SolutionFilePath = projectName_for_folder_path + '/solutionDetails/'
@@ -1848,7 +1852,9 @@ class Elevateproject:
                     projectEntityType = "school"
                 solutionExternalId = projectExternalId + "-PROJECT-SOLUTION"
 
+                
                 urlCreateProjectSolutionApi = elevateprojecthost + projectsolutioncreationapi
+                print(urlCreateProjectSolutionApi,"urlCreateProjectSolutionApi")
                 headerCreateSolutionApi = {
                     'Content-Type': content_type,
                     'X-auth-token': accessToken,
@@ -1858,6 +1864,7 @@ class Elevateproject:
                     'orgId' : orgIDFromTemplate,
                     adminTokenHeaderName: projAdminAccessToken
                 }
+                print(headerCreateSolutionApi,"headerCreateSolutionApi")
                 sol_payload = {
                     "createdFor": orgIds,
                     "rootOrganisations": orgIds,
@@ -1873,7 +1880,9 @@ class Elevateproject:
                     "startDate": startDateOfProgram,
                     "endDate": endDateOfProgram,
                 }
+                print(sol_payload,"sol_payload")
                 responseCreateSolutionApi = requests.post(url=urlCreateProjectSolutionApi,headers=headerCreateSolutionApi, data=json.dumps(sol_payload))
+                print(responseCreateSolutionApi.text,"responseCreateSolutionApi")
                 messageArr = ["Project Solution Created.","URL : " + str(urlCreateProjectSolutionApi),"Status Code : " + str(responseCreateSolutionApi.status_code),"Response : " + str(responseCreateSolutionApi.text)]
                 if responseCreateSolutionApi.status_code == 200:
                     responseCreateSolutionApi = responseCreateSolutionApi.json()
@@ -1906,6 +1915,7 @@ class Elevateproject:
                                 "URL : " + str(urlMapProjectSolutionApi + queryparamsMapProjectSolutionApi),
                                 "Status Code : " + str(responseMapProjectSolutionApi.status_code),
                                 "Response : " + str(responseMapProjectSolutionApi.text)]
+                    print(responseMapProjectSolutionApi.text,"responseMapProjectSolutionApi")
                     if responseMapProjectSolutionApi.status_code == 200:
                         responseMapProjectSolutionApi = responseMapProjectSolutionApi.json()
                         duplicateTemplateId = responseMapProjectSolutionApi['result']['_id']
@@ -2797,9 +2807,12 @@ class Elevateproject:
         messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
         Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
         if responseFetchSolutionLinkApi.status_code == 200:
+            print(responseFetchSolutionLinkApi.text,"responseFetchSolutionLinkApi")
             print('Fetch solution Link Api Success')
             responseProjectUploadJson = responseFetchSolutionLinkApi.json()
             solutionLink = responseProjectUploadJson["result"]
+            solutionLink = ','.join(solutionLink)
+            print(solutionLink,"solutionLink")
             messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
             Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
             # Ensure programFile is formatted correctly
