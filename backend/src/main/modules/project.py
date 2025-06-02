@@ -607,7 +607,7 @@ class Elevateproject:
             errorVar
             print(errorVar,"---> API-Error")
 
-    def programCreation(accessToken,parentFolder,externalId,pName,pDescription,roles,userId,mainRoleproff):
+    def programCreation(accessToken,parentFolder,externalId,pName,pDescription,roles,userId,mainRoleproff,rolesPGMID,entitiesPGMID):
         # accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,entitiesPGM,mainRole,rolesPGM
         global errorVar
         messageArr = []
@@ -618,9 +618,23 @@ class Elevateproject:
             messageArr.append("Program Creation URL : " + programCreationurl)
 
             # adding state entities
-            entities = stateEntitiesPGM.split(',')
-            role = mainRole.split(',')
-            entitiesTypeStr = entitiesType[0]
+            # entities = stateEntitiesPGM.split(',')
+            # entitiesTypeStr = entitiesType[0]
+            scope={}
+            for i in range(len(scopeEntityType)):
+                entity_type = scopeEntityType[i]
+                entity_value = entitiesPGMID[i]
+                if entity_type in scope:
+                    scope[entity_type].append(entity_value)
+                else:
+                    scope[entity_type] = [entity_value]
+                            # bodySolutionUpdate = {
+                            #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
+            scope["organizations"] = [orgIDFromTemplate]
+            scope["professional_subroles"] = rolesPGMID
+            scope["professional_role"] = mainRoleproff
+
+            print(scope,"scope")
             # program creation payload
             payload = json.dumps({
                         "externalId": externalId,
@@ -634,8 +648,8 @@ class Elevateproject:
                             "English"
                         ],
                         "metaInformation": {
-                            "state": entities,
-                            "recommendedFor": role
+                        "state":stateEntitiesPGM.split(","),
+                        "roles": mainRoleproff
                         },
                         "keywords": [],
                         "concepts": [],
@@ -646,10 +660,7 @@ class Elevateproject:
                         "startDate": startDateOfProgram,
                         "endDate": endDateOfProgram,
                         "components": [],
-                        "scope": {
-                                entitiesTypeStr: entitiesPGMID,
-                            "roles": mainRoleproff
-                        },
+                        "scope": scope,
                         "requestForPIIConsent": True
                     }
             )
@@ -665,7 +676,6 @@ class Elevateproject:
                 }
             # program creation 
             responsePgmCreate = requests.request("POST", programCreationurl, headers=headers, data=(payload))
-            print(responsePgmCreate.text,"responsePgmCreate")
             messageArr.append("Program Creation Status Code : " + str(responsePgmCreate.status_code))
             messageArr.append("Program Creation Response : " + str(responsePgmCreate.text))
             messageArr.append("Program body : " + str(payload))
@@ -924,7 +934,7 @@ class Elevateproject:
                         mainRoleproff = verifiedRoles[0]
                         rolesPGMID = verifiedRoles[1]
 
-                        print("mainRole", mainRole)
+                        print("mainRole", mainRoleproff)
                         print("rolesPGMID", rolesPGMID)
                         global scopeEntityType
                         scopeEntityType = "state"
@@ -992,7 +1002,7 @@ class Elevateproject:
                             # sys.exit()
 
                             # call function to create program 
-                            if not Elevateproject.programCreation(accessToken,parentFolder,extIdPGM,programNameInp,proDesc,programRoleArray,userId,mainRoleproff):
+                            if not Elevateproject.programCreation(accessToken,parentFolder,extIdPGM,programNameInp,proDesc,programRoleArray,userId,mainRoleproff,rolesPGMID,entitiesPGMID):
                                 return False
                             # accessToken, parentFolder, extIdPGM, programNameInp, descriptionPGM,keywordsPGM.lstrip().rstrip().split(","),mainRole,rolesPGM
                             # sys.exit()
@@ -1025,21 +1035,22 @@ class Elevateproject:
                             resourceNamePGM = dictDetailsEnv['Name of resources in program'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "\"Name of resources in program\" must not be Empty in \"Program details\" sheet"
-
+                        print(resourceNamePGM,"resourceNamePGM")
                         if dictDetailsEnv.get('Type of resources'):
                             resourceTypePGM = dictDetailsEnv['Type of resources'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "\"Type of resources\" must not be Empty in \"Program details\" sheet"
-
+                        print(resourceTypePGM,"resourceTypePGM")
                         if dictDetailsEnv.get('Resource Link'):
                             resourceLinkOrExtPGM = dictDetailsEnv['Resource Link'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "\"Resource Link\" must not be Empty in \"Program details\" sheet"
-
+                        print(resourceLinkOrExtPGM,"resourceLinkOrExtPGM")
                         if dictDetailsEnv.get('Resource Status'):
                             resourceStatusOrExtPGM = dictDetailsEnv['Resource Status']
                         else:
                             errorVar = "\"Resource Status\" must not be Empty in \"Program details\" sheet"
+                        print(resourceStatusOrExtPGM,"resourceStatusOrExtPGM")
                         # resourceNamePGM = dictDetailsEnv['Name of resources in program'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Name of resources in program'] else Elevateproject.terminatingMessage("\"Name of resources in program\" must not be Empty in \"Resource Details\" sheet")
                         # resourceTypePGM = dictDetailsEnv['Type of resources'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Type of resources'] else Elevateproject.terminatingMessage("\"Type of resources\" must not be Empty in \"Resource Details\" sheet")
                         # resourceLinkOrExtPGM = dictDetailsEnv['Resource Link']
@@ -1049,16 +1060,20 @@ class Elevateproject:
                             rolesPGM = dictDetailsEnv['Targeted subrole at resource level']
                         else:
                             errorVar = "\"Targeted subrole at resource level\" must not be Empty in \"Program details\" sheet"
+                        print(rolesPGM,"rolesPGM")
                         global ProfessionalrolesPGM
                         if dictDetailsEnv.get('Target role at the resource level'):
                             ProfessionalrolesPGM = dictDetailsEnv['Target role at the resource level']
                         else:
                             errorVar = "\"Target role at the resource level\" must not be Empty in \"Program details\" sheet"
+                        print(ProfessionalrolesPGM,"ProfessionalrolesPGM")
                         # rolesPGM = dictDetailsEnv['Targeted subrole at resource level'] if dictDetailsEnv['Targeted subrole at resource level'] else Elevateproject.terminatingMessage("\"Targeted subrole at resource level\" must not be Empty in \"Program details\" sheet")
                         # setting start and end dates globally. 
                         global startDateOfResource, endDateOfResource
                         startDateOfResource = dictDetailsEnv['Start date of resource']
+                        print(startDateOfResource,"startDateOfResource")
                         endDateOfResource = dictDetailsEnv['End date of resource']
+                        print(endDateOfResource,"endDateOfResource")
                         # checking resource types and calling relevant functions 
                         # if resourceTypePGM.lstrip().rstrip().lower() == "course":
                         #     # coursemapping = courseMapToProgram(accessToken, resourceLinkOrExtPGM, parentFolder)
@@ -1071,6 +1086,7 @@ class Elevateproject:
                         #         bodySolutionUpdate = {
                         #             "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
                         #         solutionUpdate(parentFolder, accessToken, coursemapping, bodySolutionUpdate)
+                        print(errorVar,"errorVar")
                         if errorVar == "":
                             return True
                         else:
@@ -2806,6 +2822,7 @@ class Elevateproject:
         messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
         messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
         Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
+        print(responseFetchSolutionLinkApi.text,"responseFetchSolutionLinkApi")
         if responseFetchSolutionLinkApi.status_code == 200:
             print(responseFetchSolutionLinkApi.text,"responseFetchSolutionLinkApi")
             print('Fetch solution Link Api Success')
@@ -3383,6 +3400,7 @@ class Elevateproject:
                     solutionDict[resourceName] = solutionLink
                     print()
             downloaded_file = {}
+            print()
 
         else:
             print("Stand alone Project file Detected")
@@ -3396,7 +3414,8 @@ class Elevateproject:
             "solutionDict": solutionDict,
             "programName": programName  # Ensure programName is extracted from the 'Program Details' sheet
         }
-
+        solutionDict = {}
+        print(solutionDict,"3401")
         # print(f"Type of solutionDict: {type(solutionDict)}")
         # print(f"Program Name: {programName}")
 

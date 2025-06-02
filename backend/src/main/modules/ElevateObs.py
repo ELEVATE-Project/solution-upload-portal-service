@@ -601,6 +601,7 @@ class ElevateObservation:
                     scope[entity_type] = [entity_value]
                             # bodySolutionUpdate = {
                             #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
+            scope["organizations"] = [orgIDFromTemplate]
             scope["professional_subroles"] = rolesPGMID
             scope["professional_role"] = mainRole
             payload = json.dumps({
@@ -644,6 +645,7 @@ class ElevateObservation:
             
             # program creation 
             responsePgmCreate = requests.request("POST", ProgramCreationurl, headers=headers, data=(payload))
+            print(responsePgmCreate.text,"responsePgmCreate")
             messageArr.append("Program Creation Status Code : " + str(responsePgmCreate.status_code))
             messageArr.append("Program Creation Response : " + str(responsePgmCreate.text))
             messageArr.append("Program body : " + str(payload))
@@ -3878,6 +3880,7 @@ class ElevateObservation:
                         with open(parentFolder + '/questionUpload/uploadInternalIdsSheet.csv', 'w+',encoding='utf-8') as questionRes:
                             questionRes.write(responseQuestionUploadApi.text)
                         urlImportSoluTemplate = internal_kong_ip + importsurveysolutiontemplateurl + str(surTempSolID) + "?appName=manage-learn"
+                        print(urlImportSoluTemplate,"urlImportSoluTemplate")
                         headerImportSoluTemplateApi = {
                             'X-auth-token': accessToken,
                             'X-Channel-id': x_channel_id,
@@ -3895,9 +3898,11 @@ class ElevateObservation:
                                         "Status code : " + str(responseImportSoluTemplateApi.status_code),
                                         "Response : " + responseImportSoluTemplateApi.text]
                             ElevateObservation.createAPILog(parentFolder, messageArr)
+                            print(responseImportSoluTemplateApi.text,"responseImportSoluTemplateApi")
                             responseImportSoluTemplateApi = responseImportSoluTemplateApi.json()
                             solutionIdSuc = responseImportSoluTemplateApi["result"]["solutionId"]
                             urlSurveyProgramMapping = internal_kong_ip + importsurveysolutiontoprogramurl + str(solutionIdSuc) + "?programId=" + programExternalId.lstrip().rstrip()
+                            print(urlSurveyProgramMapping,"urlSurveyProgramMapping")
                             headeSurveyProgramMappingApi = {
                                 'X-auth-token': accessToken,
                                 'X-Channel-id': x_channel_id,
@@ -3907,6 +3912,7 @@ class ElevateObservation:
                                 adminTokenHeaderName: adminAccessToken
                             }
                             responseSurveyProgramMappingApi = requests.post(url=urlSurveyProgramMapping,headers=headeSurveyProgramMappingApi)
+                            print(responseSurveyProgramMappingApi.text,"responseSurveyProgramMappingApi")
                             if responseSurveyProgramMappingApi.status_code == 200:
                                 print('Program Mapping Success')
                                 
