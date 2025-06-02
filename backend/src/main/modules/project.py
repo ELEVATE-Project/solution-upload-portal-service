@@ -1964,6 +1964,7 @@ class Elevateproject:
                                     scope[entity_type].append(entity_value)
                                 else:
                                     scope[entity_type] = [entity_value]
+                            scope["organizations"] = [orgIDFromTemplate]        
                             scope["professional_subroles"] = rolesPGMID
                             scope["professional_role"] = mainRoleproff
                             bodySolutionUpdate = {
@@ -2359,7 +2360,9 @@ class Elevateproject:
                             payload['signatureTitle1a'] = authrigeddesignation1
                             payload['signatureTitle2a'] = authrigeddesignation2
                             baseTemplateId=baseTemplate_id
+                        
                         urleditnigsvgApi = elevateprojecthost + editsvgtemp + baseTemplateId
+                        print(urleditnigsvgApi,"urleditnigsvgApi")
                         headereditingsvgApi = {
                             'Authorization': authorization,
                             'X-auth-token': accessToken,
@@ -2369,8 +2372,9 @@ class Elevateproject:
                             'orgId' : orgIDFromTemplate,
                             adminTokenHeaderName: projAdminAccessToken
                         }
+                        print(headereditingsvgApi,"headereditingsvgApi")
                         responseeditsvg = requests.request("POST",url=urleditnigsvgApi, headers=headereditingsvgApi,data=payload, files=downloadedfiles)
-
+                        print(responseeditsvg,"responseeditsvg")
                         if responseeditsvg.status_code == 200:
                             responseeditsvg = responseeditsvg.json()
                             svgid = responseeditsvg['result']['url']

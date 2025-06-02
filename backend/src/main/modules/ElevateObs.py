@@ -5469,4 +5469,6 @@ class ElevateObservation:
             "solutionDict": solutionDict,
             "programName": programName 
         }
+        solutionDict = {}
+        print(solutionDict,"5473")
         return json.dumps(result)
