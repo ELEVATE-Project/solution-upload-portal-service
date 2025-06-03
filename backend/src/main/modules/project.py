@@ -634,7 +634,6 @@ class Elevateproject:
             scope["professional_subroles"] = rolesPGMID
             scope["professional_role"] = mainRoleproff
 
-            print(scope,"scope")
             # program creation payload
             payload = json.dumps({
                         "externalId": externalId,
@@ -679,7 +678,6 @@ class Elevateproject:
             messageArr.append("Program Creation Status Code : " + str(responsePgmCreate.status_code))
             messageArr.append("Program Creation Response : " + str(responsePgmCreate.text))
             messageArr.append("Program body : " + str(payload))
-
             # save logs 
             Elevateproject.createAPILog(parentFolder, messageArr)
             # check status 
@@ -920,7 +918,7 @@ class Elevateproject:
                         global mainRole
                         mainRole = dictDetailsEnv['Targeted role at program level']
                         global rolesPGM
-                        rolesPGM = dictDetailsEnv['Targeted subrole at program level'] if dictDetailsEnv['Targeted subrole at program level'] else terminatingMessage("\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet")  
+                        rolesPGM = dictDetailsEnv['Targeted subrole at program level']
                         global rolesPGMID
                         mainRoles = str(mainRole).strip().encode('utf-8').decode('utf-8').split(",")
                         subRoles = str(rolesPGM).strip().encode('utf-8').decode('utf-8').split(",")
@@ -1166,7 +1164,6 @@ class Elevateproject:
                 print("Error in generating Access token")
                 print("Status code : " + str(responseKeyClockUser.status_code))
                 Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
-                print(responseKeyClockUser.text)
                 errorVar = str(responseKeyClockUser.text)
                 return accessTokenUser
         except Exception as e:
@@ -2811,13 +2808,13 @@ class Elevateproject:
             solutionName = responseFetchSolutionJson["result"]["name"]
         urlFetchSolutionLinkApi = elevateprojecthost + fetchlink + solutionId
         headerFetchSolutionLinkApi = {
-            'Authorization': authorization,
-            'X-auth-token': accessToken,
-            'X-Channel-id': x_channel_id,
-            'internal-access-token': internal_access_token,
-            'tenantId': tenantIDFromTemplate,
-                    'orgId' : orgIDFromTemplate,
-                    adminTokenHeaderName: projAdminAccessToken
+            # 'Authorization': authorization,
+            'X-auth-token': accessToken
+            # 'X-Channel-id': x_channel_id
+            # 'internal-access-token': internal_access_token,
+            # 'tenantId': tenantIDFromTemplate,
+            #         'orgId' : orgIDFromTemplate,
+            #         adminTokenHeaderName: projAdminAccessToken
         }
         payloadFetchSolutionLinkApi = {}
 
@@ -2826,7 +2823,6 @@ class Elevateproject:
         messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
         messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
         Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
-        print(responseFetchSolutionLinkApi.text,"responseFetchSolutionLinkApi")
         if responseFetchSolutionLinkApi.status_code == 200:
             print(responseFetchSolutionLinkApi.text,"responseFetchSolutionLinkApi")
             print('Fetch solution Link Api Success')

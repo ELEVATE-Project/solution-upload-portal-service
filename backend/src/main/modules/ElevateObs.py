@@ -3539,7 +3539,7 @@ class ElevateObservation:
                         if responseCreateSolutionApi.status_code == 200:
                             responseCreateSolutionApi = responseCreateSolutionApi.json()
                             urlSearchSolution = internal_kong_ip + fetchsolutiondetails + "survey&page=1&limit=10&search=" + str(surveySolutionExternalId)
-                            responseSearchSolution = requests.request("GET", urlSearchSolution,
+                            responseSearchSolution = requests.post(urlSearchSolution,
                                                                     headers=headerCreateSolutionApi)
                             messageArr = ["********* Search Survey Solution *********", "URL : " + urlSearchSolution,
                                         "Status code : " + str(responseSearchSolution.status_code),
