@@ -1365,27 +1365,27 @@ class Elevateproject:
                         #     "\"Mandatory task(Yes or No)\" must not be Empty in \"Tasks Upload\" sheet")
                         
 
-                if sheetColCheck.strip().lower() == 'Certificate details'.lower():
-                    print("--->Checking Certificate details  sheet...")
+                    if sheetColCheck.strip().lower() == 'Certificate details'.lower():
+                        print("--->Checking Certificate details  sheet...")
 
-                    detailsColCheck = wbObservation1.sheet_by_name(sheetColCheck)
-                    keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
-                                            range(detailsColCheck.ncols)]
+                        detailsColCheck = wbObservation1.sheet_by_name(sheetColCheck)
+                        keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
+                                                range(detailsColCheck.ncols)]
 
-                    if len(keysColCheckDetai) != len(certificateCols) or set(keysColCheckDetai) == set(
-                                certificateCols):
-                        print("certificate not found")
-                        errorVar = 'Columns is missing in certificate details sheet'
-                    detailsEnvSheet = wbObservation1.sheet_by_name(sheetColCheck)
-                    keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
-                                range(detailsEnvSheet.ncols)]
-                    for row_index_env in range(2, detailsEnvSheet.nrows):
+                        if len(keysColCheckDetai) != len(certificateCols) or set(keysColCheckDetai) == set(
+                                    certificateCols):
+                            print("certificate not found")
+                            errorVar = 'Columns is missing in certificate details sheet'
+                        detailsEnvSheet = wbObservation1.sheet_by_name(sheetColCheck)
+                        keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
+                                    range(detailsEnvSheet.ncols)]
+                        for row_index_env in range(2, detailsEnvSheet.nrows):
 
-                        dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
-                                        for
-                                        col_index_env in range(detailsEnvSheet.ncols)}
+                            dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
+                                            for
+                                            col_index_env in range(detailsEnvSheet.ncols)}
                         
-                        if projectcertificate == "Yes":
+                        
                             # certificateissuer = dictDetailsEnv['Certificate issuer'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Certificate issuer'] else Elevateproject.terminatingMessage(
                             # "\"Certificate issuer\" must not be Empty in \"Certificate details\" sheet")
                         
