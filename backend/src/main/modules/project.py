@@ -1838,6 +1838,9 @@ class Elevateproject:
             print(errorVar,"1315")
             Elevateproject.createAPILog(projectName_for_folder_path, [f"Exception: {str(e)}"])
 
+    def convert_to_date(date_str):
+        return datetime.strptime(date_str, "%d-%m-%Y")
+
     def solutionCreationAndMapping(projectName_for_folder_path, entityToUpload, listOfFoundRoles, accessToken, programFile):
         try:
             print("solutionCreationAndMapping....")
@@ -1976,13 +1979,19 @@ class Elevateproject:
                                         "creator": projectCreator, "author": matchedShikshalokamLoginId}
                                     Elevateproject.solutionUpdate(projectName_for_folder_path, accessToken, solutionId, bodySolutionUpdate)
                                     # Below script will convert date DD-MM-YYYY TO YYYY-MM-DD 00:00:00 to match the code syntax
-                                    if ReffstartDateOfProgram <= solutionDetails[2] <= ReffendDateOfProgram and ReffstartDateOfProgram <= solutionDetails[3] <= ReffendDateOfProgram:
-                                        if solutionDetails[1]:
+                                    ReffstartDateOfProgram1 = Elevateproject.convert_to_date(ReffstartDateOfProgram)
+                                    ReffendDateOfProgram1 = Elevateproject.convert_to_date(ReffendDateOfProgram)
+                                    solutionDetails2 = Elevateproject.convert_to_date(solutionDetails[2])
+                                    solutionDetails3 = Elevateproject.convert_to_date(solutionDetails[3])
+                                    print(ReffstartDateOfProgram1 <= solutionDetails2 <= ReffendDateOfProgram1,ReffstartDateOfProgram1, solutionDetails2, ReffendDateOfProgram1)
+                                    print(ReffstartDateOfProgram <= solutionDetails[3] <= ReffendDateOfProgram,ReffstartDateOfProgram, solutionDetails[3], ReffendDateOfProgram)
+                                    if ReffstartDateOfProgram1 <= solutionDetails2 <= ReffendDateOfProgram1 and ReffstartDateOfProgram1 <= solutionDetails3 <= ReffendDateOfProgram1:
+                                        if solutionDetails[2]:
                                             startDateArr = str(solutionDetails[2]).split("-")
                                             bodySolutionUpdate = {
                                                 "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
                                             Elevateproject.solutionUpdate(projectName_for_folder_path, accessToken, solutionId, bodySolutionUpdate)
-                                        if solutionDetails[2]:
+                                        if solutionDetails[3]:
                                             endDateArr = str(solutionDetails[3]).split("-")
                                             bodySolutionUpdate = {
                                                 "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}

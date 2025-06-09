@@ -4743,7 +4743,11 @@ class ElevateObservation:
                                     if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
                                         finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                         return finalObsRubricSolutionLink
-                                    if ReffstartDateOfProgram <= solutionDetails[2] <= ReffendDateOfProgram and ReffstartDateOfProgram <= solutionDetails[3] <= ReffendDateOfProgram:
+                                    ReffstartDateOfProgram1 = ElevateObservation.convert_to_date(ReffstartDateOfProgram)
+                                    ReffendDateOfProgram1 = ElevateObservation.convert_to_date(ReffendDateOfProgram)
+                                    solutionDetails2 = ElevateObservation.convert_to_date(solutionDetails[2])
+                                    solutionDetails3 = ElevateObservation.convert_to_date(solutionDetails[3])
+                                    if ReffstartDateOfProgram1 <= solutionDetails2 <= ReffendDateOfProgram1 and ReffstartDateOfProgram1 <= solutionDetails3 <= ReffendDateOfProgram1:
                                         if solutionDetails[2]:
                                             startDateArr = str(solutionDetails[2]).split("-")
                                             bodySolutionUpdate = {
@@ -4916,7 +4920,11 @@ class ElevateObservation:
                                     if not ElevateObservation.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate):
                                         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                                         return ObsWORSolutionLink
-                                    if ReffstartDateOfProgram <= solutionDetails[2] <= ReffendDateOfProgram and ReffstartDateOfProgram <= solutionDetails[3] <= ReffendDateOfProgram:
+                                    ReffstartDateOfProgram1 = ElevateObservation.convert_to_date(ReffstartDateOfProgram)
+                                    ReffendDateOfProgram1 = ElevateObservation.convert_to_date(ReffendDateOfProgram)
+                                    solutionDetails2 = ElevateObservation.convert_to_date(solutionDetails[2])
+                                    solutionDetails3 = ElevateObservation.convert_to_date(solutionDetails[3])
+                                    if ReffstartDateOfProgram1 <= solutionDetails2 <= ReffendDateOfProgram1 and ReffstartDateOfProgram1 <= solutionDetails3 <= ReffendDateOfProgram1:
                                         if solutionDetails[2]:
                                             startDateArr = str(solutionDetails[2]).split("-")
                                             bodySolutionUpdate = {
