@@ -3103,9 +3103,7 @@ class Elevateproject:
                                     isProgramnamePresent = True
                                 scopeEntityType = scopeEntityType
                                 userEntity = dictProgramDetails['Targeted entities at program level'].encode('utf-8').decode('utf-8').lstrip().rstrip().split(",")
-                    if not Elevateproject.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath):
-                        finalprojectSolutionLink = {ProjectName: errorVar}
-                        return finalprojectSolutionLink            
+                               
                     for sheets in projectSheetNames:
                         if sheets.strip().lower() == 'Project upload'.lower():
                             print("Checking project upload sheet...")
@@ -3118,7 +3116,9 @@ class Elevateproject:
 
                                 ProjectName = projectDetails["title"].encode('utf-8').decode('utf-8')
                                 entityType = "school"
-                    
+                    if not Elevateproject.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath):
+                        finalprojectSolutionLink = {ProjectName: errorVar}
+                        return finalprojectSolutionLink
                     try:
 
                         # Adds a project by processing the input file, creating necessary folders,copying files, and preparing project and task sheets.
