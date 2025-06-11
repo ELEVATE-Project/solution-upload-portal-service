@@ -388,7 +388,7 @@ class Elevateproject:
                         "URL  : " + str(urlFetchEntityListApi),
                         "Status : " + str(responseFetchEntityListApi.status_code)]
             Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
-
+            print(responseFetchEntityListApi.text,"responseFetchEntityListApi")
             # Check if the API call was successful
             if responseFetchEntityListApi.status_code == 200:
                 responseFetchEntityListApi = responseFetchEntityListApi.json()
@@ -427,8 +427,10 @@ class Elevateproject:
                         "mongoIdKeys": []
                         })
             headersProgramSearch = {'Content-Type': content_type,
-                                    'X-auth-token': accessTokenUser}
-            responseProgramSearch = requests.post(url=programUrl, headers=headersProgramSearch,data=payload)
+                                    'X-auth-token': accessTokenUser
+                                    # 'internal-access-token': internal_access_token
+                                    }
+            responseProgramSearch = requests.request("POST", url=programUrl, headers=headersProgramSearch,data=payload)
             messageArr = []
             messageArr.append("Program Search API")
             messageArr.append("URL : " + programUrl)
@@ -615,6 +617,7 @@ class Elevateproject:
         # program creation url 
         try: 
             programCreationurl = elevateprojecthost + programcreationurl
+            print(programCreationurl,"programCreationurl")
             messageArr.append("Program Creation URL : " + programCreationurl)
 
             # adding state entities
@@ -648,7 +651,7 @@ class Elevateproject:
                         ],
                         "metaInformation": {
                         "state":stateEntitiesPGM.split(","),
-                        "roles": mainRoleproff
+                        "recommendedFor" : roles
                         },
                         "keywords": [],
                         "concepts": [],
@@ -663,6 +666,7 @@ class Elevateproject:
                         "requestForPIIConsent": True
                     }
             )
+            print(payload,"payload")
             messageArr.append("Body : " + str(payload))
             headers = {
                 'internal-access-token': internal_access_token,
@@ -673,6 +677,7 @@ class Elevateproject:
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: projAdminAccessToken
                 }
+            print(headers,"headers")
             # program creation 
             responsePgmCreate = requests.request("POST", programCreationurl, headers=headers, data=(payload))
             messageArr.append("Program Creation Status Code : " + str(responsePgmCreate.status_code))
@@ -684,6 +689,7 @@ class Elevateproject:
             fileheader = [pName, ('Program Sheet Validation'), ('Passed')]
             Elevateproject.createAPILog(parentFolder, messageArr)
             Elevateproject.apicheckslog(parentFolder, fileheader)
+            print(responsePgmCreate.text,"responsePgmCreate")
             if responsePgmCreate.status_code == 200:
                 responsePgmCreateResp = responsePgmCreate.json()
                 print("program created successful....")
@@ -878,8 +884,7 @@ class Elevateproject:
                             roles = dictDetailsEnv['Targeted subrole at program level'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet"
-                        newProgramRole = roles.split(",")
-                        programRoleArray = list(newProgramRole)
+                        
                         if dictDetailsEnv.get('Description of the Program'):
                             proDesc = dictDetailsEnv['Description of the Program'].encode('utf-8').decode('utf-8')
                         else:
@@ -917,6 +922,8 @@ class Elevateproject:
                         endDateOfProgram = endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"
                         global mainRole
                         mainRole = dictDetailsEnv['Targeted role at program level']
+                        newProgramRole = mainRole.split(",")
+                        programRoleArray = list(newProgramRole)
                         global rolesPGM
                         rolesPGM = dictDetailsEnv['Targeted subrole at program level']
                         global rolesPGMID
@@ -1126,17 +1133,16 @@ class Elevateproject:
                 solutionNameCell = resourceDetailsSheet[f"A{row}"].value
                 if resourceDetailsSheet["A" + str(row)].value == solutionName:
                     solutionMainRole = str(resourceDetailsSheet["E" + str(row)].value).split(",")
-                    solutionRolesArray = str(resourceDetailsSheet["F" + str(row)].value).split(",") if str(
-                        resourceDetailsSheet["E" + str(row)].value).split(",") else []
+                    solutionRolesArray = str(resourceDetailsSheet["F" + str(row)].value).split(",")
                     solutionStartDate = resourceDetailsSheet["G" + str(row)].value
                     solutionEndDate = resourceDetailsSheet["H" + str(row)].value
-        return [solutionMainRole,solutionRolesArray, solutionStartDate, solutionEndDate]
+                    return [solutionMainRole,solutionRolesArray, solutionStartDate, solutionEndDate]
     
     def generateAccessToken(solutionName_for_folder_path):
         try:
             global errorVar
             # production search user api - start
-            headerKeyClockUser = {'Content-Type': content_type,'origin': origin}
+            headerKeyClockUser = {'Content-Type': "application/x-www-form-urlencoded",'origin': "default-qa.tekdinext.com"}
             # responseKeyClockUser = requests.post(url=config.get(environment, 'elevateuserhost') + config.get(environment, 'userlogin'), headers=headerKeyClockUser,
                                                 #  data=json.dumps(config.get(environment, 'keyclockAPIBody')))
             # Elevateproject.terminatingMessage(type(json.loads(config.get(environment, 'keyclockAPIBody'))))\
@@ -1144,7 +1150,7 @@ class Elevateproject:
                 'identifier' : identifier,
                 'password' : password
             }
-            responseKeyClockUser = requests.post(userLoginHost + keyclockapiurl , headers=headerKeyClockUser, json=loginBody)
+            responseKeyClockUser = requests.post(userLoginHost + keyclockapiurl , headers=headerKeyClockUser, data=loginBody)
             messageArr = []
             messageArr.append("URL : " + str(keyclockapiurl))
             messageArr.append("Body : " + str(keyclockapibody))

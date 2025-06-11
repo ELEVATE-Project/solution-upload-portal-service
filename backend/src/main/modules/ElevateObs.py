@@ -250,17 +250,15 @@ class ElevateObservation:
 
         try:
             print("Generating Access Token...")
-            headerKeyClockUser = {'Content-Type': "application/json",'origin': origin}
-
+            headerKeyClockUser = {'Content-Type': "application/x-www-form-urlencoded",'origin': "default-qa.tekdinext.com"}
+            # responseKeyClockUser = requests.post(url=config.get(environment, 'elevateuserhost') + config.get(environment, 'userlogin'), headers=headerKeyClockUser,
+                                                #  data=json.dumps(config.get(environment, 'keyclockAPIBody')))
+            # Elevateproject.terminatingMessage(type(json.loads(config.get(environment, 'keyclockAPIBody'))))\
             loginBody = {
-                'identifier': identifier,
-                'password': password
+                'identifier' : identifier,
+                'password' : password
             }
-            responseKeyClockUser = requests.post(
-                userLoginHost + keyclockapiurl,
-                headers=headerKeyClockUser,
-                json=loginBody
-            )
+            responseKeyClockUser = requests.post(userLoginHost + keyclockapiurl , headers=headerKeyClockUser, data=loginBody)
 
 
             messageArr = []
@@ -278,6 +276,7 @@ class ElevateObservation:
                 fileheader = ["Access Token","Access Token succesfully genarated","Passed"]
                 ElevateObservation.apicheckslog(solutionName_for_folder_path,fileheader)
                 print("--->Access Token Generated!")
+                print("qqqqqqqqqqqqqqqqqqqqqqqqqqq")
             else:
                 print("Error in generating Access token")
                 print("Status code : " + str(responseKeyClockUser.status_code))
@@ -430,12 +429,13 @@ class ElevateObservation:
             errorVar
             print(errorVar,"---> API-Error")
 
-    def getProgramInfo(accessTokenUser, solutionName_for_folder_path, programNameInp):
+    def getProgramInfo(accessToken, solutionName_for_folder_path, programNameInp):
         try:
             if programNameInp:
                 global programID, programExternalId, programDescription, isProgramnamePresent, programName
                 programName = programNameInp
                 programUrl = internal_kong_ip + fetchprograminfoapiurl
+                print(programUrl,"programUrl")
                 # print(programUrl,"payload")
                 payload = json.dumps({
                     "query": {
@@ -445,10 +445,11 @@ class ElevateObservation:
                         },
                         "mongoIdKeys": []
                         })
-                headersProgramSearch =  {'Content-Type': 'application/json', 'X-auth-token': accessTokenUser}
-                # print(headersProgramSearch,"headersProgramSearch")
+                print(payload,"payload")
+                headersProgramSearch =  {'Content-Type': 'application/json', 'X-auth-token': accessToken}
+                print(headersProgramSearch,"headersProgramSearch")
                 responseProgramSearch = requests.post(url=programUrl, headers=headersProgramSearch,data=payload)
-                # print(responseProgramSearch,"responseProgramSearch")
+                print(responseProgramSearch.text,"responseProgramSearch")
                 messageArr = []
 
                 messageArr.append("Program Search API")
@@ -539,6 +540,7 @@ class ElevateObservation:
             #     body = "{\n  \"request\": {\n    \"filters\": {\n    \t\"userName\": \"" + dikshaId.lstrip().rstrip() + "\"\n    },\n      \"fields\" :[],\n    \"limit\": 1000,\n    \"sort_by\": {\"createdDate\": \"desc\"}\n  }\n}"
             
             responseUserSearch = requests.request("GET", url, headers=headers)
+            print(responseUserSearch.text,"responseUserSearch")
             if responseUserSearch.status_code == 200:
                 responseUserSearch = responseUserSearch.json()
                 if responseUserSearch['result']:
@@ -815,7 +817,7 @@ class ElevateObservation:
                         global orgIds
                         
 
-
+                        print(accessToken)
                         if not ElevateObservation.getProgramInfo(accessToken, parentFolder, programNameInp.encode('utf-8').decode('utf-8')):
                             extIdPGM = dictDetailsEnv['Program ID'].encode('utf-8').decode('utf-8')
                             if str(dictDetailsEnv['Program ID']).strip() == "Do not fill this field":
@@ -833,8 +835,6 @@ class ElevateObservation:
                             mainRole = dictDetailsEnv['Targeted role at program level']
                             # global rolesPGM
                             rolesPGM = dictDetailsEnv['Targeted subrole at program level']
-                            if "teacher" in mainRole.strip().lower():
-                                rolesPGM = str(rolesPGM).strip() + ",TEACHER"
                             userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
                             # userDetails=["222","1","name","1","1"]
                             print(userDetails,"userDetails")
@@ -881,6 +881,7 @@ class ElevateObservation:
                             creatorName = userDetails[2]
                             # if not ElevateObservation.programCreation(accessToken, parentFolder, extIdPGM, programNameInp, descriptionPGM,keywordsPGM.lstrip().rstrip().split(","), entitiesPGMID, rolesPGMID, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM):
                             #     return False
+                            print(accessToken)
                             if not ElevateObservation.getProgramInfo(accessToken, parentFolder, programNameInp):
                                 print("Program creation failed! Please check logs.")
                                 return False
@@ -3536,11 +3537,15 @@ class ElevateObservation:
                         fileheader = [surveySolutionCreationReqBody['name'].encode('utf-8').decode('utf-8'),'Program Sheet Validation'," "]
                         ElevateObservation.createAPILog(parentFolder, messageArr)
                         ElevateObservation.apicheckslog(parentFolder,fileheader)
+                        print(responseCreateSolutionApi.text,"responseCreateSolutionApi")
                         if responseCreateSolutionApi.status_code == 200:
                             responseCreateSolutionApi = responseCreateSolutionApi.json()
                             urlSearchSolution = internal_kong_ip + fetchsolutiondetails + "survey&page=1&limit=10&search=" + str(surveySolutionExternalId)
+                            print(urlSearchSolution,"urlSearchSolution")
                             responseSearchSolution = requests.post(urlSearchSolution,
                                                                     headers=headerCreateSolutionApi)
+                            print(headerCreateSolutionApi,"headerCreateSolutionApi")
+                            print(responseSearchSolution.text,"responseSearchSolution")
                             messageArr = ["********* Search Survey Solution *********", "URL : " + urlSearchSolution,
                                         "Status code : " + str(responseSearchSolution.status_code),
                                         "Response : " + responseSearchSolution.text]
@@ -4533,6 +4538,7 @@ class ElevateObservation:
         if not isCourse:
             parentFolder = ElevateObservation.createFileStruct(MainFilePath, addObservationSolution)
             accessToken = ElevateObservation.generateAccessToken(parentFolder)
+            print(accessToken,"4538")
             wbPgm =xlrd.open_workbook(programFile, on_demand=True)
             ElevateObservation.validateTenantAndOrgIdsFromProgramSheet(wbPgm)
             typeofSolution = ElevateObservation.typeofresource(addObservationSolution, accessToken, parentFolder)
