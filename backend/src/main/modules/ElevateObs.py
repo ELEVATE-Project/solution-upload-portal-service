@@ -77,15 +77,11 @@ dikshaLoginId = None
 criteriaName = None
 solutionId = None
 API_log = None
-listOfFoundRoles = []
 stateEntitiesPGM = []
 entityToUpload = None
 programID = None
 programExternalId = None
 programDescription = None
-criteriaLookUp = dict()
-themesSheetList = []
-themeRubricFileObj = dict()
 criteriaLevelsReport = False
 ecm_sections = dict()
 criteriaLevelsCount = 0
@@ -347,6 +343,7 @@ class ElevateObservation:
                 responseFetchEntityListApi = responseFetchEntityListApi.json()
 
                 # Loop through the result to find the entityType
+                global entityToUpload
                 entityToUpload = None  # Initialize for each entity
                 for listEntities in responseFetchEntityListApi['result']:
                     entityToUpload = listEntities['entityType']
@@ -584,7 +581,7 @@ class ElevateObservation:
             
 
     def programCreation(accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM):
-        global errorVar
+        global errorVar,scopeEntityType
         try: 
             messageArr = []
             messageArr.append("++++++++++++ Program Creation ++++++++++++")
@@ -987,7 +984,7 @@ class ElevateObservation:
         return typeofSolution
     
     def criteriaUpload(solutionName_for_folder_path, wbObservation, millisAddObs, accessToken, tabName, projectDrivenFlag):
-        global errorVar
+        global errorVar,criteriaName
         error_message = ""
         criteriaColNames = ["criteriaId", "criteria_name"]
         criteriaSheet = wbObservation.sheet_by_name(tabName)
@@ -1140,7 +1137,7 @@ class ElevateObservation:
             print(errorVar,"---> API-Error")
     
     def frameWorkUpload(solutionName_for_folder_path, wbObservation, millisAddObs, accessToken):
-        global criteriaLevelsReport,errorVar
+        global criteriaLevelsReport,errorVar,pointBasedValue,entityType,solutionLanguage,keyWords,entityTypeId
         dateTime = datetime.now()
         frameworkDocInsertObj = {}
         frameworkExternalId = None
@@ -1409,7 +1406,7 @@ class ElevateObservation:
             print(errorVar,"---> API-Error")
 
     def createSolutionFromFramework(solutionName_for_folder_path, accessToken, frameworkExternalId):
-        global errorVar
+        global errorVar,entityType,solutionId
         error_message = ""
         try:
             urlCreateSolutionApi = internal_kong_ip + solutioncreationapiurl
@@ -2565,8 +2562,7 @@ class ElevateObservation:
                         solutionNameCell = resourceDetailsSheet[f"A{row}"].value
                         if resourceDetailsSheet["A" + str(row)].value == solutionName:
                             solutionMainRole = str(resourceDetailsSheet["E" + str(row)].value).split(",")
-                            solutionRolesArray = str(resourceDetailsSheet["F" + str(row)].value).split(",") if str(
-                                resourceDetailsSheet["E" + str(row)].value).split(",") else []
+                            solutionRolesArray = str(resourceDetailsSheet["F" + str(row)].value).split(",")
                             solutionStartDate = resourceDetailsSheet["G" + str(row)].value
                             solutionEndDate = resourceDetailsSheet["H" + str(row)].value
                             return [solutionMainRole,solutionRolesArray, solutionStartDate, solutionEndDate]
@@ -2636,7 +2632,7 @@ class ElevateObservation:
 
 
     def createChild(solutionName_for_folder_path, observationExternalId, accessToken):
-        global errorVar,solutionName, solutionDescription
+        global errorVar,solutionName, solutionDescription,entityType,programExternalId
         error_message=""
         try:
             childObservationExternalId = str(observationExternalId + "_CHILD")
@@ -2901,7 +2897,7 @@ class ElevateObservation:
 
     def ObsWRValidate(wbObservation1, accessToken, parentFolder,typeofSolution):
         print("Validating Observation temp....")
-        global errorVar, entityType, solutionName, solutionDescription, scopeEntityType, dikshaLoginId, pointBasedValue, criteriaLevels
+        global errorVar, entityType, solutionName, solutionDescription, scopeEntityType, dikshaLoginId, pointBasedValue, criteriaLevels,allow_multiple_submissions,creator, question_sequence_arr,solutionLanguage, keyWords
         ObsImpFlag = False
         print(typeofSolution)
         try:
@@ -3172,7 +3168,7 @@ class ElevateObservation:
 
     def ObsWORValidate(wbObservation1, accessToken, parentFolder):
         print("Validating Observation temp....")
-        global errorVar, entityType, solutionName, solutionDescription
+        global errorVar, entityType, solutionName, solutionDescription, creator,solutionLanguage
         try:
             questionsequenceArr =[]
             sheetNames1 = wbObservation1.sheet_names()
@@ -3481,7 +3477,7 @@ class ElevateObservation:
             print(errorVar,"3419")
 
     def createSurveySolution(parentFolder, wbSurvey, accessToken):
-        global errorVar
+        global errorVar,creator
         error_message = ""
         print("Create Survey Solution Func Called....")
         sheetNames1 = wbSurvey.sheet_names()
@@ -3933,7 +3929,8 @@ class ElevateObservation:
                                 solutionExtIdSuc = responseImportSoluTemplateApi["result"]["solutionExternalId"]
                                 print("Survey Child Id : " + str(solutionExtIdSuc))
                                 solutionDetails = ElevateObservation.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, solutionIdSuc,
-                                                                                    accessToken)   
+                                                                                    accessToken)  
+                                print(solutionDetails,"solutionDetailssurvey") 
                                 scopeRoles = solutionDetails[0]
                                 scopeSubRoles = solutionDetails[1]
                                 verifiedRoles = ElevateObservation.validate_roles_against_api(scopeRoles, scopeSubRoles)
@@ -3956,10 +3953,13 @@ class ElevateObservation:
                                 "scope": scope
                                 }
                                 ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
+                                print(solutionDetails[2],solutionDetails[3],SurveyTemplateStartDate,SurveyTemplateEndDate)
                                 solutionStartDate1 = ElevateObservation.convert_to_date(solutionDetails[2])
                                 solutionEndDate1 = ElevateObservation.convert_to_date(solutionDetails[3])
                                 SurveyTemplateStartDate1 = ElevateObservation.convert_to_date(SurveyTemplateStartDate)
                                 SurveyTemplateEndDate1 = ElevateObservation.convert_to_date(SurveyTemplateEndDate)
+                                print(solutionStartDate1,solutionEndDate1,SurveyTemplateStartDate1,SurveyTemplateEndDate1)
+
                                 if SurveyTemplateStartDate1 == solutionStartDate1 and SurveyTemplateEndDate1 == solutionEndDate1:
                                     if solutionDetails[2]:
                                         startDateArr = str(solutionDetails[2]).split("-")
@@ -4045,7 +4045,7 @@ class ElevateObservation:
         # print(f"Type of wbSurvey: {type(wbSurvey)}")
         sheetNam = wbSurvey.sheet_names()
         # print(sheetNam,"4854")
-        global surveySolutionlink, errorVar
+        global surveySolutionlink, errorVar, programExternalId
         error_message = ""
         stDt = None
         enDt = None
@@ -4532,7 +4532,7 @@ class ElevateObservation:
     def mainFunc(MainFilePath, programFile, addObservationSolution, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType):
         print("entering mainFUnc")
-        global errorVar,pointBasedValue,solutionDict
+        global errorVar,pointBasedValue,solutionDict,allow_multiple_submissions,creator,userEntity,criteriaLevelsReport
         errorVar = ""
         scopeEntityType = scopeEntityType
         if not isCourse:
@@ -4654,6 +4654,7 @@ class ElevateObservation:
                                     "remarks": None,
                                     "sequenceNo": ecmSeqCount
                                     }
+                                print(ecm_update[EMC_ID])
                                 ecmSeqCount += 1
                             ecm_dict['evidenceMethods'] = ecm_update
                             bodySolutionUpdate = ecm_dict
@@ -5376,7 +5377,7 @@ class ElevateObservation:
                 
     def loadSurveyFile(programFile,resourceName):
         print("entering the loadfile")
-        global downloaded_file
+        global downloaded_file,userEntity
         downloaded_file = ""
         global solutionDict
         # start_time = time.time()
