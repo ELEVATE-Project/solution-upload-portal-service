@@ -37,7 +37,9 @@
       shell: cat {{root_path}}/data2.json | jq '.data' > {{ project_path }}/.env
       register: envConfig
 
-    - debug: msg="Environment Config: {{ envConfig }}"
+    - name: Debug environment config
+      debug:
+        msg: "Environment Config: {{ envConfig }}"
 
     - name: Start Flask application using PM2
       shell: |
