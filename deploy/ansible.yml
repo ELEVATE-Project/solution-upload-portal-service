@@ -44,7 +44,7 @@
       shell: |
         cd {{ release_path }}
         python3 -m venv venv
-        bash -c "source venv/bin/activate && pip install -r requirements.txt"
+        bash -c "source venv/bin/activate && grep -v 'mkl-fft==' requirements.txt > clean_requirements.txt && pip install -r clean_requirements.txt"
 
     - name: Generate .env
       shell: |
