@@ -42,10 +42,9 @@
 
     - name: Install Python dependencies
       shell: |
-        cd {{release_path}} 
+        cd {{ release_path }}
         python3 -m venv venv
-        source venv/bin/activate
-        pip install -r requirements.txt
+        bash -c "source venv/bin/activate && pip install -r requirements.txt"
 
     - name: Generate .env
       shell: |
