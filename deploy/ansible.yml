@@ -1,50 +1,68 @@
 ---
 - hosts: elevate
   vars:
-    project_path: /opt/solution-upload-portal-service
+    project_path: /opt/backend/deployment
     root_path: /opt/
   tasks:
     - name: Slurp host file
       slurp:
-        src: "/opt/backend/deployment/.token"
+        src: "{{ project_path }}/.token"
       register: slurpfile
-      
-    - name: Run vault credentials
-      shell: "curl --location --request GET '{{ vaultAddress }}solution-upload-portal-service' --header 'X-Vault-Token: {{ slurpfile['content'] | b64decode }}' | jq '.data' > '{{root_path}}/data2.json'"
-      register: vaultCurl
+    
+    - name: Get vault credentials
+      shell: "curl --location --request GET '{{ vaultAddress }}solution-upload-portal-service' --header 'X-Vault-Token: {{ slurpfile['content'] | b64decode }}' | jq '.data' > '{{ project_path }}/data2.json'"
+      register: credentials
+    - debug: msg="{{ credentials }}"
 
-    - name: Change directory
-      shell: cd {{project_path}}
+    - name: Set some variable
+      set_fact:
+        release_path: "{{ project_path }}/releases/{{ lookup('pipe','date +%Y%m%d%H%M%S') }}"
+        current_path: "{{ project_path }}/solution-upload-portal-service"
 
-    - name: Fetch the latest code
+    - name: Retrieve current release folder
+      command: readlink -f solution-upload-portal-service
+      register: current_release_path
+      ignore_errors: yes
+      args:
+        chdir: "{{ project_path }}"
+
+    - name: Create new folder
+      file:
+        dest: "{{ release_path }}"
+        mode: 0755
+        recurse: yes
+        state: directory
+
+    - name: Clone the Python repository
       git:
-        repo: https://github.com/ELEVATE-Project/solution-upload-portal-service
-        dest: "{{project_path}}"
+        repo: https://github.com/priyanka-TL/solution-upload-portal-service
+        dest: "{{release_path}}"
         version: "{{gitBranch}}"
         force: yes
 
     - name: Install Python dependencies
       shell: |
-        cd {{project_path}} 
+        cd {{release_path}} 
         python3 -m venv venv
         source venv/bin/activate
         pip install -r requirements.txt
 
-    - name: Set permissions for scripts
-      shell: chmod +x {{ project_path }}/start.sh
-
-    - name: Generate .env file
-      shell: cat {{root_path}}/data2.json | jq '.data' > {{ project_path }}/.env
+    - name: Generate .env
+      shell: cat {{ project_path }}/data2.json | {{ current_path }}/script/json2env.sh > {{ current_path }}/.env"
       register: envConfig
 
-    - name: Debug environment config
-      debug:
-        msg: "Environment Config: {{ envConfig }}"
+    - name: Delete Old Folder
+      shell: rm -rf {{ current_path }} && cd {{ project_path }} && mkdir solution-upload-portal-service
 
-    - name: Start Flask application using PM2
-      shell: |
-        cd {{project_path}}
-        pm2 start {{project_path}}/start.sh --name "solution-upload-portal-service"
+    - name: Move code
+      shell: mv "{{ release_path }}"/* {{ current_path }}/
 
-    - name: Ensure PM2 runs on startup
-      shell: pm2 startup
+    - name: Set permission
+      shell: chmod 744 {{ current_path }}/script/json2env.sh
+
+    - name: Delete release folder
+      shell: rm -rf {{ release_path }}
+
+    - name: Start Python application
+      command: "chdir={{current_path}} venv/bin/python app.py"
+      register: pythonInfo
