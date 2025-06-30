@@ -1,5 +1,5 @@
 ---
-- hosts: elevate-anlytics
+- hosts: elevate
   vars:
     project_path: /opt/solution-upload-portal-service
     root_path: /opt/
