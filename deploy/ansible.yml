@@ -48,7 +48,8 @@
         pip install -r requirements.txt
 
     - name: Generate .env
-      shell: cat {{ project_path }}/data2.json | {{ current_path }}/script/json2env.sh > {{ current_path }}/.env"
+      shell: |
+        cat {{ project_path }}/data2.json | {{ current_path }}/scripts/json2env.sh > {{ current_path }}/.env
       register: envConfig
 
     - name: Delete Old Folder
