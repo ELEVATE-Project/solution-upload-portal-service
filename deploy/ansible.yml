@@ -75,19 +75,10 @@
         dest: "{{ current_path }}/start_app.sh"
         mode: '0755'
 
-    - name: Create logs directory
-      file:
-        path: "{{ project_path }}/logs"
-        state: directory
-        mode: '0755'
-
     - name: Start Flask application using PM2 with shell script
       shell: >
         pm2 start {{ current_path }}/start_app.sh
         --name "{{ pm2_app_name }}"
-        --log "{{ project_path }}/logs/{{ pm2_app_name }}-combined.log"
-        --error "{{ project_path }}/logs/{{ pm2_app_name }}-error.log"
-        --out "{{ project_path }}/logs/{{ pm2_app_name }}-out.log"
       environment:
         PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
       register: pm2_start
