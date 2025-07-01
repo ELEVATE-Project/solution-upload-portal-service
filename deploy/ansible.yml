@@ -2,7 +2,6 @@
 - hosts: elevate
   vars:
     project_path: /opt/backend/deployment
-    root_path: /opt/
     python_version: 3.9
     pm2_app_name: solution-upload-portal-service
   tasks:
@@ -58,46 +57,21 @@
     - name: Delete Old Folder
       shell: rm -rf {{ current_path }} && cd {{ project_path }} && mkdir solution-upload-portal-service
 
-    # - name: Generate .env
-    #   shell: |
-    #     cat {{ project_path }}/data2.json | {{ current_path }}/scripts/json2env.sh > {{ current_path }}/.env
-    #   register: envConfig
-
-    - name: Generate .env file
-      shell: cat {{project_path}}/data2.json | jq '.data' > {{ project_path }}/.env
-      register: envConfig
-
     - name: Stop existing PM2 process
       command: pm2 stop {{ pm2_app_name }}
       ignore_errors: yes
       environment:
         PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
 
-    
-
     - name: Move code
       shell: mv "{{ release_path }}"/* {{ current_path }}/
-
-    # - name: Set permissions for json2env.sh
-    #   shell: chmod 744 {{ current_path }}/script/json2env.sh
 
     - name: Delete release folder
       shell: rm -rf {{ release_path }}
 
-    # - name: Start Flask application using PM2
-    #   shell: |
-    #     cd {{ current_path }}
-    #     pm2 start venv/bin/python --name "{{ pm2_app_name }}" -- app.py
-    #   environment:
-    #     PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
-    #   register: pm2_start
-    #   failed_when: pm2_start.rc != 0
-
-    # - name: Save PM2 configuration
-    #   command: pm2 save
-    #   environment:
-    #     PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
-    #   when: pm2_start.rc == 0
+    - name: Generate .env file inside apiServices/src/main
+      shell: cat {{ project_path }}/data2.json | jq '.data' > {{ current_path }}/apiServices/src/main/.env
+      register: envConfig
 
     - name: Start Flask application using PM2
       shell: |
