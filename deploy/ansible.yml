@@ -101,10 +101,7 @@
 
     - name: Start Flask application using PM2
       shell: |
-        cd {{ current_path }}
-        pm2 start venv/bin/python --name "{{ pm2_app_name }}" -- apiServices/src/main/app.py
-      args:
-        chdir: "{{ current_path }}"
+        pm2 start {{ current_path }}/venv/bin/python --name "{{ pm2_app_name }}" -- {{ current_path }}/apiServices/src/main/app.py
       environment:
         PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
       register: pm2_start
