@@ -65,13 +65,40 @@
 
     - debug: msg="cred {{ envConfig }}"
 
-    - name: Start Flask application using PM2
-      shell: >
-        pm2 start {{ current_path }}/venv/bin/python
-        --name "{{ pm2_app_name }}"
-        -- {{ current_path }}/apiServices/src/main/app.py
+    - name: Create PM2 ecosystem file
+      copy:
+        content: |
+          module.exports = {
+            apps: [{
+              name: "{{ pm2_app_name }}",
+              script: "app.py",
+              interpreter: "{{ current_path }}/venv/bin/python",
+              cwd: "{{ current_path }}/apiServices/src/main",
+              env: {
+                PYTHONPATH: "{{ current_path }}:{{ current_path }}/apiServices/src/main"
+              },
+              instances: 1,
+              autorestart: true,
+              watch: false,
+              max_memory_restart: "1G",
+              error_file: "{{ project_path }}/logs/{{ pm2_app_name }}-error.log",
+              out_file: "{{ project_path }}/logs/{{ pm2_app_name }}-out.log",
+              log_file: "{{ project_path }}/logs/{{ pm2_app_name }}-combined.log"
+            }]
+          }
+        dest: "{{ current_path }}/ecosystem.config.js"
+
+    - name: Start Flask application using PM2 ecosystem
+      shell: pm2 start {{ current_path }}/ecosystem.config.js
       environment:
         PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
-        PYTHONPATH: "{{ current_path }}"
       register: pm2_start
       failed_when: pm2_start.rc != 0
+
+    - name: Save PM2 configuration
+      shell: pm2 save
+      environment:
+        PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
+      ignore_errors: yes
+
+    - debug: msg="PM2 start result {{ pm2_start }}"
