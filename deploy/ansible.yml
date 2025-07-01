@@ -69,8 +69,9 @@
     - name: Delete release folder
       shell: rm -rf {{ release_path }}
 
-    - name: Generate .env file inside apiServices/src/main
-      shell: cat {{ project_path }}/data2.json | jq '.data' > {{ current_path }}/apiServices/src/main/.env
+    - name: Generate .env file in key=value format
+      shell: |
+        jq -r 'to_entries[] | "\(.key)=\(.value)"' {{ project_path }}/data2.json > {{ current_path }}/apiServices/src/main/.env
       register: envConfig
 
     - name: Start Flask application using PM2
