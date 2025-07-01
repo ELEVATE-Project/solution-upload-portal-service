@@ -4,90 +4,72 @@
     project_path: /opt/backend/deployment
     python_version: 3.9
     pm2_app_name: solution-upload-portal-service
+    current_path: "{{ project_path }}/solution-upload-portal-service"
+
   tasks:
 
     - name: Slurp host file
       slurp:
         src: "{{ project_path }}/.token"
       register: slurpfile
-    
+
     - name: Get vault credentials
-      shell: "curl --location --request GET '{{ vaultAddress }}solution-upload-portal-service' --header 'X-Vault-Token: {{ slurpfile['content'] | b64decode }}' | jq '.data' > '{{ project_path }}/data2.json'"
+      shell: >
+        curl --location --request GET '{{ vaultAddress }}solution-upload-portal-service'
+        --header 'X-Vault-Token: {{ slurpfile.content | b64decode }}'
+        | jq '.data' > '{{ project_path }}/data2.json'
       register: credentials
+
     - debug: msg="{{ credentials }}"
 
-    - name: Set release and current paths
-      set_fact:
-        release_path: "{{ project_path }}/releases/{{ lookup('pipe','date +%Y%m%d%H%M%S') }}"
-        current_path: "{{ project_path }}/solution-upload-portal-service"
-
-    - name: Retrieve current release folder
-      command: readlink -f solution-upload-portal-service
-      register: current_release_path
-      ignore_errors: yes
-      args:
-        chdir: "{{ project_path }}"
-
-    - name: Create release directory
+    - name: Delete existing project folder (if any)
       file:
-        dest: "{{ release_path }}"
-        mode: 0755
-        recurse: yes
-        state: directory
+        path: "{{ current_path }}"
+        state: absent
 
-    - name: Clone the Python repository
+    - name: Clone the Python repository directly into current path
       git:
         repo: https://github.com/priyanka-TL/solution-upload-portal-service
-        dest: "{{release_path}}"
-        version: "{{gitBranch}}"
+        dest: "{{ current_path }}"
+        version: "{{ gitBranch }}"
         force: yes
       register: git_clone
       failed_when: git_clone.failed
 
-    - name: Install Python dependencies
+    - name: Create Python virtual environment and install requirements
       shell: |
-        cd {{ release_path }}
         /usr/bin/python{{ python_version }} -m venv venv
-        source venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt
+        source venv/bin/activate
+        pip install --upgrade pip
+        pip install -r requirements.txt
       args:
+        chdir: "{{ current_path }}"
         executable: /bin/bash
       register: pip_install
       failed_when: pip_install.rc != 0
 
-    - name: Delete Old Folder
-      shell: rm -rf {{ current_path }} && cd {{ project_path }} && mkdir solution-upload-portal-service
-
-    - name: Stop existing PM2 process
+    - name: Stop existing PM2 process if running
       command: pm2 stop {{ pm2_app_name }}
       ignore_errors: yes
       environment:
         PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
 
-    - name: Move code
-      shell: mv "{{ release_path }}"/* {{ current_path }}/
+    - name: Set permissions for json2env.sh
+      shell: chmod 744 {{ current_path }}/scripts/json2env.sh
 
-    - name: Delete release folder
-      shell: rm -rf {{ release_path }}
+    - name: Generate .env from Vault data
+      shell: >
+        cat {{ project_path }}/data2.json | {{ current_path }}/scripts/json2env.sh
+        > {{ current_path }}/apiServices/src/main/.env
+      register: envConfig
 
-    - name: set permission
-      shell: chmod 744 {{ current_path }}/scripts/json2env.sh  
-
-    - name: generate .env 
-      shell: cat {{ project_path }}/data2.json | {{ current_path }}/scripts/json2env.sh > {{ current_path }}/apiServices/src/main/.env
-      register: envConfig 
-    - debug: msg=" cred {{ envConfig }} "
-
-    # - name: Start Flask application using PM2
-    #   shell: |
-    #     pm2 start {{ current_path }}/venv/bin/python --name "{{ pm2_app_name }}" -- {{ current_path }}/apiServices/src/main/app.py
-    #   environment:
-    #     PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
-    #   register: pm2_start
-    #   failed_when: pm2_start.rc != 0
+    - debug: msg="cred {{ envConfig }}"
 
     - name: Start Flask application using PM2
-      shell: |
-        pm2 start {{ current_path }}/venv/bin/python --name "{{ pm2_app_name }}" -- {{ current_path }}/apiServices/src/main/app.py
+      shell: >
+        pm2 start {{ current_path }}/venv/bin/python
+        --name "{{ pm2_app_name }}"
+        -- {{ current_path }}/apiServices/src/main/app.py
       environment:
         PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
         PYTHONPATH: "{{ current_path }}"
