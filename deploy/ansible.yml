@@ -69,10 +69,13 @@
     - name: Delete release folder
       shell: rm -rf {{ release_path }}
 
-    - name: Generate .env file in key=value format
-      shell: |
-        jq -r 'to_entries[] | "\(.key)=\(.value)"' {{ project_path }}/data2.json > {{ current_path }}/apiServices/src/main/.env
-      register: envConfig
+    - name: set permission
+      shell: chmod 744 {{ current_path }}/scripts/json2env.sh  
+
+    - name: generate .env 
+      shell: cat {{ project_path }}/data2.json | {{ current_path }}/scripts/json2env.sh > {{ current_path }}/apiServices/src/main/.env
+      register: envConfig 
+    - debug: msg=" cred {{ envConfig }} "
 
     - name: Start Flask application using PM2
       shell: |
