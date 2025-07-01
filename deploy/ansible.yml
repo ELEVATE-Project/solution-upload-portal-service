@@ -86,21 +86,15 @@
 
     - name: Start Flask application using PM2
       shell: |
-        cd {{project_path}}
-        pm2 start {{current_path}}/start.sh --name "solution-upload-portal-service"
+        cd {{ current_path }}
+        pm2 start venv/bin/python --name "{{ pm2_app_name }}" -- app.py
+      environment:
+        PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
+      register: pm2_start
+      failed_when: pm2_start.rc != 0
 
-    # - name: Start Python application with PM2
-    #   command: >
-    #     pm2 start {{ current_path }}/venv/bin/python
-    #     --name {{ pm2_app_name }}
-    #     -- {{ current_path }}/app.py
-    #   environment:
-    #     PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
-    #   register: pm2_start
-    #   failed_when: pm2_start.rc != 0
-
-    # - name: Save PM2 configuration
-    #   command: pm2 save
-    #   environment:
-    #     PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
-    #   when: pm2_start.rc == 0
+    - name: Save PM2 configuration
+      command: pm2 save
+      environment:
+        PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
+      when: pm2_start.rc == 0
