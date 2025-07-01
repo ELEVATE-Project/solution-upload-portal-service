@@ -78,8 +78,8 @@
     - name: Move code
       shell: mv "{{ release_path }}"/* {{ current_path }}/
 
-    - name: Set permissions for json2env.sh
-      shell: chmod 744 {{ current_path }}/script/json2env.sh
+    # - name: Set permissions for json2env.sh
+    #   shell: chmod 744 {{ current_path }}/script/json2env.sh
 
     - name: Delete release folder
       shell: rm -rf {{ release_path }}
