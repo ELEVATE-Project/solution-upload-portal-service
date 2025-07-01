@@ -6,29 +6,6 @@
     python_version: 3.9
     pm2_app_name: solution-upload-portal-service
   tasks:
-    - name: Add deadsnakes PPA
-      apt_repository:
-        repo: ppa:deadsnakes/ppa
-        state: present
-      when: ansible_distribution_release == "focal"
-      become: true
-
-    - name: Install system dependencies for Python 3.9
-      apt:
-        name:
-          - build-essential
-          - libpq-dev
-          - python3.9
-          - python3.9-venv
-          - python3.9-dev
-        state: present
-        update_cache: yes
-      when: ansible_os_family == "Debian" and python_version_check.rc != 0
-      register: apt_install
-      retries: 3
-      delay: 10
-      until: apt_install is success
-      become: true
 
     - name: Slurp host file
       slurp:
