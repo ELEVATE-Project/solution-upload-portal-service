@@ -58,14 +58,14 @@
     - name: Delete Old Folder
       shell: rm -rf {{ current_path }} && cd {{ project_path }} && mkdir solution-upload-portal-service
 
-    - name: Generate .env
-      shell: |
-        cat {{ project_path }}/data2.json | {{ current_path }}/scripts/json2env.sh > {{ current_path }}/.env
-      register: envConfig
-
-    # - name: Generate .env file
-    #   shell: cat {{project_path}}/data2.json | jq '.data' > {{ project_path }}/.env
+    # - name: Generate .env
+    #   shell: |
+    #     cat {{ project_path }}/data2.json | {{ current_path }}/scripts/json2env.sh > {{ current_path }}/.env
     #   register: envConfig
+
+    - name: Generate .env file
+      shell: cat {{project_path}}/data2.json | jq '.data' > {{ project_path }}/.env
+      register: envConfig
 
     - name: Stop existing PM2 process
       command: pm2 stop {{ pm2_app_name }}
