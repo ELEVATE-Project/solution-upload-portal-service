@@ -8,8 +8,13 @@
     app_user: jenkins
     app_group: jenkins
   tasks:
+
+    - name: Debug python_version variable
+      debug:
+        msg: "Python version variable is set to: {{ python_version }}"
+
     - name: Verify Python is available
-      command: /usr/bin/python{{ python_version }} --version
+      command: /usr/bin/python3.10 --version
       register: python_check
       failed_when: python_check.rc != 0
       changed_when: false
