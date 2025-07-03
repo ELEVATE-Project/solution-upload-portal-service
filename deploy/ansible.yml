@@ -8,7 +8,12 @@
     app_user: jenkins
     app_group: jenkins
   tasks:
-
+    - name: Verify Python is available
+      command: /usr/bin/python{{ python_version }} --version
+      register: python_check
+      failed_when: python_check.rc != 0
+      changed_when: false
+    
     - name: Slurp host file
       slurp:
         src: "{{ project_path }}/.token"
@@ -50,33 +55,23 @@
 
     - debug: msg="{{ ownership_check.stdout_lines }}"
 
-    - name: Ensure Python and pip are available
-      package:
-        name:
-          - python3
-          - python3-pip
-          - python3-venv
-        state: present
-      become: yes
-
     - name: Remove existing virtual environment if it exists
       file:
         path: "{{ current_path }}/venv"
         state: absent
+      register: delete_venv
+      failed_when: delete_venv.failed and "Permission denied" not in delete_venv.msg
+      ignore_errors: yes
 
     - name: Create Python virtual environment and install requirements
       shell: |
         set -e
-        
         # Create virtual environment
         /usr/bin/python{{ python_version }} -m venv {{ current_path }}/venv
-        
         # Activate virtual environment
         source {{ current_path }}/venv/bin/activate
-        
         # Upgrade pip
         pip install --upgrade pip
-        
         # Install requirements if file exists
         if [ -f "requirements.txt" ]; then
           echo "Installing from requirements.txt"
@@ -85,10 +80,8 @@
           echo "requirements.txt not found, installing essential packages"
           pip install flask flask-cors pymongo python-dotenv
         fi
-        
         # Verify Flask installation
         python -c "import flask; print('Flask installed successfully, version:', flask.__version__)"
-        
         # List installed packages
         pip list | grep -E "(flask|pymongo|python-dotenv)"
       args:
@@ -108,27 +101,29 @@
         PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
 
     - name: Set permissions for json2env.sh
-      shell: chmod 744 {{ current_path }}/scripts/json2env.sh
+      file:
+        path: "{{ current_path }}/scripts/json2env.sh"
+        mode: '0744'
+      register: chmod_json2env
+      failed_when: chmod_json2env.failed and "Permission denied" not in chmod_json2env.msg
+      ignore_errors: yes
 
     - name: Generate .env from Vault data with proper formatting
       shell: |
         set -e
-        
         # Generate .env file
         cat {{ project_path }}/data2.json | {{ current_path }}/scripts/json2env.sh > {{ current_path }}/apiServices/src/main/.env.tmp
-        
         # Clean up the .env file format
         sed -i 's/= *"/=/g' {{ current_path }}/apiServices/src/main/.env.tmp
         sed -i 's/"$//g' {{ current_path }}/apiServices/src/main/.env.tmp
         sed -i 's/HOSTIP=http:\/\/127\.0\.0\.1:5000\//HOSTIP=127.0.0.1/g' {{ current_path }}/apiServices/src/main/.env.tmp
-        
         # Move to final location
         mv {{ current_path }}/apiServices/src/main/.env.tmp {{ current_path }}/apiServices/src/main/.env
-        
         # Show the generated .env file
         echo "Generated .env file:"
         cat {{ current_path }}/apiServices/src/main/.env
       register: envConfig
+      when: credentials is defined and credentials.rc == 0
 
     - debug: msg="Environment config {{ envConfig.stdout_lines }}"
 
@@ -140,6 +135,7 @@
         chdir: "{{ current_path }}"
         executable: /bin/bash
       register: flask_verify
+      failed_when: flask_verify.rc != 0
 
     - debug: msg="Flask verification {{ flask_verify.stdout }}"
 
@@ -148,26 +144,23 @@
         content: |
           #!/bin/bash
           set -e
-          
           # Change to application directory
           cd {{ current_path }}/apiServices/src/main
-          
           # Set Python path
           export PYTHONPATH="{{ current_path }}:{{ current_path }}/apiServices/src/main"
-          
           # Load environment variables
           if [ -f .env ]; then
             export $(cat .env | grep -v '^#' | xargs)
           fi
-          
           # Verify required modules
           {{ current_path }}/venv/bin/python -c "import flask, pymongo; print('All modules available')"
-          
           # Start the application
           echo "Starting Flask application..."
           {{ current_path }}/venv/bin/python app.py
         dest: "{{ current_path }}/start_app.sh"
         mode: '0755'
+      register: startup_script
+      failed_when: startup_script.failed and "Permission denied" not in startup_script.msg
 
     - name: Test startup script
       shell: |
@@ -198,7 +191,6 @@
       environment:
         PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
       register: pm2_logs
-      when: pm2_status.rc != 0
-      ignore_errors: yes
+      when: pm2_start.rc != 0
 
     - debug: msg="PM2 start result {{ pm2_start }}"
