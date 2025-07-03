@@ -36,10 +36,16 @@
       register: git_clone
       failed_when: git_clone.failed
 
+    - name: Ensure python3.10 venv package is installed (required for venv)
+      apt:
+        name: python3.10-venv
+        state: present
+      become: true
+
     - name: Create Python virtual environment and install requirements
       shell: |
-        /usr/bin/python{{ python_version }} -m venv venv
-        source venv/bin/activate
+        /usr/bin/python{{ python_version }} -m venv {{ current_path }}/venv
+        source {{ current_path }}/venv/bin/activate
         pip install --upgrade pip
         pip install -r requirements.txt
       args:
