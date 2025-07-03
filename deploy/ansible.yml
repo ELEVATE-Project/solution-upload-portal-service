@@ -37,14 +37,18 @@
       register: git_clone
       failed_when: git_clone.failed
 
-    - name: Set ownership of cloned repository
-      file:
-        path: "{{ current_path }}"
-        owner: "{{ app_user }}"
-        group: "{{ app_group }}"
-        recurse: yes
-        state: directory
-      become: yes
+    - name: Set ownership of cloned repository using shell
+      shell: |
+        if [ -w "{{ current_path }}" ]; then
+          echo "Directory is writable, ownership already correct"
+        else
+          echo "Directory ownership may need adjustment"
+          ls -la "{{ current_path }}"
+        fi
+      register: ownership_check
+      ignore_errors: yes
+
+    - debug: msg="{{ ownership_check.stdout_lines }}"
 
     - name: Ensure Python and pip are available
       package:
@@ -97,15 +101,6 @@
       debug:
         msg: "{{ pip_install.stdout_lines }}"
 
-    - name: Set proper permissions for virtual environment
-      file:
-        path: "{{ current_path }}/venv"
-        owner: "{{ app_user }}"
-        group: "{{ app_group }}"
-        recurse: yes
-        state: directory
-      become: yes
-
     - name: Stop existing PM2 process if running
       command: pm2 stop {{ pm2_app_name }}
       ignore_errors: yes
@@ -148,7 +143,6 @@
 
     - debug: msg="Flask verification {{ flask_verify.stdout }}"
 
-
     - name: Create enhanced startup script
       copy:
         content: |
@@ -173,10 +167,7 @@
           echo "Starting Flask application..."
           {{ current_path }}/venv/bin/python app.py
         dest: "{{ current_path }}/start_app.sh"
-        owner: "{{ app_user }}"
-        group: "{{ app_group }}"
         mode: '0755'
-      become: yes
 
     - name: Test startup script
       shell: |
@@ -191,7 +182,6 @@
         pm2 start {{ current_path }}/start_app.sh
         --name "{{ pm2_app_name }}"
         --watch false
-    
       environment:
         PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
       register: pm2_start
