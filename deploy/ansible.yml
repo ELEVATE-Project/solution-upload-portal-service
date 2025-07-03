@@ -1,3 +1,4 @@
+---
 - hosts: elevate
   vars:
     project_path: /opt/backend/deployment
@@ -35,17 +36,74 @@
       register: git_clone
       failed_when: git_clone.failed
 
+    - name: Set ownership of cloned repository
+      file:
+        path: "{{ current_path }}"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        recurse: yes
+        state: directory
+      become: yes
+
+    - name: Ensure Python and pip are available
+      package:
+        name:
+          - python3
+          - python3-pip
+          - python3-venv
+        state: present
+      become: yes
+
+    - name: Remove existing virtual environment if it exists
+      file:
+        path: "{{ current_path }}/venv"
+        state: absent
+
     - name: Create Python virtual environment and install requirements
       shell: |
+        set -e
+        
+        # Create virtual environment
         /usr/bin/python{{ python_version }} -m venv {{ current_path }}/venv
+        
+        # Activate virtual environment
         source {{ current_path }}/venv/bin/activate
+        
+        # Upgrade pip
         pip install --upgrade pip
-        pip install -r requirements.txt
+        
+        # Install requirements if file exists
+        if [ -f "requirements.txt" ]; then
+          echo "Installing from requirements.txt"
+          pip install -r requirements.txt
+        else
+          echo "requirements.txt not found, installing essential packages"
+          pip install flask flask-cors pymongo python-dotenv
+        fi
+        
+        # Verify Flask installation
+        python -c "import flask; print('Flask installed successfully, version:', flask.__version__)"
+        
+        # List installed packages
+        pip list | grep -E "(flask|pymongo|python-dotenv)"
       args:
         chdir: "{{ current_path }}"
         executable: /bin/bash
       register: pip_install
       failed_when: pip_install.rc != 0
+
+    - name: Debug virtual environment installation
+      debug:
+        msg: "{{ pip_install.stdout_lines }}"
+
+    - name: Set proper permissions for virtual environment
+      file:
+        path: "{{ current_path }}/venv"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        recurse: yes
+        state: directory
+      become: yes
 
     - name: Stop existing PM2 process if running
       command: pm2 stop {{ pm2_app_name }}
@@ -56,28 +114,83 @@
     - name: Set permissions for json2env.sh
       shell: chmod 744 {{ current_path }}/scripts/json2env.sh
 
-    - name: Generate .env from Vault data
-      shell: >
-        cat {{ project_path }}/data2.json | {{ current_path }}/scripts/json2env.sh
-        > {{ current_path }}/apiServices/src/main/.env
+    - name: Generate .env from Vault data with proper formatting
+      shell: |
+        set -e
+        
+        # Generate .env file
+        cat {{ project_path }}/data2.json | {{ current_path }}/scripts/json2env.sh > {{ current_path }}/apiServices/src/main/.env.tmp
+        
+        # Clean up the .env file format
+        sed -i 's/= *"/=/g' {{ current_path }}/apiServices/src/main/.env.tmp
+        sed -i 's/"$//g' {{ current_path }}/apiServices/src/main/.env.tmp
+        sed -i 's/HOSTIP=http:\/\/127\.0\.0\.1:5000\//HOSTIP=127.0.0.1/g' {{ current_path }}/apiServices/src/main/.env.tmp
+        
+        # Move to final location
+        mv {{ current_path }}/apiServices/src/main/.env.tmp {{ current_path }}/apiServices/src/main/.env
+        
+        # Show the generated .env file
+        echo "Generated .env file:"
+        cat {{ current_path }}/apiServices/src/main/.env
       register: envConfig
 
-    - debug: msg="cred {{ envConfig }}"
+    - debug: msg="Environment config {{ envConfig.stdout_lines }}"
 
-    - name: Create startup script
+    - name: Verify Flask installation in virtual environment
+      shell: |
+        source {{ current_path }}/venv/bin/activate
+        python -c "import flask, pymongo; print('All required modules imported successfully')"
+      args:
+        chdir: "{{ current_path }}"
+        executable: /bin/bash
+      register: flask_verify
+
+    - debug: msg="Flask verification {{ flask_verify.stdout }}"
+
+
+    - name: Create enhanced startup script
       copy:
         content: |
           #!/bin/bash
+          set -e
+          
+          # Change to application directory
           cd {{ current_path }}/apiServices/src/main
+          
+          # Set Python path
           export PYTHONPATH="{{ current_path }}:{{ current_path }}/apiServices/src/main"
+          
+          # Load environment variables
+          if [ -f .env ]; then
+            export $(cat .env | grep -v '^#' | xargs)
+          fi
+          
+          # Verify required modules
+          {{ current_path }}/venv/bin/python -c "import flask, pymongo; print('All modules available')"
+          
+          # Start the application
+          echo "Starting Flask application..."
           {{ current_path }}/venv/bin/python app.py
         dest: "{{ current_path }}/start_app.sh"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
         mode: '0755'
+      become: yes
+
+    - name: Test startup script
+      shell: |
+        timeout 10s {{ current_path }}/start_app.sh || true
+      register: startup_test
+      ignore_errors: yes
+
+    - debug: msg="Startup test {{ startup_test.stdout_lines }}"
 
     - name: Start Flask application using PM2 with shell script
       shell: >
         pm2 start {{ current_path }}/start_app.sh
         --name "{{ pm2_app_name }}"
+        --watch false
+    
       environment:
         PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
       register: pm2_start
@@ -87,6 +200,14 @@
       shell: pm2 save
       environment:
         PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
+      ignore_errors: yes
+
+    - name: Show PM2 logs if application failed to start
+      shell: pm2 logs {{ pm2_app_name }} --lines 20
+      environment:
+        PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
+      register: pm2_logs
+      when: pm2_status.rc != 0
       ignore_errors: yes
 
     - debug: msg="PM2 start result {{ pm2_start }}"
