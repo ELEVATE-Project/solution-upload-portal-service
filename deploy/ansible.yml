@@ -1,4 +1,3 @@
----
 - hosts: elevate
   vars:
     project_path: /opt/backend/deployment
@@ -35,12 +34,6 @@
         force: yes
       register: git_clone
       failed_when: git_clone.failed
-
-    - name: Ensure python3.10 venv package is installed (required for venv)
-      apt:
-        name: python3.10-venv
-        state: present
-      become: true
 
     - name: Create Python virtual environment and install requirements
       shell: |
