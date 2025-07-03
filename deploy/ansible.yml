@@ -2,16 +2,11 @@
 - hosts: elevate
   vars:
     project_path: /opt/backend/deployment
-    python_version: 3.10
     pm2_app_name: solution-upload-portal-service
     current_path: "{{ project_path }}/solution-upload-portal-service"
     app_user: jenkins
     app_group: jenkins
   tasks:
-
-    - name: Debug python_version variable
-      debug:
-        msg: "Python version variable is set to: {{ python_version }}"
 
     - name: Verify Python is available
       command: /usr/bin/python3.10 --version
@@ -72,7 +67,7 @@
       shell: |
         set -e
         # Create virtual environment
-        /usr/bin/python{{ python_version }} -m venv {{ current_path }}/venv
+        /usr/bin/python3.10 -m venv {{ current_path }}/venv
         # Activate virtual environment
         source {{ current_path }}/venv/bin/activate
         # Upgrade pip
