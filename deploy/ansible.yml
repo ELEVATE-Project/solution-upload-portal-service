@@ -4,20 +4,19 @@
     project_path: /opt/backend/deployment
     pm2_app_name: solution-upload-portal-service
     current_path: "{{ project_path }}/solution-upload-portal-service"
-    app_user: jenkins
-    app_group: jenkins
   tasks:
-
     - name: Verify Python is available
       command: /usr/bin/python3.10 --version
       register: python_check
       failed_when: python_check.rc != 0
       changed_when: false
-    
+
     - name: Slurp host file
       slurp:
         src: "{{ project_path }}/.token"
       register: slurpfile
+      failed_when: slurpfile.failed
+      ignore_errors: yes
 
     - name: Get vault credentials
       shell: >
@@ -32,8 +31,11 @@
       file:
         path: "{{ current_path }}"
         state: absent
+      register: delete_folder
+      failed_when: delete_folder.failed and "Permission denied" not in delete_folder.msg
+      ignore_errors: yes
 
-    - name: Clone the Python repository directly into current path
+    - name: Clone the Python repository
       git:
         repo: https://github.com/priyanka-TL/solution-upload-portal-service
         dest: "{{ current_path }}"
@@ -42,20 +44,7 @@
       register: git_clone
       failed_when: git_clone.failed
 
-    - name: Set ownership of cloned repository using shell
-      shell: |
-        if [ -w "{{ current_path }}" ]; then
-          echo "Directory is writable, ownership already correct"
-        else
-          echo "Directory ownership may need adjustment"
-          ls -la "{{ current_path }}"
-        fi
-      register: ownership_check
-      ignore_errors: yes
-
-    - debug: msg="{{ ownership_check.stdout_lines }}"
-
-    - name: Remove existing virtual environment if it exists
+    - name: Remove existing virtual environment
       file:
         path: "{{ current_path }}/venv"
         state: absent
@@ -66,13 +55,9 @@
     - name: Create Python virtual environment and install requirements
       shell: |
         set -e
-        # Create virtual environment
         /usr/bin/python3.10 -m venv {{ current_path }}/venv
-        # Activate virtual environment
         source {{ current_path }}/venv/bin/activate
-        # Upgrade pip
         pip install --upgrade pip
-        # Install requirements if file exists
         if [ -f "requirements.txt" ]; then
           echo "Installing from requirements.txt"
           pip install -r requirements.txt
@@ -80,10 +65,7 @@
           echo "requirements.txt not found, installing essential packages"
           pip install flask flask-cors pymongo python-dotenv
         fi
-        # Verify Flask installation
         python -c "import flask; print('Flask installed successfully, version:', flask.__version__)"
-        # List installed packages
-        pip list | grep -E "(flask|pymongo|python-dotenv)"
       args:
         chdir: "{{ current_path }}"
         executable: /bin/bash
@@ -93,7 +75,7 @@
     - name: Debug virtual environment installation
       debug:
         msg: "{{ pip_install.stdout_lines }}"
-
+    
     - name: Stop existing PM2 process if running
       command: pm2 stop {{ pm2_app_name }}
       ignore_errors: yes
@@ -108,25 +90,19 @@
       failed_when: chmod_json2env.failed and "Permission denied" not in chmod_json2env.msg
       ignore_errors: yes
 
-    - name: Generate .env from Vault data with proper formatting
+    - name: Generate .env from Vault data
       shell: |
         set -e
-        # Generate .env file
         cat {{ project_path }}/data2.json | {{ current_path }}/scripts/json2env.sh > {{ current_path }}/apiServices/src/main/.env.tmp
-        # Clean up the .env file format
         sed -i 's/= *"/=/g' {{ current_path }}/apiServices/src/main/.env.tmp
         sed -i 's/"$//g' {{ current_path }}/apiServices/src/main/.env.tmp
-        sed -i 's/HOSTIP=http:\/\/127\.0\.0\.1:5000\//HOSTIP=127.0.0.1/g' {{ current_path }}/apiServices/src/main/.env.tmp
-        # Move to final location
         mv {{ current_path }}/apiServices/src/main/.env.tmp {{ current_path }}/apiServices/src/main/.env
-        # Show the generated .env file
-        echo "Generated .env file:"
-        cat {{ current_path }}/apiServices/src/main/.env
+      args:
+        executable: /bin/bash
       register: envConfig
       when: credentials is defined and credentials.rc == 0
 
     - debug: msg="Environment config {{ envConfig.stdout_lines }}"
-
     - name: Verify Flask installation in virtual environment
       shell: |
         source {{ current_path }}/venv/bin/activate
@@ -137,24 +113,17 @@
       register: flask_verify
       failed_when: flask_verify.rc != 0
 
-    - debug: msg="Flask verification {{ flask_verify.stdout }}"
-
-    - name: Create enhanced startup script
+    - name: Create startup script
       copy:
         content: |
           #!/bin/bash
           set -e
-          # Change to application directory
           cd {{ current_path }}/apiServices/src/main
-          # Set Python path
           export PYTHONPATH="{{ current_path }}:{{ current_path }}/apiServices/src/main"
-          # Load environment variables
           if [ -f .env ]; then
             export $(cat .env | grep -v '^#' | xargs)
           fi
-          # Verify required modules
           {{ current_path }}/venv/bin/python -c "import flask, pymongo; print('All modules available')"
-          # Start the application
           echo "Starting Flask application..."
           {{ current_path }}/venv/bin/python app.py
         dest: "{{ current_path }}/start_app.sh"
@@ -162,15 +131,7 @@
       register: startup_script
       failed_when: startup_script.failed and "Permission denied" not in startup_script.msg
 
-    - name: Test startup script
-      shell: |
-        timeout 10s {{ current_path }}/start_app.sh || true
-      register: startup_test
-      ignore_errors: yes
-
-    - debug: msg="Startup test {{ startup_test.stdout_lines }}"
-
-    - name: Start Flask application using PM2 with shell script
+    - name: Start Flask application using PM2
       shell: >
         pm2 start {{ current_path }}/start_app.sh
         --name "{{ pm2_app_name }}"
@@ -192,5 +153,3 @@
         PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
       register: pm2_logs
       when: pm2_start.rc != 0
-
-    - debug: msg="PM2 start result {{ pm2_start }}"
