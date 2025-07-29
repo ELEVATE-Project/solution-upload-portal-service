@@ -78,6 +78,11 @@ criteriaName = None
 solutionId = None
 API_log = None
 stateEntitiesPGM = []
+districtEntitiesPGM = []
+blockEntitiesPGM = []
+clusterEntitiesPGM = []
+schoolEntitiesPGM = []
+
 entityToUpload = None
 programID = None
 programExternalId = None
@@ -116,6 +121,8 @@ tenantID = None
 orgIDFromTemplate = None
 roleOfResourceCreator = 'admin'
 solutionDict = {}
+entityHierarchy = []
+isExternalProgram = ""
 
 class ElevateObservation:
 
@@ -302,7 +309,7 @@ class ElevateObservation:
         orgIDFromTemplate = ElevateObservation.clean_single_value(decodedToken['data']['organizations'][0].get('id'))
         print(orgIDFromTemplate,"312")
 
-    def fetchEntityType(solutionName_for_folder_path, accessToken, entitiesPGM, scopeEntityType):
+    def fetchEntityType(solutionName_for_folder_path, accessToken, entitiesPGM, scopeEntityType,):
         urlFetchEntityListApi = elevateentityhost + searchforlocation
         print(urlFetchEntityListApi,"urlFetchEntityListApi")
         headerFetchEntityListApi = {
@@ -312,6 +319,7 @@ class ElevateObservation:
         print(headerFetchEntityListApi,"headerFetchEntityListApi")
         # Initialize a dictionary to store entity types for each entity
         entityTypes = []
+        entityTypeID =[]
         # Loop through each entity name in the entitiesPGM list
         for entityName in entitiesPGM:
             entityName = entityName.strip()  # Remove any extra spaces
@@ -324,7 +332,7 @@ class ElevateObservation:
                     # "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')},
                 },
                 "projection": [
-                    "entityType"
+                    "entityType","_id"
                 ]
             }
             data = json.dumps(payload)
@@ -347,12 +355,18 @@ class ElevateObservation:
                 entityToUpload = None  # Initialize for each entity
                 for listEntities in responseFetchEntityListApi['result']:
                     entityToUpload = listEntities['entityType']
+                    entityId = listEntities['_id']
+                    print(entityId,"entityId")
                     # entityToUpload = listEntities.get('entityType', '').lower().strip()
 
                     # If a valid entityType is found, store it in the dictionary and break out of the loop
                     if entityToUpload:
                         entityTypes.append(entityToUpload)
                         break
+
+                    if entityId:
+                        entityTypeID.append(entityId)
+                        # print("Entity ID found:", entityId)
 
                 # If no entityType is found for this entity, raise an error for that specific entity
                 if not entityToUpload:
@@ -361,9 +375,9 @@ class ElevateObservation:
                 # Handle cases where the API call fails for a specific entity
                 raise RuntimeError(f"Failed to fetch entity type for '{entityName}'. Status code: {responseFetchEntityListApi.status_code}")
         # Return all found entity types
-        return entityTypes
+        return entityTypes 
 
-    def fetchEntityId(solutionName_for_folder_path, accessToken, entitiesNameList, scopeEntityType):
+    def fetchEntityId(solutionName_for_folder_path, accessToken, entitiesNameList, scopeEntityType,entitiesPGM):
         try:
             global errorVar
             urlFetchEntityListApi = elevateentityhost + searchforlocation
@@ -377,6 +391,10 @@ class ElevateObservation:
                     "entityType": {
                         "$in": scopeEntityType
                     },
+                    "metaInformation.name":
+                    {
+                        "$in": entitiesPGM.split(",")
+                    },
                     "tenantId":tenantID ,
                     # "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')}
                 },
@@ -386,10 +404,13 @@ class ElevateObservation:
                 ]
                 }
             data=json.dumps(payload)
+            print(data,"payload")
             responseFetchEntityListApi = requests.post(url=urlFetchEntityListApi, headers=headerFetchEntityListApi,data=json.dumps(payload))
             messageArr = ["Entities List Fetch API executed.", "URL  : " + str(urlFetchEntityListApi),
                         "Status : " + str(responseFetchEntityListApi.status_code)]
             ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+
+            print(responseFetchEntityListApi.text,"responseFetchEntityListApi-------")
             if responseFetchEntityListApi.status_code == 200:
                 responseFetchEntityListApi = responseFetchEntityListApi.json()
                 entitiesLookup = dict()
@@ -417,28 +438,99 @@ class ElevateObservation:
                     print("--->Scope Entity error.")
                 return entityToUpload
             else:
-                    messageArr = ["Error in Location search",str(responseFetchEntityListApi.status_code)]
-                    errorvar = str(responseFetchEntityListApi.text)
-                    ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
-                    print("---> Error in location search.")
+                messageArr = ["Error in Location search",str(responseFetchEntityListApi.status_code)]
+                errorvar = str(responseFetchEntityListApi.text)
+                ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                print("---> Error in location search.")
         except Exception as e:
             print(f"Error occurred: {str(e)}")
             errorVar
             print(errorVar,"---> API-Error")
 
+
+   
+
+    def fetchEntityParentChilds(solutionName_for_folder_path, accessToken, entityId):
+        try:
+            global errorVar
+            entityId = entityId[0] if isinstance(entityId, list) else entityId
+
+            urlFetchEntity = elevateentityhost + fetchDetailsEntity + entityId
+            print(urlFetchEntity, "urlFetchEntity")
+
+            headers = {
+                'Content-Type': content_type,
+                'tenantId': tenantID
+            }
+
+            response = requests.get(url=urlFetchEntity, headers=headers)
+
+            messageArr = [
+                "Entity Details API executed.",
+                "URL: " + urlFetchEntity,
+                "Status: " + str(response.status_code)
+            ]
+            ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+
+            if response.status_code == 200:
+                responseJson = response.json()
+                result = responseJson.get("result", [])[0]
+
+                parent_info = result.get("parentInformation", {})
+                current_entity_type = result.get("entityType").lower()  # e.g., "block"
+                current_entity_id = result.get("_id")
+
+                hierarchy = ["state", "district", "block", "cluster", "school"]
+                output = {}
+
+                current_index = hierarchy.index(current_entity_type)
+
+                # Fill levels above current from parentInformation
+                for i in range(current_index):
+                    level = hierarchy[i]
+                    if level in parent_info and parent_info[level]:
+                        output[level] = [parent_info[level][0]["_id"]]
+                    else:
+                        output[level] = ["ALL"]
+
+                # Set current level with actual ID
+                output[current_entity_type] = [current_entity_id]
+
+                # Fill levels below with "ALL"
+                for i in range(current_index + 1, len(hierarchy)):
+                    output[hierarchy[i]] = ["ALL"]
+
+                print("Structured Entity Hierarchy:", json.dumps(output, indent=2))
+                return output
+
+            else:
+                errorVar = response.text
+                messageArr = ["Error fetching entity details", str(response.status_code), response.text]
+                ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                print("---> Error in fetching entity details.")
+                return None
+
+        except Exception as e:
+            errorVar = str(e)
+            print("Error occurred:", errorVar)
+            return None
+
+
+
     def getProgramInfo(accessToken, solutionName_for_folder_path, programNameInp):
         try:
             if programNameInp:
-                global programID, programExternalId, programDescription, isProgramnamePresent, programName
+                global programID, programExternalId, programDescription, isProgramnamePresent, programName, isExternalProgram,tenantID
                 programName = programNameInp
-                programUrl = internal_kong_ip + fetchprograminfoapiurl
+                programUrl = elevateprojecthost + fetchprograminfoapiurl
                 print(programUrl,"programUrl")
                 # print(programUrl,"payload")
                 payload = json.dumps({
                     "query": {
                         "name": programNameInp.lstrip().rstrip(),
                         "isAPrivateProgram": False,
-                        "status": "active"
+                        "status": "active",
+                        "tenantId": tenantID,
                         },
                         "mongoIdKeys": []
                         })
@@ -462,16 +554,73 @@ class ElevateObservation:
                     countOfPrograms = len(responseProgramSearch['result'])
                     messageArr.append("--->Program Count : " + str(countOfPrograms))
                     if countOfPrograms == 0:
-                        messageArr.append("No program found with the name : " + str(programName.lstrip().rstrip()))
-                        messageArr.append("******************** Preparing for program Upload **********************")
-                        print("No program found with the name : " + str(programName.lstrip().rstrip()))
-                        print("******************** Preparing for program Upload **********************")
+                        programUrl = internal_kong_ip + fetchprograminfoapiurl
+                        print(programUrl,"programUrl")
+                        # print(programUrl,"payload")
+                        responseProgramSearch = requests.post(url=programUrl, headers=headersProgramSearch,data=payload)
+                        print(responseProgramSearch.text,"responseProgramSearch")
+                        messageArr = []
+
+                        messageArr.append("Program Search API")
+                        messageArr.append("URL : " + programUrl)
+                        messageArr.append("Status Code : " + str(responseProgramSearch.status_code))
+                        messageArr.append("Response : " + str(responseProgramSearch.text))
                         ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
-                        fileheader = ["Program name fetch","Successfully fetched program name","Passed"]
-                        ElevateObservation.apicheckslog(solutionName_for_folder_path,fileheader)
-                        return False
+                        messageArr = []
+                        if responseProgramSearch.status_code == 200:
+                            print('--->Program fetch API Success')
+                            messageArr.append("--->Program fetch API Success")
+                            responseProgramSearch = responseProgramSearch.json()
+                            countOfPrograms = len(responseProgramSearch['result'])
+                            messageArr.append("--->Program Count : " + str(countOfPrograms))
+                            if countOfPrograms == 0:
+                                messageArr.append("No program found with the name : " + str(programName.lstrip().rstrip()))
+                                messageArr.append("******************** Preparing for program Upload **********************")
+                                print("No program found with the name : " + str(programName.lstrip().rstrip()))
+                                print("******************** Preparing for program Upload **********************")
+                                ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                                fileheader = ["Program name fetch","Successfully fetched program name","Passed"]
+                                ElevateObservation.apicheckslog(solutionName_for_folder_path,fileheader)
+                                return False
+                            else:
+                                getProgramDetails = []
+                                isExternalProgram = 'false'
+                                for eachPgm in responseProgramSearch['result']:
+                                    if eachPgm['isAPrivateProgram'] == False:
+                                        programID = eachPgm['_id']
+                                        programExternalId = eachPgm['externalId']
+                                        programDescription = eachPgm['description']
+                                        isAPrivateProgram = eachPgm['isAPrivateProgram']
+                                        getProgramDetails.append([programID, programExternalId, programDescription, isAPrivateProgram])
+                                        if len(getProgramDetails) == 0:
+                                            print("Total " + str(len(getProgramDetails)) + " backend programs found with the name : " + programName.lstrip().rstrip())
+                                            messageArr.append("Total " + str(len(getProgramDetails)) + " backend programs found with the name : " + programName.lstrip().rstrip())
+                                            ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                                            fileheader = ["program find api is running","found"+str(len(
+                                                getProgramDetails))+"programs in backend","Failed","found"+str(len(
+                                                getProgramDetails))+"programs ,check logs"]
+                                            ElevateObservation.apicheckslog(solutionName_for_folder_path,fileheader)
+                                            # ElevateObservation.terminatingMessage("Aborting...")
+                                        elif len(getProgramDetails) > 1:
+                                            print("Total " + str(len(getProgramDetails)) + " backend programs found with the name : " + programName.lstrip().rstrip())
+                                            messageArr.append("Total " + str(len(getProgramDetails)) + " backend programs found with the name : " + programName.lstrip().rstrip())
+                                            ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+
+                                        else:
+                                            programID = getProgramDetails[0][0]
+                                            programExternalId = getProgramDetails[0][1]
+                                            programDescription = getProgramDetails[0][2]
+                                            isAPrivateProgram = getProgramDetails[0][3]
+                                            isProgramnamePresent = True
+                                            messageArr.append("programID : " + str(programID))
+                                            messageArr.append("programExternalId : " + str(programExternalId))
+                                            messageArr.append("programDescription : " + str(programDescription))
+                                            messageArr.append("isAPrivateProgram : " + str(isAPrivateProgram))
+                                        ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                                return True
                     else:
                         getProgramDetails = []
+                        isExternalProgram = 'true'
                         for eachPgm in responseProgramSearch['result']:
                             if eachPgm['isAPrivateProgram'] == False:
                                 programID = eachPgm['_id']
@@ -530,12 +679,7 @@ class ElevateObservation:
             headers = {# 'Content-Type': 'application/json',
                     'internal-access-token': internal_access_token,
                     'X-auth-token': accessToken}
-            # isEmail = checkEmailValidation(dikshaId.lstrip().rstrip())
-            # if isEmail:
-            #     body = "{\n  \"request\": {\n    \"filters\": {\n    \t\"email\": \"" + dikshaId.lstrip().rstrip() + "\"\n    },\n      \"fields\" :[],\n    \"limit\": 1000,\n    \"sort_by\": {\"createdDate\": \"desc\"}\n  }\n}"
-            # else:
-            #     body = "{\n  \"request\": {\n    \"filters\": {\n    \t\"userName\": \"" + dikshaId.lstrip().rstrip() + "\"\n    },\n      \"fields\" :[],\n    \"limit\": 1000,\n    \"sort_by\": {\"createdDate\": \"desc\"}\n  }\n}"
-            
+           
             responseUserSearch = requests.request("GET", url, headers=headers)
             print(responseUserSearch.text,"responseUserSearch")
             if responseUserSearch.status_code == 200:
@@ -580,29 +724,25 @@ class ElevateObservation:
             print(errorVar)     
             
 
-    def programCreation(accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM):
+    def programCreation(accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM,entityHierarchy):
         global errorVar,scopeEntityType
+        print(orgIDFromTemplate,"orgIDFromTemplate")
         try: 
             messageArr = []
             messageArr.append("++++++++++++ Program Creation ++++++++++++")
             # program creation url 
-            ProgramCreationurl = internal_kong_ip + programcreationurl
+            ProgramCreationurl = elevateprojecthost + programcreationurl
             messageArr.append("Program Creation URL : " + ProgramCreationurl)
             # print(ProgramCreationurl,"ProgramCreationurl")
             # program creation payload
-            scope={}
-            for i in range(len(scopeEntityType)):
-                entity_type = scopeEntityType[i]
-                entity_value = entities[i]
-                if entity_type in scope:
-                    scope[entity_type].append(entity_value)
-                else:
-                    scope[entity_type] = [entity_value]
-                            # bodySolutionUpdate = {
-                            #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
-            scope["organizations"] = [orgIDFromTemplate]
-            scope["professional_subroles"] = rolesPGMID
-            scope["professional_role"] = mainRole
+            scope = {
+                "organizations": [orgIDFromTemplate],
+                "professional_subroles": rolesPGMID,
+                "professional_role": mainRole
+            }
+
+            scope.update(entityHierarchy)
+
             payload = json.dumps({
             "externalId": externalId,
             "name": pName,
@@ -641,7 +781,7 @@ class ElevateObservation:
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: adminAccessToken
                 }
-            
+            print(headers,"headers")
             # program creation 
             responsePgmCreate = requests.request("POST", ProgramCreationurl, headers=headers, data=(payload))
             print(responsePgmCreate.text,"responsePgmCreate")
@@ -677,7 +817,7 @@ class ElevateObservation:
             print(errorVar)
 
     def programsFileCheck(filePathAddPgm, accessToken, parentFolder, MainFilePath):
-        global errorVar
+        global errorVar, entityHierarchy,tenantID,orgIDFromTemplate
         errorVar = ""
         program_file = filePathAddPgm
         # open excel file 
@@ -685,7 +825,7 @@ class ElevateObservation:
         global programNameInp
         sheetNames = wbPgm.sheet_names()
         # list of sheets in the program sheet 
-        pgmSheets = ["Instructions", "Program Details", "Resource Details","Program Manager Details"]
+        pgmSheets = ["Instructions", "Program Details", "Resource Details","Program Manager Details","Role-Subrole Mapping"]
 
         # checking the sheets in the program sheet 
         if (len(sheetNames) == len(pgmSheets)) and ((set(sheetNames) == set(pgmSheets))):
@@ -714,46 +854,42 @@ class ElevateObservation:
                             extIdPGM = dictDetailsEnv['Program ID'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "\"Program ID\" must not be Empty in \"Program details\" sheet"
-                        # programNameInp = dictDetailsEnv['Title of the Program'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Title of the Program'] else ElevateObservation.terminatingMessage("\"Title of the Program\" must not be Empty in \"Program details\" sheet")
-                        # extIdPGM = dictDetailsEnv['Program ID'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Program ID'] else ElevateObservation.terminatingMessage("\"Program ID\" must not be Empty in \"Program details\" sheet")
                         if dictDetailsEnv.get('Description of the Program'):
                             descriptionPGM = dictDetailsEnv['Description of the Program'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "\"Keywords\" must not be Empty in \"Program details\" sheet"
-                        # descriptionPGM = dictDetailsEnv['Description of the Program'].encode('utf-8').decode('utf-8') if dictDetailsEnv[
-                                # 'Description of the Program'] else ElevateObservation.terminatingMessage(
-                                # "\"Description of the Program\" must not be Empty in \"Program details\" sheet")
                         if dictDetailsEnv.get('Keywords'):
                             keywordsPGM = dictDetailsEnv['Keywords'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "\"Keywords\" must not be Empty in \"Program details\" sheet"
-                        # keywordsPGM = dictDetailsEnv['Keywords'].encode('utf-8').decode('utf-8')
-                        returnvalues = []
-                        global entitiesPGM
-                        if dictDetailsEnv.get('Targeted entities at program level'):
-                            entitiesPGM = dictDetailsEnv['Targeted entities at program level'].encode('utf-8').decode('utf-8')
-                        else:
-                            errorVar = "\"Targeted entities at program level\" must not be Empty in \"Program details\" sheet"
-                        # entitiesPGM = dictDetailsEnv['Targeted entities at program level'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Targeted entities at program level'] else ElevateObservation.terminatingMessage("\"Targeted entities at program level\" must not be Empty in \"Program details\" sheet")
-                        global stateEntitiesPGM
+
+                        global stateEntitiesPGM,entitiesPGM,districtEntitiesPGM,blockEntitiesPGM,clusterEntitiesPGM,schoolEntitiesPGM
                         if dictDetailsEnv.get('Targeted state at program level'):
                             stateEntitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "\"Targeted state at program level\" must not be Empty in \"Program details\" sheet"
-                        # stateEntitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8')
-                        global mainRole
+                        if dictDetailsEnv.get('Targeted District at program level'):
+                            districtEntitiesPGM = dictDetailsEnv['Targeted District at program level'].encode('utf-8').decode('utf-8')
+                        # else:
+                        #     errorVar = "\"Targeted District at program level\" must not be Empty in \"Program details\" sheet"
+
+                        if dictDetailsEnv.get('Targeted Block at program level'):
+                            blockEntitiesPGM = dictDetailsEnv['Targeted Block at program level'].encode('utf-8').decode('utf-8')
+                        if dictDetailsEnv.get('Targeted Cluster at program level'):
+                            clusterEntitiesPGM = dictDetailsEnv['Targeted Cluster at program level'].encode('utf-8').decode('utf-8')
+                        if dictDetailsEnv.get('Targeted School at program level'):
+                            schoolEntitiesPGM = dictDetailsEnv['Targeted School at program level'].encode('utf-8').decode('utf-8')
+                       
+
+                        global mainRole,rolesPGMID,rolesPGM,mainRoleproff
                         if dictDetailsEnv.get('Targeted role at program level'):
                             mainRole = dictDetailsEnv['Targeted role at program level'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "\"Targeted role at program level\" must not be Empty in \"Program details\" sheet"
-                        # mainRole = dictDetailsEnv['Targeted role at program level'] if dictDetailsEnv['Targeted role at program level'] else ElevateObservation.terminatingMessage("\"Targeted role at program level\" must not be Empty in \"Program details\" sheet")
-                        global rolesPGM
                         if dictDetailsEnv.get('Targeted subrole at program level'):
                             rolesPGM = dictDetailsEnv['Targeted subrole at program level'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet"
-                        # rolesPGM = dictDetailsEnv['Targeted subrole at program level'] if dictDetailsEnv['Targeted subrole at program level'] else ElevateObservation.terminatingMessage("\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet")  
-                        global rolesPGMID
 
                         mainRoles = str(mainRole).strip().encode('utf-8').decode('utf-8').split(",")
                         subRoles = str(rolesPGM).strip().encode('utf-8').decode('utf-8').split(",")
@@ -762,8 +898,6 @@ class ElevateObservation:
                         subRoles = [r.strip() for r in subRoles if r.strip()]
 
                         verifiedRoles = ElevateObservation.validate_roles_against_api(mainRoles, subRoles)
-                        global mainRoleproff
-
                         print(verifiedRoles,"verifiedRoles")
                         mainRoleproff = verifiedRoles[0]
                         rolesPGMID = verifiedRoles[1]
@@ -782,13 +916,6 @@ class ElevateObservation:
                             errorVar = "\"End date of program\" must not be Empty in \"Program details\" sheet"
                         ReffstartDateOfProgram = dictDetailsEnv['Start date of program']
                         ReffendDateOfProgram = dictDetailsEnv['End date of program']
-                        # global tenantID 
-                        # tenantID = clean_single_value(dictDetailsEnv['Tenant ID'])
-                        # global orgIDFromTemplate 
-                        # orgIDFromTemplate = clean_single_value(dictDetailsEnv['Org ID'])
-
-                        # endDateOfProgram = dictDetailsEnv['End date of program']
-                        # taking the start date of program from program template and converting YYYY-MM-DD 00:00:00 format
                         
                         startDateArr = str(startDateOfProgram).split("-")
                         startDateOfProgram = startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"
@@ -799,40 +926,80 @@ class ElevateObservation:
                         endDateOfProgram = endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"
 
                         global scopeEntityType
+
+                        if schoolEntitiesPGM:
+                            entitiesPGM = schoolEntitiesPGM
+                            EntityType = "school"
+
+                        elif clusterEntitiesPGM:
+                            entitiesPGM = clusterEntitiesPGM
+                            EntityType = "cluster"
+
+                        elif blockEntitiesPGM:
+                            entitiesPGM = blockEntitiesPGM
+                            EntityType = "block"
+
+                        elif districtEntitiesPGM:
+                            entitiesPGM = districtEntitiesPGM
+                            EntityType = "district"
+
+                        else:
+                            entitiesPGM = stateEntitiesPGM
+                            EntityType = "state"
+
                         # scopeEntityType = "state"
+                        scopeEntityType = [EntityType] if isinstance(EntityType, str) else EntityType
+                        print("scopeEntityType --->", scopeEntityType)
+
+                        entitiesPGMs = entitiesPGM
+                        print("entitiesPGMs", entitiesPGMs)
+
+                        print("scopeEntityType", scopeEntityType)
                         global entitiesType
-                        print(entitiesPGM, "entitiesPGM")
+                        print(districtEntitiesPGM, "entitiesPGM")
                         entitiesType = ElevateObservation.fetchEntityType(parentFolder, accessToken,
-                                                    entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
-                        if entitiesPGM:
+                                                    entitiesPGMs.lstrip().rstrip().split(","), scopeEntityType)
+
+                        print("entitiesType", entitiesType)
+                        if scopeEntityType:
                             entitiesPGM = entitiesPGM
-                            scopeEntityType = entitiesType
+                            # scopeEntityType = entitiesType[0]
 
                         global entitiesPGMID
                         entitiesPGMID = ElevateObservation.fetchEntityId(parentFolder, accessToken,
-                                                    entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
-                        global orgIds
+                                                    entitiesPGMs.lstrip().rstrip().split(","), scopeEntityType,entitiesPGM)
                         
+                        entityHierarchy = ElevateObservation.fetchEntityParentChilds(parentFolder, scopeEntityType, entitiesPGMID)
+                        print("fetchedhirearchy", entityHierarchy)
+                        
+                        print("entitiesPGMID882", entitiesPGMID)                        
 
-                        print(accessToken)
                         if not ElevateObservation.getProgramInfo(accessToken, parentFolder, programNameInp.encode('utf-8').decode('utf-8')):
                             extIdPGM = dictDetailsEnv['Program ID'].encode('utf-8').decode('utf-8')
                             if str(dictDetailsEnv['Program ID']).strip() == "Do not fill this field":
                                 print ("change the program id")
                             descriptionPGM = dictDetailsEnv['Description of the Program'].encode('utf-8').decode('utf-8')
                             keywordsPGM = dictDetailsEnv['Keywords'].encode('utf-8').decode('utf-8')
-                            entitiesPGM = dictDetailsEnv['Targeted entities at program level'].encode('utf-8').decode('utf-8')
-                            stateEntitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8')
-                            # selecting entity type based on the users input 
-                            if entitiesPGM:
-                                entitiesPGM = entitiesPGM
-                                scopeEntityType = entitiesType
+                            if dictDetailsEnv.get('Targeted state at program level'):
+                                stateEntitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8')
+                            else:
+                                errorVar = "\"Targeted state at program level\" must not be Empty in \"Program details\" sheet"
+                            if dictDetailsEnv.get('Targeted District at program level'):
+                                districtEntitiesPGM = dictDetailsEnv['Targeted District at program level'].encode('utf-8').decode('utf-8')
+                            # else:
+                            #     errorVar = "\"Targeted District at program level\" must not be Empty in \"Program details\" sheet"
 
-
+                            if dictDetailsEnv.get('Targeted Block at program level'):
+                                blockEntitiesPGM = dictDetailsEnv['Targeted Block at program level'].encode('utf-8').decode('utf-8')
+                            if dictDetailsEnv.get('Targeted Cluster at program level'):
+                                clusterEntitiesPGM = dictDetailsEnv['Targeted Cluster at program level'].encode('utf-8').decode('utf-8')
+                            if dictDetailsEnv.get('Targeted School at program level'):
+                                schoolEntitiesPGM = dictDetailsEnv['Targeted School at program level'].encode('utf-8').decode('utf-8')
+                                                   
                             mainRole = dictDetailsEnv['Targeted role at program level']
                             # global rolesPGM
                             rolesPGM = dictDetailsEnv['Targeted subrole at program level']
-                            userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
+                            userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Username/user id/email id/phone no. of Program Designer'])
                             # userDetails=["222","1","name","1","1"]
                             print(userDetails,"userDetails")
                             OrgName=userDetails[4]
@@ -844,7 +1011,9 @@ class ElevateObservation:
 
                             scopeEntityType = entitiesType
                             # fetch entity details 
-                            entitiesPGMID = ElevateObservation.fetchEntityId(parentFolder, accessToken,entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
+                            entitiesPGMID = ElevateObservation.fetchEntityId(parentFolder, accessToken,entitiesPGMs.lstrip().rstrip().split(","), scopeEntityType,entitiesPGM)
+                            print("entitiesPGMID915", entitiesPGMID)
+                            entityHierarchy = ElevateObservation.fetchEntityParentChilds(parentFolder, scopeEntityType, entitiesPGMID)
                             
                             # sys.exit()
                             # fetch sub-role details 
@@ -854,7 +1023,7 @@ class ElevateObservation:
                             # rolesPGMID=rolesPGM.lstrip().rstrip().split(",")
                             # sys.exit()
                             # call function to create program 
-                            if not ElevateObservation.programCreation(accessToken, parentFolder, extIdPGM, programNameInp, descriptionPGM,keywordsPGM.lstrip().rstrip().split(","), entitiesPGMID, rolesPGMID, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRoleproff,rolesPGM):
+                            if not ElevateObservation.programCreation(accessToken, parentFolder, extIdPGM, programNameInp,descriptionPGM, keywordsPGM.lstrip().rstrip().split(","),entitiesPGMID, rolesPGMID, orgIds, creatorKeyCloakId, creatorName,entitiesPGM, mainRoleproff, rolesPGM, entityHierarchy):
                                 return False
                             # sys.exit()
                             # programmappingpdpmsheetcreation(MainFilePath, accessToken, program_file, extIdPGM,parentFolder)
@@ -870,15 +1039,12 @@ class ElevateObservation:
                                 print("Program creation failed! Please check logs.")
                                 return False
                         else :
-                            userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
+                            userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Username/user id/email id/phone no. of Program Designer'])
                             # userDetails=["222","1","name","1","1"]
                             OrgName=userDetails[4]
-                            # orgIds=fetchOrgId(environment, accessToken, parentFolder, OrgName)
                             creatorKeyCloakId = userDetails[0]
                             creatorName = userDetails[2]
-                            # if not ElevateObservation.programCreation(accessToken, parentFolder, extIdPGM, programNameInp, descriptionPGM,keywordsPGM.lstrip().rstrip().split(","), entitiesPGMID, rolesPGMID, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM):
-                            #     return False
-                            print(accessToken)
+                            
                             if not ElevateObservation.getProgramInfo(accessToken, parentFolder, programNameInp):
                                 print("Program creation failed! Please check logs.")
                                 return False
@@ -913,11 +1079,7 @@ class ElevateObservation:
                             resourceStatusOrExtPGM = dictDetailsEnv['Resource Status']
                         else:
                             errorVar = "\"Resource Status\" must not be Empty in \"Program details\" sheet"
-                        # resourceNamePGM = dictDetailsEnv['Name of resources in program'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Name of resources in program'] else ElevateObservation.terminatingMessage("\"Name of resources in program\" must not be Empty in \"Resource Details\" sheet")
-                        # resourceTypePGM = dictDetailsEnv['Type of resources'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Type of resources'] else ElevateObservation.terminatingMessage("\"Type of resources\" must not be Empty in \"Resource Details\" sheet")
-                        # resourceLinkOrExtPGM = dictDetailsEnv['Resource Link']
-                        # resourceStatusOrExtPGM = dictDetailsEnv['Resource Status'] if dictDetailsEnv['Resource Status'] else ElevateObservation.terminatingMessage("\"Resource Status\" must not be Empty in \"Resource Details\" sheet")
-                        # setting start and end dates globally. 
+                        
                         global startDateOfResource, endDateOfResource
                         if dictDetailsEnv.get('Start date of resource'):
                             startDateOfResource = dictDetailsEnv['Start date of resource']
@@ -928,19 +1090,7 @@ class ElevateObservation:
                             endDateOfResource = dictDetailsEnv['End date of resource']
                         else:
                             errorVar = "\"End date of resource\" must not be Empty in \"Program details\" sheet"
-                        # endDateOfResource = dictDetailsEnv['End date of resource']
-                        # checking resource types and calling relevant functions 
-                        # if resourceTypePGM.lstrip().rstrip().lower() == "course":
-                        #     coursemapping = courseMapToProgram(accessToken, resourceLinkOrExtPGM, parentFolder)
-                        #     if startDateOfResource:
-                        #         startDateArr = str(startDateOfResource).split("-")
-                        #         bodySolutionUpdate = {"startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
-                        #         solutionUpdate(parentFolder, accessToken, coursemapping, bodySolutionUpdate)
-                        #     if endDateOfResource:
-                        #         endDateArr = str(endDateOfResource).split("-")
-                        #         bodySolutionUpdate = {
-                        #             "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                        #         solutionUpdate(parentFolder, accessToken, coursemapping, bodySolutionUpdate)
+                        
                         if errorVar == "":
                             return True
                         else:
@@ -1406,7 +1556,7 @@ class ElevateObservation:
             print(errorVar,"---> API-Error")
 
     def createSolutionFromFramework(solutionName_for_folder_path, accessToken, frameworkExternalId):
-        global errorVar,entityType,solutionId
+        global errorVar,entityType,solutionId,isExternalProgram
         error_message = ""
         try:
             urlCreateSolutionApi = internal_kong_ip + solutioncreationapiurl
@@ -1420,7 +1570,8 @@ class ElevateObservation:
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: adminAccessToken
             }
-            queryparamsCreateSolutionApi = '?frameworkId=' + str(frameworkExternalId) + '&entityType=' + entityType
+            queryparamsCreateSolutionApi = '?frameworkId=' + str(frameworkExternalId) + '&entityType=' + entityType + '&isExternalProgram=' + isExternalProgram
+            print(queryparamsCreateSolutionApi)
             responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi + queryparamsCreateSolutionApi,
                                                     headers=headerCreateSolutionApi)
 
@@ -2229,6 +2380,7 @@ class ElevateObservation:
             }
             responseQuestionUploadApi = requests.post(url=urlQuestionsUploadApi, headers=headerQuestionUploadApi,
                                                     files=filesQuestion)
+            print(responseQuestionUploadApi.text,"responseQuestionUploadApi")
             messageArr = ["Question Upload sheet prepared.",
                         "File loc : " + solutionName_for_folder_path + '/questionUpload/uploadSheet.csv',
                         "Question upload API called.", "Status code : " + str(responseQuestionUploadApi.status_code)]
@@ -2632,18 +2784,27 @@ class ElevateObservation:
 
 
     def createChild(solutionName_for_folder_path, observationExternalId, accessToken):
-        global errorVar,solutionName, solutionDescription,entityType,programExternalId
+        global errorVar,solutionName, solutionDescription,entityType,programExternalId,isExternalProgram
         error_message=""
         try:
             childObservationExternalId = str(observationExternalId + "_CHILD")
             urlSol_prog_mapping = internal_kong_ip + solutiontoprogrammappingapiurl + "?solutionId=" + observationExternalId + "&entityType=" + entityType
-            
-            payloadSol_prog_mapping = {
-                "externalId": childObservationExternalId,
-                "name": solutionName.lstrip().rstrip(),
-                "description": solutionDescription.lstrip().rstrip(),
-                "programExternalId": programExternalId
-            }
+            print(urlSol_prog_mapping,"urlSol_prog_mapping")
+            if isExternalProgram == 'true':
+                payloadSol_prog_mapping = {
+                    "externalId": childObservationExternalId,
+                    "name": solutionName.lstrip().rstrip(),
+                    "description": solutionDescription.lstrip().rstrip(),
+                    "programExternalId": programID
+                }
+            else:
+                payloadSol_prog_mapping = {
+                    "externalId": childObservationExternalId,
+                    "name": solutionName.lstrip().rstrip(),
+                    "description": solutionDescription.lstrip().rstrip(),
+                    "programExternalId": programExternalId
+                }
+            print(payloadSol_prog_mapping,"payloadSol_prog_mapping")
             headersSol_prog_mapping = {'Authorization': authorization,
                                     'X-auth-token': accessToken,
                                     'Content-Type': content_type,
@@ -2828,11 +2989,13 @@ class ElevateObservation:
         return True
     
     def assignTenantOrgValuesToGlobalVariables(tenantIdFromTheSheets, orgIdsFromTheSheets):
+        print(orgIdsFromTheSheets,"orgIdsFromTheSheets--------------")
         print("swaping tenantId")
         global tenantID 
         tenantID = ElevateObservation.clean_single_value(tenantIdFromTheSheets)
         global orgIDFromTemplate 
         orgIDFromTemplate = ElevateObservation.clean_single_value(orgIdsFromTheSheets)
+        print(orgIDFromTemplate,"orgIDFromTemplate--------------")
 
     def validateTenantAndOrgIdsFromProgramSheet(programFileContent):
             
@@ -2856,14 +3019,22 @@ class ElevateObservation:
                                         for
                                         col_index_env in range(detailsEnvSheet.ncols)}
                         tenantIdFromProgramFile = dictDetailsEnv.get('Tenant ID')
-                        orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
+                        # orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
+                        if tenantIdFromProgramFile == "shikshalokam":
+                            orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
+                        else:
+                            if tenantIdFromProgramFile == "shikshagrahanew":
+                                orgIdsFromProgramFile = dictDetailsEnv.get('Targeted state at program level','').strip().lower()
+                            else:
+                                orgIdsFromProgramFile = dictDetailsEnv.get('Targeted District at program level', '').strip()
+
 
             global roleOfResourceCreator
             if roleOfResourceCreator not in ['org_admin', 'tenant_admin'] and not tenantIdFromProgramFile:
                 raise ValueError("Tenant ID is required in program template for role 'admin', it cannot be empty")
 
-            if roleOfResourceCreator not in ['org_admin'] and not orgIdsFromProgramFile:
-                raise ValueError("Org ID is required for role 'admin' and 'tenant_admin' in program template and cannot be empty")
+            # if roleOfResourceCreator not in ['org_admin'] and not orgIdsFromProgramFile:
+            #     raise ValueError("Org ID is required for role 'admin' and 'tenant_admin' in program template and cannot be empty")
             
             ElevateObservation.assignTenantOrgValuesToGlobalVariables(tenantIdFromProgramFile, orgIdsFromProgramFile)
 
@@ -2884,7 +3055,7 @@ class ElevateObservation:
                                     for
                                     col_index_env in range(detailsEnvSheet.ncols)}
                         tenantIdFromresourceFile = dictDetailsEnv.get('Tenant ID')
-                        orgIdsFromresourceFile = dictDetailsEnv.get('Org ID')
+                        orgIdsFromresourceFile = dictDetailsEnv.get('Targeted District at program level')
 
             global roleOfResourceCreator
             if roleOfResourceCreator not in ['org_admin', 'tenant_admin'] and not tenantIdFromresourceFile:
@@ -2920,7 +3091,7 @@ class ElevateObservation:
                 else:
                     if sheetEnv.strip().lower() == 'details':
                         print("--->Checking details sheet...")
-                        detailsCols = ["observation_solution_name", "observation_solution_description", "Elevate_loginId","Name_of_the_creator", "language", "allow_multiple_submissions", "keywords","scoring_system", "entity_type","start_date","end_date","Tenant ID","Org ID"]
+                        detailsCols = ["observation_solution_name", "observation_solution_description", "Username/user id/email id/phone no. of the Content creator","Name_of_the_creator", "language", "allow_multiple_submissions", "keywords","scoring_system", "entity_type"]
                         detailsEnvSheet = wbObservation1.sheet_by_name(sheetEnv)
                         keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
                                 range(detailsEnvSheet.ncols)]
@@ -2934,10 +3105,10 @@ class ElevateObservation:
                                 else:
                                     errorVar = "validation failed :observation_solution_name column must not be Empty in details sheet"
                                 # solutionName = dictDetailsEnv['observation_solution_name'].encode('utf-8').decode('utf-8') if dictDetailsEnv['observation_solution_name'] else ElevateObservation.terminatingMessage("\"observation_solution_name\" must not be Empty in \"details\" sheet")
-                                if dictDetailsEnv['Elevate_loginId']:
-                                    dikshaLoginId = dictDetailsEnv['Elevate_loginId'].encode('utf-8').decode('utf-8')
+                                if dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']:
+                                    dikshaLoginId = dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'].encode('utf-8').decode('utf-8')
                                 else:
-                                    errorVar = "validation failed :Elevate_loginId column must not be Empty in details sheet"
+                                    errorVar = "validation failed :Username/user id/email id/phone no. of the Content creator column must not be Empty in details sheet"
                                 # dikshaLoginId = dictDetailsEnv['Elevate_loginId'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Elevate_loginId'] else ElevateObservation.terminatingMessage("\"Elevate_loginId\" must not be Empty in \"details\" sheet")
                                 # ccUserDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dikshaLoginId)
                                 # if not "CONTENT_CREATOR" in ccUserDetails[3]:
@@ -3179,7 +3350,7 @@ class ElevateObservation:
             # Point based value set as null by default for observation without rubrics
             pointBasedValue = "null"
             criteria_id_arr = []
-            detailsColNames = ['observation_solution_name', 'observation_solution_description', 'Elevate_loginId','language', 'keywords', 'entity_type', "scope_entity","start_date","end_date"]
+            detailsColNames = ['observation_solution_name', 'observation_solution_description', 'Name_of_the_creator','Username/user id/email id/phone no. of the Content creator','language', 'keywords', 'entity_type',"start_date","end_date"]
             criteriaColNames = ['criteria_id', 'criteria_name']
             questionsColNames = ["criteria_id","question_sequence","question_id","instance_parent_question_id","parent_question_id","show_when_parent_question_value_is","parent_question_value","page","question_number","question_primary_language","question_secondory_language","question_tip","question_hint","instance_identifier","question_response_type","date_auto_capture","response_required","min_number_value","max_number_value","file_upload","show_remarks","response(R1)","response(R1)_hint","response(R2)","response(R2)_hint","response(R3)","response(R3)_hint","response(R4)","response(R4)_hint","response(R5)","response(R5)_hint","response(R6)","response(R6)_hint","response(R7)","response(R7)_hint","response(R8)","response(R8)_hint","response(R9)","response(R9)_hint","response(R10)","response(R10)_hint","response(R11)","response(R11)_hint","response(R12)","response(R12)_hint","response(R13)","response(R13)_hint","response(R14)","response(R14)_hint","response(R15)","response(R15)_hint","response(R16)","response(R16)_hint","response(R17)","response(R17)_hint","response(R18)","response(R18)_hint","response(R19)","response(R19)_hint","response(R20)","response(R20)_hint","question_weightage","section_header"]
             for sheetColCheck in sheetNames1:
@@ -3188,6 +3359,12 @@ class ElevateObservation:
                     keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
                                         range(detailsColCheck.ncols)]
                     if len(keysColCheckDetai) != len(detailsColNames):
+                        print("Details sheet columns mismatch")
+                        print("keysColCheckDetai",keysColCheckDetai)
+                        print("detailsColNames",detailsColNames)
+                        print("len(keysColCheckDetai)",len(keysColCheckDetai))
+                        print("len(detailsColNames)",len(detailsColNames))
+                        print("keysColCheckDetai != detailsColNames")   
                         errorVar = 'Some Columns are missing in details sheet'
                 if sheetColCheck.strip().lower() == 'criteria':
                     criteriaColCheck = wbObservation1.sheet_by_name(sheetColCheck)
@@ -3224,15 +3401,20 @@ class ElevateObservation:
                                 errorVar = "validation failed :observation_solution_description column must not be Empty in details sheet"
                             # solutionName = dictDetailsEnv['observation_solution_name'].encode('utf-8').decode('utf-8') if dictDetailsEnv['observation_solution_name'] else terminatingMessage("\"observation_solution_name\" must not be Empty in \"details\" sheet")
                             # solutionDescription = dictDetailsEnv['observation_solution_description'].encode('utf-8').decode('utf-8') if dictDetailsEnv['observation_solution_description'] else terminatingMessage("\"observation_solution_description\" must not be Empty in \"details\" sheet")
-                            if dictDetailsEnv['Elevate_loginId']:
-                                dikshaLoginId = dictDetailsEnv['Elevate_loginId'].encode('utf-8').decode('utf-8')
+                            if dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']:
+                                dikshaLoginId = dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'].encode('utf-8').decode('utf-8')
                             else:
-                                errorVar = "validation failed :Elevate_loginId column must not be Empty in details sheet"
+                                errorVar = "validation failed :Username/user id/email id/phone no. of the Content creator column must not be Empty in details sheet"
                             # dikshaLoginId = dictDetailsEnv['Elevate_loginId'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Elevate_loginId'] else terminatingMessage("\"Elevate_loginId\" must not be Empty in \"details\" sheet")
                             if dictDetailsEnv['Name_of_the_creator']:
                                 creator = dictDetailsEnv['Name_of_the_creator'].encode('utf-8').decode('utf-8')
                             else:
                                 errorVar = "validation failed :Name_of_the_creator column must not be Empty in details sheet"
+
+                            if dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']:
+                                dikshaLoginId = dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'].encode('utf-8').decode('utf-8')
+                            else:
+                                errorVar = "validation failed :Username/user id/email id/phone no. of the Content creator column must not be Empty in details sheet"
                             # creator = dictDetailsEnv['Name_of_the_creator'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Name_of_the_creator'] else terminatingMessage("\"Name_of_the_creator\" must not be Empty in \"details\" sheet")
                             # ccUserDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dikshaLoginId)
                             
@@ -3244,7 +3426,7 @@ class ElevateObservation:
                                 solutionLanguage = dictDetailsEnv['language'].encode('utf-8').decode('utf-8')
                             else:
                                 errorVar = "validation failed :language column must not be Empty in details sheet"    
-                            if dictDetailsEnv['entity_type'] in ("school","block","district","cluster","state"):
+                            if dictDetailsEnv['entity_type']:
                                 entityType = dictDetailsEnv['entity_type'].encode('utf-8').decode('utf-8')
                             else:
                                 errorVar = "validation failed :entity_type column, please select from the given drop down in details sheet"
@@ -3367,7 +3549,7 @@ class ElevateObservation:
                 else:
                     errorVar = 'Sheet Names in excel file is wrong , Sheet Names are details,questions'
 
-            detailsColNames = ["survey_solution_name", "survey_solution_description", "Name_of_the_creator","survey_creator_username", "survey_start_date", "survey_end_date","Tenant ID","Org ID"]
+            detailsColNames = ["survey_solution_name", "survey_solution_description", "Name_of_the_creator","Username/user id/email id/phone no. of the Content creator", "survey_start_date", "survey_end_date"]
             questionsColNames = ["question_sequence", "question_id", "section_header", "instance_parent_question_id",
                                 "parent_question_id", "show_when_parent_question_value_is", "parent_question_value",
                                 "page", "question_number", "question_language1", "question_language2", "question_tip",
@@ -3414,10 +3596,10 @@ class ElevateObservation:
                             Nameofthecreator = dictDetailsEnv['Name_of_the_creator']
                         else:
                             errorVar = "validation failed :Name_of_the_creator column must not be Empty in details sheet"
-                        if dictDetailsEnv['survey_creator_username']:
-                            surveycreatorusername = dictDetailsEnv['survey_creator_username']
+                        if dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']:
+                            surveycreatorusername = dictDetailsEnv['Username/user id/email id/phone no. of the Content creator']
                         else:
-                            errorVar = "validation failed :survey_creator_username column must not be Empty in details sheet"
+                            errorVar = "validation failed :Username/user id/email id/phone no. of the Content creator column must not be Empty in details sheet"
                         if dictDetailsEnv['survey_start_date']:
                             surveystartdate = dictDetailsEnv['survey_start_date']
                         else:
@@ -3503,8 +3685,8 @@ class ElevateObservation:
                     else:
                         surveySolutionCreationReqBody['creator'] = dictDetailsEnv['Name_of_the_creator']
 
-
-                    userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['survey_creator_username'])
+                    surveySolutionCreationReqBody['isExternalProgram'] = True
+                    userDetails = ElevateObservation.fetchUserDetails(environment, accessToken, dictDetailsEnv['Username/user id/email id/phone no. of the Content creator'])
                     surveySolutionCreationReqBody['author'] = userDetails[0]
                     global SurveyTemplateStartDate, SurveyTemplateEndDate
                     SurveyTemplateStartDate = dictDetailsEnv["survey_start_date"]
@@ -3522,6 +3704,7 @@ class ElevateObservation:
                             'orgid': orgIDFromTemplate,
                             adminTokenHeaderName: adminAccessToken
                         }
+                        print(headerCreateSolutionApi,"headerCreateSolutionApi")
                         responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi,
                                                                 headers=headerCreateSolutionApi,
                                                                 data=json.dumps(surveySolutionCreationReqBody))
@@ -3603,7 +3786,7 @@ class ElevateObservation:
         # print(f"Type of wbSurvey: {type(wbSurvey)}")
         sheetNam = wbSurvey.sheet_names()
         # print(sheetNam,"4854")
-        global surveySolutionlink, errorVar
+        global surveySolutionlink, errorVar, entityHierarchy
         error_message = ""
         stDt = None
         enDt = None
@@ -3867,6 +4050,7 @@ class ElevateObservation:
                     }
                     responseQuestionUploadApi = requests.post(url=urlQuestionsUploadApi,
                                                             headers=headerQuestionUploadApi, files=filesQuestion)
+                    print(responseQuestionUploadApi.text,"responseQuestionUploadApi")
                     if responseQuestionUploadApi.status_code == 200:
                         print('Question upload Success')
 
@@ -3880,7 +4064,7 @@ class ElevateObservation:
 
                         with open(parentFolder + '/questionUpload/uploadInternalIdsSheet.csv', 'w+',encoding='utf-8') as questionRes:
                             questionRes.write(responseQuestionUploadApi.text)
-                        urlImportSoluTemplate = internal_kong_ip + importsurveysolutiontemplateurl + str(surTempSolID) + "?appName=manage-learn"
+                        urlImportSoluTemplate = internal_kong_ip + importsurveysolutiontemplateurl + str(surTempSolID) + "?appName=manage-learn&programId=" + programID
                         print(urlImportSoluTemplate,"urlImportSoluTemplate")
                         headerImportSoluTemplateApi = {
                             'X-auth-token': accessToken,
@@ -3890,6 +4074,7 @@ class ElevateObservation:
                             'orgid': orgIDFromTemplate,
                             adminTokenHeaderName: adminAccessToken
                         }
+                        print(headerImportSoluTemplateApi,"headerImportSoluTemplateApi")
                         responseImportSoluTemplateApi = requests.post(url=urlImportSoluTemplate,
                                                                     headers=headerImportSoluTemplateApi)
                         if responseImportSoluTemplateApi.status_code == 200:
@@ -3937,21 +4122,18 @@ class ElevateObservation:
                                 mainRoleproff = verifiedRoles[0]
                                 rolesPGMID = verifiedRoles[1]
                                 print("mainRole", mainRoleproff)
-                                print("rolesPGMID", rolesPGMID)
+                                print("rolesPGMID4444", rolesPGMID)
                                 scopeEntities = entitiesPGMID
+                                print("scopeEntities4444", scopeEntities)
                                 scope = {}
-                                for i in range(len(entitiesType)):
-                                    entity_type = entitiesType[i]
-                                    entity_value = scopeEntities[i]
-                                    if entity_type in scope:
-                                        scope[entity_type].append(entity_value)
-                                    else:
-                                        scope[entity_type] = [entity_value]
+                                print(scope)
+                                scope.update(entityHierarchy)
                                 scope["professional_subroles"] = rolesPGMID
                                 scope["professional_role"] = mainRoleproff
                                 bodySolutionUpdate = {
                                 "scope": scope
                                 }
+                                print("scope", bodySolutionUpdate)
                                 ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
                                 print(solutionDetails[2],solutionDetails[3],SurveyTemplateStartDate,SurveyTemplateEndDate)
                                 solutionStartDate1 = ElevateObservation.convert_to_date(solutionDetails[2])
@@ -4376,7 +4558,7 @@ class ElevateObservation:
                                     mainRoleproff = verifiedRoles[0]
                                     rolesPGMID = verifiedRoles[1]
                                     print("mainRole", mainRoleproff)
-                                    print("rolesPGMID", rolesPGMID)
+                                    print("rolesPGMID-------13", rolesPGMID)
                                     scopeEntities = entitiesPGMID
                                     scope = {}
                                     for i in range(len(entitiesType)):
@@ -4391,6 +4573,7 @@ class ElevateObservation:
                                     bodySolutionUpdate = {
                                     "scope": scope
                                     }
+                                    print(bodySolutionUpdate,"bodySolutionUpdate")
                                     ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate)
                                     if solutionDetails[2]:
                                         startDateArr = str(solutionDetails[2]).split("-")
@@ -4532,7 +4715,7 @@ class ElevateObservation:
     def mainFunc(MainFilePath, programFile, addObservationSolution, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType):
         print("entering mainFUnc")
-        global errorVar,pointBasedValue,solutionDict,allow_multiple_submissions,creator,userEntity,criteriaLevelsReport
+        global errorVar,pointBasedValue,solutionDict,allow_multiple_submissions,creator,userEntity,criteriaLevelsReport,isExternalProgram,orgIDFromTemplate,tenantID
         errorVar = ""
         scopeEntityType = scopeEntityType
         if not isCourse:
@@ -4596,12 +4779,14 @@ class ElevateObservation:
                     dictDetailsEnv = {keysEnv[col_index_env]: ResourceSheet.cell(row_index_env, col_index_env).value
                                     for col_index_env in range(ResourceSheet.ncols)}
                     ObsWRResourceName = dictDetailsEnv['observation_solution_name'].encode('utf-8').decode('utf-8')
+                    Entity_To_Upload = dictDetailsEnv['entity_type'].encode('utf-8').decode('utf-8')
+                    print("Entity_To_Upload", Entity_To_Upload)
                     try:
                         if not ElevateObservation.ObsWRValidate(wbObservation, accessToken, parentFolder,typeofSolution,):
                             print("Error during validation of Observation with Rubric file ....")
                             finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                             return finalObsRubricSolutionLink   
-                        print("validation successful")
+                        print("validation successful---------")
                         def addObsWRFunc(parentFolder, wbObservation, millisecond, accessToken):
                             if not ElevateObservation.criteriaUpload(parentFolder, wbObservation, millisecond, accessToken, "framework", impLedObsFlag):
                                 finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
@@ -4625,6 +4810,7 @@ class ElevateObservation:
                             if not solutionId:
                                 finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                 return finalObsRubricSolutionLink
+                            
                         
                             ecmsSheet = wbObservation.sheet_by_name('ECMs or Domains')
                             keys = [ecmsSheet.cell(1, col_index).value for col_index in range(ecmsSheet.ncols)]
@@ -4665,7 +4851,15 @@ class ElevateObservation:
                             if not ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
                                 finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                 return finalObsRubricSolutionLink
-                            bodySolutionUpdate = {"status": "active", "isDeleted": False, "criteriaLevelReport": criteriaLevelsReport}
+                            print(Entity_To_Upload,"Entity_To_Upload222")
+                            if Entity_To_Upload.strip().lower() in ['state', 'district', 'block', 'cluster', 'school']:
+                                parentEntityKey = "state"
+
+                            else:
+                                parentEntityKey = None
+                               
+                            bodySolutionUpdate = {"status": "active", "isDeleted": False, "criteriaLevelReport": criteriaLevelsReport,"parentEntityKey": parentEntityKey}
+                            print("bodySolutionUpdate", bodySolutionUpdate)
                             if not ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
                                 finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                 return finalObsRubricSolutionLink
@@ -4689,7 +4883,7 @@ class ElevateObservation:
                                     return finalObsRubricSolutionLink
                             else:
                                 print("Observation with scoring system : null.")
-                            bodySolutionUpdate = {'allowMultipleAssessemts': allow_multiple_submissions, "creator": creator}
+                            bodySolutionUpdate = {'allowMultipleAssessemts': allow_multiple_submissions, "creator": creator,"parentEntityKey": parentEntityKey}
                             if not ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
                                 finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                 return finalObsRubricSolutionLink
@@ -4731,16 +4925,12 @@ class ElevateObservation:
                                     mainRoleproff = verifiedRoles[0]
                                     rolesPGMID = verifiedRoles[1]
                                     print("mainRole", mainRoleproff)
-                                    print("rolesPGMID", rolesPGMID)
+                                    print("rolesPGMID--------22", rolesPGMID)
                                     scopeEntities = entitiesPGMID
+                                    print("scopeEntities", scopeEntities)
+                                    print("entitiesType", entitiesType)
                                     scope = {}
-                                    for i in range(len(entitiesType)):
-                                        entity_type = entitiesType[i]
-                                        entity_value = scopeEntities[i]
-                                        if entity_type in scope:
-                                            scope[entity_type].append(entity_value)
-                                        else:
-                                            scope[entity_type] = [entity_value]
+                                    scope.update(entityHierarchy)
                                     scope["professional_subroles"] = rolesPGMID
                                     scope["professional_role"] = mainRoleproff
                                     bodySolutionUpdate = {
@@ -4793,7 +4983,7 @@ class ElevateObservation:
                         print(f"Error occurred during project creation: {str(e)}")
                         # raise RuntimeError("The project creation failed due to an unexpected error")
                         solutionError = str(e)
-                        print(errorVar,"3266")
+                        print(errorVar,"3266-0---")
                         if errorVar == "":
                             finalObsRubricSolutionLink = {ObsWRResourceName: solutionError}
                         else:
@@ -4812,6 +5002,14 @@ class ElevateObservation:
                     }
                     ObsWORResourceName = dictDetailsEnv['observation_solution_name'].encode('utf-8').decode('utf-8')
                     pointBasedValue = "null"
+                    Entity_To_Upload = dictDetailsEnv['entity_type'].encode('utf-8').decode('utf-8')
+                    print("Entity_To_Upload", Entity_To_Upload)
+
+                    if Entity_To_Upload.strip().lower() in ['state', 'district', 'block', 'cluster', 'school']:
+                        parentEntityKey = "state"
+
+                    else:
+                        parentEntityKey = None
                     try:
                         def addObsWORFunc(parentFolder, wbObservation, millisecond, accessToken):
                             if not ElevateObservation.ObsWORValidate(wbObservation, accessToken, parentFolder):
@@ -4867,7 +5065,7 @@ class ElevateObservation:
                                     ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                                     return ObsWORSolutionLink
                             bodySolutionUpdate = {"status": "active", "isDeleted": False, "allowMultipleAssessemts": True,
-                                                "creator": creator}
+                                                "creator": creator,"parentEntityKey": parentEntityKey}
                             if not ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate):
                                 ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                                 return ObsWORSolutionLink
@@ -4900,25 +5098,23 @@ class ElevateObservation:
                                 if childId[0]:
                                     solutionDetails = ElevateObservation.fetchSolutionDetailsFromProgramSheet(parentFolder, programFile, childId[0],
                                                                                         accessToken)
+                                    
+                                    print(solutionDetails,"solutionDetails line 5064")
                                     if not solutionDetails:
                                         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                                         return ObsWORSolutionLink
                                     scopeRoles = solutionDetails[0]
+
+                                    print("scopeRoles line 5070", scopeRoles)
                                     scopeSubRoles = solutionDetails[1]
                                     verifiedRoles = ElevateObservation.validate_roles_against_api(scopeRoles, scopeSubRoles)
                                     mainRoleproff = verifiedRoles[0]
                                     rolesPGMID = verifiedRoles[1]
                                     print("mainRole", mainRoleproff)
-                                    print("rolesPGMID", rolesPGMID)
+                                    print("rolesPGMID1111", rolesPGMID)
                                     scopeEntities = entitiesPGMID
                                     scope = {}
-                                    for i in range(len(entitiesType)):
-                                        entity_type = entitiesType[i]
-                                        entity_value = scopeEntities[i]
-                                        if entity_type in scope:
-                                            scope[entity_type].append(entity_value)
-                                        else:
-                                            scope[entity_type] = [entity_value]
+                                    scope.update(entityHierarchy)
                                     scope["professional_subroles"] = rolesPGMID
                                     scope["professional_role"] = mainRoleproff
                                     bodySolutionUpdate = {
@@ -4971,7 +5167,7 @@ class ElevateObservation:
                     except Exception as e:
                         print(f"Error occurred: {str(e)}")
                         solutionError = str(e)
-                        print(errorVar,"3266")
+                        print(errorVar,"3266---1111")
                         if errorVar == "":
                             ObsWORSolutionLink = {ObsWORResourceName: solutionError}
                         else:
@@ -5391,7 +5587,7 @@ class ElevateObservation:
         MainFilePath = ElevateObservation.createFileStructForProgram(programFile)
         wbPgm = xlrd.open_workbook(programFile, on_demand=True)
         sheetNames = wbPgm.sheet_names()
-        pgmSheets = ["Instructions", "Program Details", "Resource Details","Program Manager Details"]
+        pgmSheets = ["Instructions", "Program Details", "Resource Details","Program Manager Details","Role-Subrole Mapping"]
         if len(sheetNames) == len(pgmSheets) and sheetNames == pgmSheets:
             print("--->Program Template detected.<---")
             
@@ -5401,6 +5597,8 @@ class ElevateObservation:
                     programDetailsSheet = wbPgm.sheet_by_name(sheetEnv)
                     keysEnv = [programDetailsSheet.cell(1, col_index_env).value for col_index_env in
                             range(programDetailsSheet.ncols)]
+
+                    print("11111111111111111111111111111111111111111111111111")
                     for row_index_env in range(2, programDetailsSheet.nrows):
                         dictProgramDetails = {
                             keysEnv[col_index_env]: programDetailsSheet.cell(row_index_env, col_index_env).value
@@ -5413,7 +5611,7 @@ class ElevateObservation:
                         else:
                             isProgramnamePresent = True
                         # scopeEntityType = scopeEntityType
-                        userEntity = dictProgramDetails['Targeted entities at program level'].encode('utf-8').decode('utf-8').lstrip().rstrip().split(",")
+                        userEntity = dictProgramDetails['Targeted state at program level'].encode('utf-8').decode('utf-8').lstrip().rstrip().split(",")
                         print(userEntity,"userentity")
                 if sheetEnv.strip().lower() == 'resource details':
                     print("--->Checking Resource Details sheet...")

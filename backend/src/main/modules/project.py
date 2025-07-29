@@ -86,7 +86,6 @@ scopeRoles = []
 countImps = 0
 ecmToSection = dict()
 entitiesPGM = []
-stateEntitiesPGM = []
 entitiesPGMID = []
 entitiesType = []
 solutionRolesArr = []
@@ -113,6 +112,14 @@ errorVar = ""
 finalprojectsolutionlink = {}
 tenantID = None
 orgIDFromTemplate = None
+TaskEvidenceOperator = ""
+AnyTaskEvidenceNo = ""
+stateEntitiesPGM = []
+districtEntitiesPGM = []
+blockEntitiesPGM = []
+clusterEntitiesPGM = []
+schoolEntitiesPGM = []
+entityHierarchy = []
 
 class Elevateproject:
 
@@ -238,6 +245,13 @@ class Elevateproject:
                                         col_index_env in range(programDetailsSheet.ncols)}
                     tenantIdFromProgramFile = dictDetailsEnv.get('Tenant ID')
                     orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
+                    if tenantIdFromProgramFile == "shikshalokam":
+                        orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
+                    else:
+                        if tenantIdFromProgramFile == "shikshagrahanew":
+                            orgIdsFromProgramFile = dictDetailsEnv.get('Targeted state at program level','').strip().lower()
+                        else:
+                            orgIdsFromProgramFile = dictDetailsEnv.get('Targeted District at program level', '').strip()
 
         # global roleOfResourceCreator
         # if roleOfResourceCreator not in ['org_admin', 'tenant_admin'] and not tenantIdFromProgramFile:
@@ -415,22 +429,27 @@ class Elevateproject:
     
     def getProgramInfo(accessTokenUser, solutionName_for_folder_path, programNameInp):
         try:
-            global programID, programExternalId, programDescription, isProgramnamePresent, programName, errorVar
+            global programID, programExternalId, programDescription, isProgramnamePresent, programName, errorVar,tenantIDFromTemplate
             programName = programNameInp
             programUrl = elevateprojecthost + fetchprograminfoapiurl
+            print(programUrl,"programUrl")
             payload = json.dumps({
                     "query": {
                         "name": programNameInp.lstrip().rstrip(),
                         "isAPrivateProgram": False,
-                        "status": "active"
+                        "status": "active",
+                        "tenantId": tenantIDFromTemplate
                         },
                         "mongoIdKeys": []
                         })
+            print(payload,"payload")
             headersProgramSearch = {'Content-Type': content_type,
                                     'X-auth-token': accessTokenUser
                                     # 'internal-access-token': internal_access_token
                                     }
+            print(headersProgramSearch,"headersProgramSearch")
             responseProgramSearch = requests.request("POST", url=programUrl, headers=headersProgramSearch,data=payload)
+            print(responseProgramSearch.text,"responseProgramSearch")
             messageArr = []
             messageArr.append("Program Search API")
             messageArr.append("URL : " + programUrl)
@@ -504,6 +523,9 @@ class Elevateproject:
     def fetchUserDetails(environment, accessToken, projectServiceId):
         global OrgName,errorVar
         try:
+            decoded_token = jwt.decode(accessToken, options={"verify_signature": False}, algorithms=["HS256"])
+            data=decoded_token.get('data')
+            user_id = data.get('id')  
             url = userLoginHost + userinfoapiurl
             messageArr = ["User search API called."]
             headers = {#'Content-Type': 'application/json',
@@ -527,7 +549,6 @@ class Elevateproject:
                 else:
                     print("-->Given username/email is not present in projectService platform<--.")
                     return False
-                return [userKeycloak, userName, firstName,roledetails,rootOrgId]
             else:
                 error_message = ""
                 if responseUserSearch.status_code in [400, 401, 403, 404, 422]:
@@ -542,42 +563,44 @@ class Elevateproject:
             print(f"Error occurred: {str(e)}")
             print(errorVar)
             
-    def fetchEntityId(solutionName_for_folder_path, accessToken, entitiesNameList, scopeEntityType):
+    def fetchEntityId(solutionName_for_folder_path, accessToken, entitiesNameList, scopeEntityType,entitiesPGM):
         try:
             global errorVar
             urlFetchEntityListApi = elevateentityhost + searchforlocation
             headerFetchEntityListApi = {
                 'Content-Type': content_type,
                 'internal-access-token': internal_access_token,
+                'origin': origin
             }
             payload = {
                     "query" : {
-                        "entityType": {"$in": scopeEntityType},
-                        "tenantId" : tenantIDFromTemplate
-                        #  "orgIds" : {"$in" : [orgIDFromTemplate]}
+                    "entityType": {
+                        "$in": scopeEntityType
                     },
+                    "metaInformation.name":{
+                        "$in": entitiesPGM.split(",")
+                    },
+                    "tenantId":tenantIDFromTemplate,
+                    # "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')}
+                },
 
-                    "projection": [
-                        "_id","metaInformation.name"
-                    ]
-                    }
+                "projection": [
+                    "_id","metaInformation.name"
+                ]
+                }
             # data=json.dumps(payload)
+            print(payload,"payload")
             responseFetchEntityListApi = requests.post(url=urlFetchEntityListApi, headers=headerFetchEntityListApi,data=json.dumps(payload))
             messageArr = ["Entities List Fetch API executed.", "URL  : " + str(urlFetchEntityListApi),
                         "Status : " + str(responseFetchEntityListApi.status_code)]
             Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
+            print(responseFetchEntityListApi.text,"responseFetchEntityListApi")
             if responseFetchEntityListApi.status_code == 200:
                 responseFetchEntityListApi = responseFetchEntityListApi.json()
                 entitiesLookup = dict()
-                entityToUpload = []
+                entityToUpload = list()
                 for listEntities in responseFetchEntityListApi['result']:
-                    # entitiesLookup[listEntities['metaInformation']['name'].lower().lstrip().rstrip()] = listEntities['_id'].lstrip().rstrip()
-                    name_key = listEntities['metaInformation']['name'].lower().strip()
-                    entity_id = listEntities['_id'].strip()
-                    if name_key in entitiesLookup:
-                        entitiesLookup[name_key].append(entity_id)
-                    else:
-                        entitiesLookup[name_key] = [entity_id]
+                    entitiesLookup[listEntities['metaInformation']['name'].lower().lstrip().rstrip()] = listEntities['_id'].lstrip().rstrip()
                 entitiesFlag = False
                 for eachUserEntity in entitiesNameList:
                     try:
@@ -586,30 +609,29 @@ class Elevateproject:
                     except:
                         entitiesFlag = False
                     if entitiesFlag:
-                        entityToUpload.extend(entityId)
+                        entityToUpload.append(entityId)
                     else:
                         print("Entity Not found in DB...")
                         print("Entity name : " + str(eachUserEntity))
                         messageArr = ["Entity Not found : ", "URL  : " + str(eachUserEntity)]
-                        Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
+                        ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
 
                 messageArr = ["Entities to upload : " + str(entityToUpload)]
-                Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
+                ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
                 if len(entityToUpload) == 0:
                     print("--->Scope Entity error.")
-                    sys.exit()
                 return entityToUpload
             else:
-                        messageArr = ["Error in Location search",str(responseFetchEntityListApi.status_code)]
-                        errorvar = str(responseFetchEntityListApi.text)
-                        Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
-                        print("---> Error in location search.")
+                messageArr = ["Error in Location search",str(responseFetchEntityListApi.status_code)]
+                errorvar = str(responseFetchEntityListApi.text)
+                Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
+                print("---> Error in location search.")
         except Exception as e:
             print(f"Error occurred: {str(e)}")
             errorVar
             print(errorVar,"---> API-Error")
 
-    def programCreation(accessToken,parentFolder,externalId,pName,pDescription,roles,userId,mainRoleproff,rolesPGMID,entitiesPGMID):
+    def programCreation(accessToken,parentFolder,externalId,pName,pDescription,roles,userId,mainRoleproff,rolesPGMID,entitiesPGMID,entityHierarchy):
         # accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,entitiesPGM,mainRole,rolesPGM
         global errorVar
         messageArr = []
@@ -624,19 +646,11 @@ class Elevateproject:
             # entities = stateEntitiesPGM.split(',')
             # entitiesTypeStr = entitiesType[0]
             scope={}
-            for i in range(len(scopeEntityType)):
-                entity_type = scopeEntityType[i]
-                entity_value = entitiesPGMID[i]
-                if entity_type in scope:
-                    scope[entity_type].append(entity_value)
-                else:
-                    scope[entity_type] = [entity_value]
-                            # bodySolutionUpdate = {
-                            #     "scope": {"entityType": scopeEntityType, "entities": scopeEntities, "roles": scopeRoles}}
             scope["organizations"] = [orgIDFromTemplate]
             scope["professional_subroles"] = rolesPGMID
             scope["professional_role"] = mainRoleproff
-
+            scope.update(entityHierarchy)
+            print(scope,"scope")
             # program creation payload
             payload = json.dumps({
                         "externalId": externalId,
@@ -758,10 +772,10 @@ class Elevateproject:
                     
                 # extIdPGM = dictDetailsEnv['Program ID'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Program ID'] else Elevateproject.terminatingMessage("\"Program ID\" must not be Empty in \"Program details\" sheet")
                 
-                if dictDetailsEnv.get('Elevate username/user id/email id/phone no. of Program Designer'):
-                    programdesigner = dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'].encode('utf-8').decode('utf-8')
+                if dictDetailsEnv.get('Username/user id/email id/phone no. of Program Designer'):
+                    programdesigner = dictDetailsEnv['Username/user id/email id/phone no. of Program Designer'].encode('utf-8').decode('utf-8')
                 else:
-                    errorVar = "\"Elevate username/user id/email id/phone no. of Program Designer\" must not be Empty in \"Program details\" sheet"
+                    errorVar = "\"Username/user id/email id/phone no. of Program Designer\" must not be Empty in \"Program details\" sheet"
                     
                 # programdesigner = dictDetailsEnv['projectService username/user id/email id/phone no. of Program Designer'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Program ID'] else Elevateproject.terminatingMessage("\"projectService username/user id/email id/phone no. of Program Designer\" must not be Empty in \"Program details\" sheet")
                 userDetails = Elevateproject.fetchUserDetails(environment, accessToken, programdesigner)
@@ -840,16 +854,81 @@ class Elevateproject:
         else:
             print(errorVar,"pdpm mapping failure")
             return False
+    
+    def fetchEntityParentChilds(solutionName_for_folder_path, accessToken, entityId):
+        try:
+            global errorVar
+            entityId = entityId[0] if isinstance(entityId, list) else entityId
+
+            urlFetchEntity = elevateentityhost + fetchDetailsEntity + entityId
+            print(urlFetchEntity, "urlFetchEntity")
+
+            headers = {
+                'Content-Type': content_type,
+                'tenantId': tenantIDFromTemplate
+            }
+
+            response = requests.get(url=urlFetchEntity, headers=headers)
+
+            messageArr = [
+                "Entity Details API executed.",
+                "URL: " + urlFetchEntity,
+                "Status: " + str(response.status_code)
+            ]
+            ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+
+            if response.status_code == 200:
+                responseJson = response.json()
+                result = responseJson.get("result", [])[0]
+
+                parent_info = result.get("parentInformation", {})
+                current_entity_type = result.get("entityType").lower()  # e.g., "block"
+                current_entity_id = result.get("_id")
+
+                hierarchy = ["state", "district", "block", "cluster", "school"]
+                output = {}
+
+                current_index = hierarchy.index(current_entity_type)
+
+                # Fill levels above current from parentInformation
+                for i in range(current_index):
+                    level = hierarchy[i]
+                    if level in parent_info and parent_info[level]:
+                        output[level] = [parent_info[level][0]["_id"]]
+                    else:
+                        output[level] = ["ALL"]
+
+                # Set current level with actual ID
+                output[current_entity_type] = [current_entity_id]
+
+                # Fill levels below with "ALL"
+                for i in range(current_index + 1, len(hierarchy)):
+                    output[hierarchy[i]] = ["ALL"]
+
+                print("Structured Entity Hierarchy:", json.dumps(output, indent=2))
+                return output
+
+            else:
+                errorVar = response.text
+                messageArr = ["Error fetching entity details", str(response.status_code), response.text]
+                ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                print("---> Error in fetching entity details.")
+                return None
+
+        except Exception as e:
+            errorVar = str(e)
+            print("Error occurred:", errorVar)
+            return None
         
     def programsFileCheck(filePathAddPgm, accessToken, parentFolder, MainFilePath):
-        global errorVar
+        global errorVar,entityHierarchy,orgIDFromTemplate,tenantIDFromTemplate
         program_file = filePathAddPgm
         # open excel file 
         wbPgm = xlrd.open_workbook(filePathAddPgm, on_demand=True)
         global programNameInp
         sheetNames = wbPgm.sheet_names()
         # list of sheets in the program sheet 
-        pgmSheets = ["Instructions", "Program Details", "Resource Details","Program Manager Details"]
+        pgmSheets = ["Instructions", "Program Details", "Resource Details","Program Manager Details","Role-Subrole Mapping"]
 
         # checking the sheets in the program sheet 
         if (len(sheetNames) == len(pgmSheets)) and ((set(sheetNames) == set(pgmSheets))):
@@ -889,23 +968,26 @@ class Elevateproject:
                             proDesc = dictDetailsEnv['Description of the Program'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "\"Description of the Program\" must not be Empty in \"Program details\" sheet"
-                        # programNameInp = dictDetailsEnv['Title of the Program'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Title of the Program'] else Elevateproject.terminatingMessage("\"Title of the Program\" must not be Empty in \"Program details\" sheet")
-                        # extIdPGM = dictDetailsEnv['Program ID'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Program ID'] else Elevateproject.terminatingMessage("\"Program ID\" must not be Empty in \"Program details\" sheet")
-                        # proDesc = dictDetailsEnv['Description of the Program'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Description of the Program'] else Elevateproject.terminatingMessage("\"Program ID\" must not be Empty in \"Program details\" sheet")
-                        # roles = dictDetailsEnv['Targeted subrole at program level'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Targeted subrole at program level'] else Elevateproject.terminatingMessage("\"Program ID\" must not be Empty in \"Program details\" sheet")
-                        returnvalues = []
-                        global entitiesPGM
-                        if dictDetailsEnv.get('Targeted entities at program level'):
-                            entitiesPGM = dictDetailsEnv['Targeted entities at program level'].encode('utf-8').decode('utf-8')
-                        else:
-                            errorVar = "\"Targeted entities at program level\" must not be Empty in \"Program details\" sheet"
-                        # entitiesPGM = dictDetailsEnv['Targeted entities at program level'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Targeted entities at program level'] else Elevateproject.terminatingMessage("\"Targeted entities at program level\" must not be Empty in \"Program details\" sheet")
-                        global stateEntitiesPGM
+                        
+                        global stateEntitiesPGM,districtEntitiesPGM,blockEntitiesPGM,clusterEntitiesPGM,schoolEntitiesPGM
                         if dictDetailsEnv.get('Targeted state at program level'):
                             stateEntitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "\"Targeted state at program level\" must not be Empty in \"Program details\" sheet"
-                        # stateEntitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8')
+                        if dictDetailsEnv.get('Targeted District at program level'):
+                            districtEntitiesPGM = dictDetailsEnv['Targeted District at program level'].encode('utf-8').decode('utf-8')
+                        # else:
+                        #     errorVar = "\"Targeted District at program level\" must not be Empty in \"Program details\" sheet"
+
+                        if dictDetailsEnv.get('Targeted Block at program level'):
+                            blockEntitiesPGM = dictDetailsEnv['Targeted Block at program level'].encode('utf-8').decode('utf-8')
+                        
+                        if dictDetailsEnv.get('Targeted Cluster at program level'):
+                            clusterEntitiesPGM = dictDetailsEnv['Targeted Cluster at program level'].encode('utf-8').decode('utf-8')
+            
+                        if dictDetailsEnv.get('Targeted School at program level'):
+                            schoolEntitiesPGM = dictDetailsEnv['Targeted School at program level'].encode('utf-8').decode('utf-8')
+                       
                         global startDateOfProgram, endDateOfProgram, ReffstartDateOfProgram, ReffendDateOfProgram
                         startDateOfProgram = dictDetailsEnv['Start date of program']
                         endDateOfProgram = dictDetailsEnv['End date of program']
@@ -915,18 +997,14 @@ class Elevateproject:
                         
                         startDateArr = str(startDateOfProgram).split("-")
                         startDateOfProgram = startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"
-
-                        # taking the end date of program from program template and converting YYYY-MM-DD 00:00:00 format
-
                         endDateArr = str(endDateOfProgram).split("-")
                         endDateOfProgram = endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"
-                        global mainRole
+                        
+                        global mainRole,rolesPGM, rolesPGMID
                         mainRole = dictDetailsEnv['Targeted role at program level']
                         newProgramRole = mainRole.split(",")
                         programRoleArray = list(newProgramRole)
-                        global rolesPGM
                         rolesPGM = dictDetailsEnv['Targeted subrole at program level']
-                        global rolesPGMID
                         mainRoles = str(mainRole).strip().encode('utf-8').decode('utf-8').split(",")
                         subRoles = str(rolesPGM).strip().encode('utf-8').decode('utf-8').split(",")
 
@@ -939,11 +1017,31 @@ class Elevateproject:
                         mainRoleproff = verifiedRoles[0]
                         rolesPGMID = verifiedRoles[1]
 
+                        global scopeEntityType,entitiesType
+
+                        if schoolEntitiesPGM:
+                            entitiesPGM = schoolEntitiesPGM
+                            EntityType = "school"
+
+                        elif clusterEntitiesPGM:
+                            entitiesPGM = clusterEntitiesPGM
+                            EntityType = "cluster"
+
+                        elif blockEntitiesPGM:
+                            entitiesPGM = blockEntitiesPGM
+                            EntityType = "block"
+
+                        elif districtEntitiesPGM:
+                            entitiesPGM = districtEntitiesPGM
+                            EntityType = "district"
+
+                        else:
+                            entitiesPGM = stateEntitiesPGM
+                            EntityType = "state"
                         print("mainRole", mainRoleproff)
                         print("rolesPGMID", rolesPGMID)
-                        global scopeEntityType
-                        scopeEntityType = "state"
-                        global entitiesType
+                        
+                        scopeEntityType = [EntityType] if isinstance(EntityType, str) else EntityType
                         entitiesType = Elevateproject.fetchEntityType(parentFolder, accessToken,
                                                     entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
                         if entitiesPGM:
@@ -951,9 +1049,11 @@ class Elevateproject:
                             scopeEntityType = entitiesType
                         global entitiesPGMID
                         entitiesPGMID = Elevateproject.fetchEntityId(parentFolder, accessToken,
-                                                    entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
-                        global orgIds
-                        
+                                                    entitiesPGM.lstrip().rstrip().split(","), scopeEntityType,entitiesPGM)
+                        global orgIds, entityHierarchy
+                        entityHierarchy = Elevateproject.fetchEntityParentChilds(parentFolder, scopeEntityType, entitiesPGMID)
+                        print("fetchedhirearchy", entityHierarchy)
+
                         if not Elevateproject.getProgramInfo(accessToken, parentFolder, programNameInp.encode('utf-8').decode('utf-8')):
                             if dictDetailsEnv.get('Program ID'):
                                 extIdPGM = dictDetailsEnv['Program ID'].encode('utf-8').decode('utf-8')
@@ -966,40 +1066,27 @@ class Elevateproject:
                                 descriptionPGM = dictDetailsEnv['Description of the Program'].encode('utf-8').decode('utf-8')
                             else:
                                 errorVar = "\"Description of the Program\" must not be Empty in \"Program details\" sheet"
-                            # descriptionPGM = dictDetailsEnv['Description of the Program'].encode('utf-8').decode('utf-8') if dictDetailsEnv[
-                                # 'Description of the Program'] else Elevateproject.terminatingMessage(
-                                # "\"Description of the Program\" must not be Empty in \"Program details\" sheet")
+                           
                             keywordsPGM = dictDetailsEnv['Keywords'].encode('utf-8').decode('utf-8')
-                            if dictDetailsEnv.get('Targeted entities at program level'):
-                                entitiesPGM = dictDetailsEnv['Targeted entities at program level'].encode('utf-8').decode('utf-8')
-                            else:
-                                errorVar = "\"Targeted entities at program level\" must not be Empty in \"Program details\" sheet"
-                            # entitiesPGM = dictDetailsEnv['Targeted entities at program level'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Targeted entities at program level'] else Elevateproject.terminatingMessage("\"Targeted entities at program level\" must not be Empty in \"Program details\" sheet")
-                            stateEntitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8')
-                            entitiesType = Elevateproject.fetchEntityType(parentFolder, accessToken,
-                                                    entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
+                            
+                            # entitiesType = Elevateproject.fetchEntityType(parentFolder, accessToken,
+                                                    # entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
                             # selecting entity type based on the users input 
                             if entitiesPGM:
                                 entitiesPGM = entitiesPGM
                                 scopeEntityType = entitiesType
 
-                            # global rolesPGM
-                            # if dictDetailsEnv.get('Targeted subrole at program level'):
-                            #     rolesPGM = dictDetailsEnv['Targeted subrole at program level'].encode('utf-8').decode('utf-8')
-                            # else:
-                            #     errorVar = "\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet"
-                            # rolesPGM = dictDetailsEnv['Targeted subrole at program level'] if dictDetailsEnv['Targeted subrole at program level'] else Elevateproject.terminatingMessage("\"Targeted subrole at program level\" must not be Empty in \"Program details\" sheet")
-                            # if "teacher" in mainRole.strip().lower():
-                            #     rolesPGM = str(rolesPGM).strip() + ",TEACHER"
-                            userDetails = Elevateproject.fetchUserDetails(environment, accessToken, dictDetailsEnv['Elevate username/user id/email id/phone no. of Program Designer'])
+                            userDetails = Elevateproject.fetchUserDetails(environment, accessToken, dictDetailsEnv['Username/user id/email id/phone no. of Program Designer'])
                             print(userDetails,"userDetails")
                             userId = userDetails[0]
                             messageArr = []
 
                             scopeEntityType = entitiesType
                             # fetch entity details 
-                            entitiesPGMID = Elevateproject.fetchEntityId(parentFolder, accessToken,entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
-                            
+                            print("entitiesPGMID915", entitiesPGMID)
+                            entitiesPGMID = Elevateproject.fetchEntityId(parentFolder, accessToken,entitiesPGM.lstrip().rstrip().split(","), scopeEntityType,entitiesPGM)
+                            entityHierarchy = Elevateproject.fetchEntityParentChilds(parentFolder, scopeEntityType, entitiesPGMID)
+
                             # sys.exit()
                             # fetch sub-role details 
                             # rolesPGMID = fetchScopeRole(parentFolder, accessToken, rolesPGM.lstrip().rstrip().split(","))
@@ -1007,21 +1094,28 @@ class Elevateproject:
                             # sys.exit()
 
                             # call function to create program 
-                            if not Elevateproject.programCreation(accessToken,parentFolder,extIdPGM,programNameInp,proDesc,programRoleArray,userId,mainRoleproff,rolesPGMID,entitiesPGMID):
+                            if not Elevateproject.programCreation(accessToken,parentFolder,extIdPGM,programNameInp,proDesc,programRoleArray,userId,mainRoleproff,rolesPGMID,entitiesPGMID,entityHierarchy):
+                                print("Program creation failed! Please check logs.")
                                 return False
+                            print("Program Created SuccessFully.")
                             # accessToken, parentFolder, extIdPGM, programNameInp, descriptionPGM,keywordsPGM.lstrip().rstrip().split(","),mainRole,rolesPGM
                             # sys.exit()
-                            if not Elevateproject.programmappingpdpmsheetcreation(MainFilePath, accessToken, program_file, extIdPGM,parentFolder):
-                                return False
+                            # if not Elevateproject.programmappingpdpmsheetcreation(MainFilePath, accessToken, program_file, extIdPGM,parentFolder):
+                            #     return False
 
 
                             # map PM / PD to the program 
                             # Programmappingapicall(MainFilePath, accessToken, program_file,parentFolder)
 
                             # check if program is created or not 
-                            if Elevateproject.getProgramInfo(accessToken, parentFolder, programNameInp):
-                                print("Program Created SuccessFully.")
-                            else :
+                        else :
+                            userDetails = Elevateproject.fetchUserDetails(environment, accessToken, dictDetailsEnv['Username/user id/email id/phone no. of Program Designer'])
+                            print(userDetails,"userDetails")
+                            userId = userDetails[0]
+                            messageArr = []
+                        
+                            
+                            if not Elevateproject.getProgramInfo(accessToken, parentFolder, programNameInp):
                                 print("Program creation failed! Please check logs.")
                                 return False
 
@@ -1056,11 +1150,7 @@ class Elevateproject:
                         else:
                             errorVar = "\"Resource Status\" must not be Empty in \"Program details\" sheet"
                         print(resourceStatusOrExtPGM,"resourceStatusOrExtPGM")
-                        # resourceNamePGM = dictDetailsEnv['Name of resources in program'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Name of resources in program'] else Elevateproject.terminatingMessage("\"Name of resources in program\" must not be Empty in \"Resource Details\" sheet")
-                        # resourceTypePGM = dictDetailsEnv['Type of resources'].encode('utf-8').decode('utf-8') if dictDetailsEnv['Type of resources'] else Elevateproject.terminatingMessage("\"Type of resources\" must not be Empty in \"Resource Details\" sheet")
-                        # resourceLinkOrExtPGM = dictDetailsEnv['Resource Link']
-                        # resourceStatusOrExtPGM = dictDetailsEnv['Resource Status'] if dictDetailsEnv['Resource Status'] else Elevateproject.terminatingMessage("\"Resource Status\" must not be Empty in \"Resource Details\" sheet")
-                        # global rolesPGM
+
                         if dictDetailsEnv.get('Targeted subrole at resource level'):
                             rolesPGM = dictDetailsEnv['Targeted subrole at resource level']
                         else:
@@ -1072,25 +1162,12 @@ class Elevateproject:
                         else:
                             errorVar = "\"Target role at the resource level\" must not be Empty in \"Program details\" sheet"
                         print(ProfessionalrolesPGM,"ProfessionalrolesPGM")
-                        # rolesPGM = dictDetailsEnv['Targeted subrole at resource level'] if dictDetailsEnv['Targeted subrole at resource level'] else Elevateproject.terminatingMessage("\"Targeted subrole at resource level\" must not be Empty in \"Program details\" sheet")
                         # setting start and end dates globally. 
                         global startDateOfResource, endDateOfResource
                         startDateOfResource = dictDetailsEnv['Start date of resource']
                         print(startDateOfResource,"startDateOfResource")
                         endDateOfResource = dictDetailsEnv['End date of resource']
                         print(endDateOfResource,"endDateOfResource")
-                        # checking resource types and calling relevant functions 
-                        # if resourceTypePGM.lstrip().rstrip().lower() == "course":
-                        #     # coursemapping = courseMapToProgram(accessToken, resourceLinkOrExtPGM, parentFolder)
-                        #     if startDateOfResource:
-                        #         startDateArr = str(startDateOfResource).split("-")
-                        #         bodySolutionUpdate = {"startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
-                        #         solutionUpdate(parentFolder, accessToken, coursemapping, bodySolutionUpdate)
-                        #     if endDateOfResource:
-                        #         endDateArr = str(endDateOfResource).split("-")
-                        #         bodySolutionUpdate = {
-                        #             "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                        #         solutionUpdate(parentFolder, accessToken, coursemapping, bodySolutionUpdate)
                         print(errorVar,"errorVar")
                         if errorVar == "":
                             return True
@@ -1120,7 +1197,7 @@ class Elevateproject:
                     "solution ExternalId : " + responseFetchSolutionJson["result"]["externalId"]]
         messageArr.append("Upload status code : " + str(responseFetchSolutionApiUrl.status_code))
         Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
-        # print(responseFetchSolutionApiUrl.text,"responseFetchSolutionApiUrl")
+        print(responseFetchSolutionApiUrl.text,"responseFetchSolutionApiUrl")
         # print(responseFetchSolutionJson)
         if responseFetchSolutionApiUrl.status_code == 200:
             print('Fetch solution Api Success')
@@ -1136,6 +1213,11 @@ class Elevateproject:
                     solutionRolesArray = str(resourceDetailsSheet["F" + str(row)].value).split(",")
                     solutionStartDate = resourceDetailsSheet["G" + str(row)].value
                     solutionEndDate = resourceDetailsSheet["H" + str(row)].value
+
+                    print("solutionMainRole", solutionMainRole)
+                    print("solutionRolesArray", solutionRolesArray)
+                    print("solutionStartDate", solutionStartDate)
+                    print("solutionEndDate", solutionEndDate)
                     return [solutionMainRole,solutionRolesArray, solutionStartDate, solutionEndDate]
     
     def generateAccessToken(solutionName_for_folder_path):
@@ -1226,17 +1308,17 @@ class Elevateproject:
     
     def projectValidate(filePathAddObs, accessToken, parentFolder):
         print("Validating project temp....")
-        global scopeRoles, scopeEntityType , ccRootOrgName , ccRootOrgId, errorVar, criteriaLevelsReport,criteriaLevels
+        global scopeRoles, scopeEntityType , ccRootOrgName , ccRootOrgId, errorVar, criteriaLevelsReport,criteriaLevels, AnyTaskEvidenceNo,TaskEvidenceOperator
         try:
             criteria_id_arr = list()
             wbObservation1 = xlrd.open_workbook(filePathAddObs, on_demand=True)
             sheetNames1 = wbObservation1.sheet_names()
-            projectDetailsCols = ["title", "projectId", "is a SSO user?", "projectService_loginId", "categories",
+            projectDetailsCols = ["title", "projectId", "Username/user id/email id/phone no. of content creator", "categories",
                                 "objective","duration","recommendedFor","keywords"]
             detailsColCheck = wbObservation1.sheet_by_name('Project upload')
             keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
                                         range(detailsColCheck.ncols)]
-            lentasks = (len(keysColCheckDetai) - 10) // 2
+            lentasks = (len(keysColCheckDetai) - 9) // 2
             for i in range(lentasks):
                 projectDetailsCols.append(f"learningResources{i+1}-name")
                 projectDetailsCols.append(f"learningResources{i+1}-link")
@@ -1246,14 +1328,19 @@ class Elevateproject:
             # sys.exit()
             
             taskUploadCols = ["TaskId", "TaskTitle", "parentTaskId",
-                            "Mandatory task(Yes or No)","observation Name","Number of submissions for observation"]
+                            "Mandatory task(Yes or No)","observation Name","Number of submissions for observation","Mitra_Link"]
             detailsColCheck = wbObservation1.sheet_by_name('Tasks upload')
             keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
                                         range(detailsColCheck.ncols)]
-            lentasks = (len(keysColCheckDetai) - 6) // 2
+            lentasks = (len(keysColCheckDetai) - 10) // 2
             for i in range(lentasks):
                 taskUploadCols.append(f"learningResources{i+1}-name")
                 taskUploadCols.append(f"learningResources{i+1}-link")
+            taskUploadCols.append("Evidence required for any task for certificate criteria")
+            taskUploadCols.append("Minimum No. of Evidence for any task criteria")
+            taskUploadCols.append("Task Level Evidence req. for certificate criteria")
+            taskUploadCols.append("Minimum No. of Evidence for task level evidence criteria")
+            # taskUploadCols.append("Mitra_Link")
             # taskUploadCols.append("Task Level Evidence")
             # taskUploadCols.append("Minimum No. of Evidence")
 
@@ -1276,26 +1363,6 @@ class Elevateproject:
                         dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
                                         for
                                         col_index_env in range(detailsEnvSheet.ncols)}
-                        # projectTitle = dictDetailsEnv['title'].encode('utf-8').decode('utf-8') if dictDetailsEnv['title'] else Elevateproject.terminatingMessage(
-                        #     "\"title\" must not be Empty in \"Project Upload\" sheet")
-                        # projectId = dictDetailsEnv['projectId'] if dictDetailsEnv['projectId'] else Elevateproject.terminatingMessage(
-                        #     "\"projectId\" must not be Empty in \"Project Upload\" sheet")
-                        # projectCategories = dictDetailsEnv['categories'].encode('utf-8').decode('utf-8') if dictDetailsEnv[
-                        #     'categories'] else Elevateproject.terminatingMessage(
-                        #     "\"categories\" must not be Empty in \"Project Upload\" sheet")
-                        
-                        # projectDescription = dictDetailsEnv["objective"].encode('utf-8').decode('utf-8') if dictDetailsEnv[
-                        #     "objective"] else Elevateproject.terminatingMessage(
-                        #     "\"objective\" must not be Empty in \"Project Upload\" sheet")
-                        # projectSSOuser = dictDetailsEnv["is a SSO user?"] if dictDetailsEnv[
-                        #     "is a SSO user?"] else Elevateproject.terminatingMessage(
-                        #     "\"is a SSO user?\" must not be Empty in \"Project Upload\" sheet")
-                        # projectprojectServiceloginid = dictDetailsEnv["projectService_loginId"].encode('utf-8').decode('utf-8') if dictDetailsEnv["projectService_loginId"] else Elevateproject.terminatingMessage("\"projectService_loginId\" must not be Empty in \"Project Upload\" sheet")
-                        # projectDuration = dictDetailsEnv["duration"].encode('utf-8').decode('utf-8') if dictDetailsEnv[
-                        #     "duration"] else Elevateproject.terminatingMessage(
-                        #     "\"duration\" must not be Empty in \"Project Upload\" sheet")
-                        # projectcertificate = dictDetailsEnv["has certificate"] if dictDetailsEnv["has certificate"] else Elevateproject.terminatingMessage(
-                        #     "\"has certificate\" must not be Empty in \"Project Upload\" sheet")
                         if dictDetailsEnv['title']:
                             projectTitle = dictDetailsEnv['title'].encode('utf-8').decode('utf-8')
                         else:
@@ -1314,14 +1381,14 @@ class Elevateproject:
                             projectDescription = dictDetailsEnv['objective'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "validation failed :objective must not be Empty in Project Upload sheet"
-                        if dictDetailsEnv['is a SSO user?']:
-                            projectSSOuser = dictDetailsEnv['is a SSO user?']
+                        # if dictDetailsEnv['is a SSO user?']:
+                        #     projectSSOuser = dictDetailsEnv['is a SSO user?']
+                        # else:
+                        #     errorVar = "validation failed :is a SSO user? column must not be Empty in Project Upload sheet"
+                        if dictDetailsEnv['Username/user id/email id/phone no. of content creator']:
+                            projectprojectServiceloginid = dictDetailsEnv['Username/user id/email id/phone no. of content creator'].encode('utf-8').decode('utf-8')
                         else:
-                            errorVar = "validation failed :is a SSO user? column must not be Empty in Project Upload sheet"
-                        if dictDetailsEnv['projectService_loginId']:
-                            projectprojectServiceloginid = dictDetailsEnv['projectService_loginId'].encode('utf-8').decode('utf-8')
-                        else:
-                            errorVar = "validation failed :projectService_loginId column must not be Empty in Project Upload sheet"
+                            errorVar = "validation failed :Username/user id/email id/phone no. of content creator column must not be Empty in Project Upload sheet"
                         if dictDetailsEnv['duration']:
                             projectDuration = dictDetailsEnv['duration'].encode('utf-8').decode('utf-8')
                         else:
@@ -1345,11 +1412,31 @@ class Elevateproject:
                     detailsColCheck = wbObservation1.sheet_by_name(sheetColCheck)
                     keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
                                         range(detailsColCheck.ncols)]
+                    
+                    print("keysColCheckDetai---------", keysColCheckDetai)
+                    print("taskUploadCols 1417", taskUploadCols)
                     if len(keysColCheckDetai) != len(taskUploadCols) or set(keysColCheckDetai) == set(taskUploadCols):
-                        errorVar = 'Columns is missing in details sheet'
+                        errorVar = 'Columns is missing in Task Upload sheet'
                     detailsEnvSheet = wbObservation1.sheet_by_name(sheetColCheck)
                     keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
                             range(detailsEnvSheet.ncols)]
+                    try:
+                        evidence_col_index = keysEnv.index("Evidence required for any task for certificate criteria")
+                        no_evidence_col_index = keysEnv.index("Minimum No. of Evidence for any task criteria")
+                    except ValueError:
+                        print("Column 'Evidence required for any task for certificate criteria' or 'Min No. Evidence for any task' not found.")
+                        evidence_col_index = None
+                        no_evidence_col_index = None
+
+                    if evidence_col_index is not None:
+                        TaskEvidenceOperator = detailsColCheck.cell_value(2, evidence_col_index)
+                        if not TaskEvidenceOperator or str(TaskEvidenceOperator).strip().lower() == "":
+                            TaskEvidenceOperator = "no"
+                    if TaskEvidenceOperator.lower() == "yes" and no_evidence_col_index is not None:
+                        AnyTaskEvidenceNo = detailsColCheck.cell_value(2, no_evidence_col_index)
+                        if not AnyTaskEvidenceNo or str(AnyTaskEvidenceNo).strip().lower() == "":
+                            AnyTaskEvidenceNo = 1
+                            
                     for row_index_env in range(1, detailsEnvSheet.nrows):
                         dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
                                         for
@@ -1529,7 +1616,7 @@ class Elevateproject:
                         (get_close_matches(cat.strip().lower().replace(" ", ""), categories_list)[0]))
             global projectCreator, projectAuthor
 
-            projectAuthor = str(dictProjectDetails["projectService_loginId"]).encode('utf-8').decode('utf-8').strip()
+            projectAuthor = str(dictProjectDetails["Username/user id/email id/phone no. of content creator"]).encode('utf-8').decode('utf-8').strip()
             recommendedFor = str(dictProjectDetails["recommendedFor"]).encode('utf-8').decode('utf-8').strip()
             objective = str(dictProjectDetails["objective"]).encode('utf-8').decode('utf-8').strip()
             entityType = None
@@ -1572,7 +1659,7 @@ class Elevateproject:
                     range(tasksDetailsSheet.ncols)]
         taskColumns1 = ["name", "externalId", "description", "type", "hasAParentTask", "parentTaskOperator",
                         "parentTaskValue",
-                        "parentTaskId", "solutionType", "solutionSubType", "solutionId", "isDeletable","startDate","endDate"]
+                        "parentTaskId", "solutionType", "solutionSubType", "solutionId", "isDeletable"]
         taskLearningResource_count = 0
 
         for tasksHeader in keysTasks:
@@ -1588,6 +1675,10 @@ class Elevateproject:
             taskslr_count += 1
         taskColumns1.append("minNoOfSubmissionsRequired")
         taskColumns1.append("sequenceNumber")
+        taskColumns1.append("redirectLink")
+        taskColumns1.append("buttonLabel")
+
+        print(taskColumns1,"taskColumns1")
 
         with open(taskFilePath + 'taskUpload.csv', 'w',encoding='utf-8') as file:
             writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
@@ -1597,15 +1688,19 @@ class Elevateproject:
             dictTasksDetails = {keysTasks[col_index_env]: tasksDetailsSheet.cell(row_index_env, col_index_env).value
                                 for col_index_env in range(tasksDetailsSheet.ncols)}
             taskName = str(dictTasksDetails["TaskTitle"]).encode('utf-8').decode('utf-8').strip()
+            Mitra_Link = str(dictTasksDetails["Mitra_Link"]).strip()
+            if Mitra_Link == "":
+                Mitra_Link = Mitra_Link
+                
             # subtaskname = str(dictTasksDetails["Subtask"]).encode('utf-8').decode('utf-8').strip()
-            startDate = dictTasksDetails["startDate"]
-            endDate = dictTasksDetails["endDate"]
-            if startDate:
-                startDateArr = str(startDate).split("-")
-                bodyStartDate = startDateArr[0] + "/" + startDateArr[1] + "/" + startDateArr[2]
-                if endDate:
-                    endDateArr = str(endDate).split("-")
-                    bodyEndDate = endDateArr[0] + "/" + endDateArr[1] + "/" + endDateArr[2]                     
+            # startDate = dictTasksDetails["startDate"]
+            # endDate = dictTasksDetails["endDate"]
+            # if startDate:
+            #     startDateArr = str(startDate).split("-")
+            #     bodyStartDate = startDateArr[0] + "/" + startDateArr[1] + "/" + startDateArr[2]
+            #     if endDate:
+            #         endDateArr = str(endDate).split("-")
+            #         bodyEndDate = endDateArr[0] + "/" + endDateArr[1] + "/" + endDateArr[2]                     
 
             taskId = str(dictTasksDetails["TaskId"]).encode('utf-8').decode('utf-8').strip() + "-" + str(millisecond)
             taskminNoOfSubmissionsRequired = str(dictTasksDetails["Number of submissions for observation"]).strip()
@@ -1621,6 +1716,9 @@ class Elevateproject:
                 taskType = "observation"
             elif dictTasksDetails["learningResources1-name"] != "" and dictTasksDetails["learningResources1-link"] != "":
                 taskType = "content"
+
+            elif dictTasksDetails["Mitra_Link"] != "":
+                taskType = "reflection"
             else:
                 taskType = "simple"
         
@@ -1665,7 +1763,7 @@ class Elevateproject:
             else:
                 isDeletable = "FALSE"
             task_values = [taskName, taskId, taskDescription, taskType, hasAParentTask, parentTaskOperator, parentTaskValue,
-                            parentTaskId, taskSolutionType, solutionSubType, solutionId, isDeletable,bodyStartDate,bodyEndDate]
+                            parentTaskId, taskSolutionType, solutionSubType, solutionId, isDeletable]
             task_lr_value_count = 1
             for task_lr in range(0, int(taskLearningResource_count)):
                 task_lr_name = str(dictTasksDetails["learningResources" + str(task_lr_value_count) + "-name"]).strip()
@@ -1688,6 +1786,11 @@ class Elevateproject:
                     task_lr_value_count += 1
             task_values.append(taskminNoOfSubmissionsRequired)
             task_values.append(sequenceNumber)
+            task_values.append(Mitra_Link)
+            if Mitra_Link.strip() != "":
+                task_values.append("Start Reflection")
+            else:
+                task_values.append("")
             with open(taskFilePath + 'taskUpload.csv','a',encoding='utf-8') as file:
                 writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
                 writer.writerows([task_values])
@@ -1707,6 +1810,7 @@ class Elevateproject:
                 'orgId' : orgIDFromTemplate,
                 adminTokenHeaderName: projAdminAccessToken
             }
+            print(headerProjectUploadApi,"headerProjectUploadApi")
             project_payload = {}
             filesProject = {
                 'projectTemplates': open(projectName_for_folder_path + '/projectUpload/projectUpload.csv', 'rb')
@@ -1850,7 +1954,7 @@ class Elevateproject:
     def solutionCreationAndMapping(projectName_for_folder_path, entityToUpload, listOfFoundRoles, accessToken, programFile):
         try:
             print("solutionCreationAndMapping....")
-            global errorVar
+            global errorVar,entityHierarchy,programExternalId
             error_message = ""
             SolutionFilePath = projectName_for_folder_path + '/solutionDetails/'
             if not os.path.exists(SolutionFilePath):
@@ -1886,6 +1990,7 @@ class Elevateproject:
                     'orgId' : orgIDFromTemplate,
                     adminTokenHeaderName: projAdminAccessToken
                 }
+                print(programExternalId,"programExternalId")
                 print(headerCreateSolutionApi,"headerCreateSolutionApi")
                 sol_payload = {
                     "createdFor": orgIds,
@@ -1952,7 +2057,7 @@ class Elevateproject:
                                             duplicateTemplateId]])
                         solutionDetails = Elevateproject.fetchSolutionDetailsFromProgramSheet(projectName_for_folder_path, programFile,
                                                                             solutionId, accessToken)
-                        print("solutionDetails",solutionDetails)
+                        print("solutionDetails---",solutionDetails)
                         if solutionDetails:
                             scopeRoles = solutionDetails[0]
                             scopeSubRoles = solutionDetails[1]
@@ -1963,16 +2068,11 @@ class Elevateproject:
                             print("rolesPGMID", rolesPGMID)
                             scopeEntities = entitiesPGMID
                             scope = {}
-                            for i in range(len(entitiesType)):
-                                entity_type = entitiesType[i]
-                                entity_value = scopeEntities[i]
-                                if entity_type in scope:
-                                    scope[entity_type].append(entity_value)
-                                else:
-                                    scope[entity_type] = [entity_value]
                             scope["organizations"] = [orgIDFromTemplate]        
                             scope["professional_subroles"] = rolesPGMID
                             scope["professional_role"] = mainRoleproff
+                            scope.update(entityHierarchy)
+                            print(scope)
                             bodySolutionUpdate = {
                             "scope": scope
                             }
@@ -2080,11 +2180,16 @@ class Elevateproject:
                 adminTokenHeaderName: projAdminAccessToken
             }
             payload = json.dumps({
-                "query": {},
+                "query": {
+                    'tenantId': tenantIDFromTemplate
+                },
                 "mongoIdKeys": []
             })
+            print(urldbFind,"2163")
             responsedbFindApi = requests.request("POST", url=urldbFind, headers=headerdbFindApi,
                                                 data=payload)
+            
+            print(responsedbFindApi.text,"responsedbFindApi 2166")
             if responsedbFindApi.status_code == 200:
                 responseaddcetificate = responsedbFindApi.json()
                 result_list = responseaddcetificate['result']
@@ -2273,7 +2378,7 @@ class Elevateproject:
                         
 
                         Authsign2 = dictDetailsEnv['Authorised Signature Image - 2']
-                        logo_split = str(Authsign1).split('/')[5]
+                        logo_split = str(Authsign2).split('/')[5]
                         
 
                         file_url = 'https://drive.google.com/uc?export=download&id=' + logo_split
@@ -2385,8 +2490,9 @@ class Elevateproject:
                             adminTokenHeaderName: projAdminAccessToken
                         }
                         print(headereditingsvgApi,"headereditingsvgApi")
+                        print(downloadedfiles,"downloadedfiles")
                         responseeditsvg = requests.request("POST",url=urleditnigsvgApi, headers=headereditingsvgApi,data=payload, files=downloadedfiles)
-                        print(responseeditsvg,"responseeditsvg")
+                        print(responseeditsvg.text,"responseeditsvg")
                         if responseeditsvg.status_code == 200:
                             responseeditsvg = responseeditsvg.json()
                             svgid = responseeditsvg['result']['url']
@@ -2416,7 +2522,7 @@ class Elevateproject:
             return False
 
     def prepareaddingcertificatetemp(filePathAddProject, projectName_for_folder_path, accessToken, solutionId, programID,baseTemplate_id):
-        global errorVar
+        global errorVar,TaskEvidenceOperator,AnyTaskEvidenceNo
         error_message = ""
         try:
             wbproject = xlrd.open_workbook(filePathAddProject, on_demand=True)
@@ -2464,16 +2570,20 @@ class Elevateproject:
                             for col_index_env in range(detailsEnvSheet.ncols)}
                         
                         
-                        taskLevelEvidence = dictDetailsEnv["Task Level Evidence"].lower()
-                        minNoOfEvidence = dictDetailsEnv["Minimum No. of Evidence"]
+                        taskLevelEvidence = dictDetailsEnv["Task Level Evidence req. for certificate criteria"].lower()
+                        minNoOfEvidence = dictDetailsEnv["Minimum No. of Evidence for task level evidence criteria"]
                     
-                        if taskLevelEvidence == "yes":
+                        if TaskEvidenceOperator.lower() == "yes":
                             tasksLevelEvidance.append(dictDetailsEnv["TaskTitle"])
-                            if minNoOfEvidence == "":
-                                minNoOfEvidence = 1  # Set default value to 1
-                                taskMinNooEvide.append(minNoOfEvidence)
-                            else:
-                                taskMinNooEvide.append(minNoOfEvidence)
+                        
+                        else:
+                            if taskLevelEvidence == "yes":
+                                tasksLevelEvidance.append(dictDetailsEnv["TaskTitle"])
+                                if minNoOfEvidence == "":
+                                    minNoOfEvidence = 1  # Set default value to 1
+                                    taskMinNooEvide.append(minNoOfEvidence)
+                                else:
+                                    taskMinNooEvide.append(minNoOfEvidence)
                         
 
 
@@ -2600,43 +2710,98 @@ class Elevateproject:
                     if task["hasAParentTask"].lower() == "no":
                         
                         task_id = task["_SYSTEM_ID"]
-                        
-                        c = c + 1
-                        cn = "C" + str(c)
-                        taskconditions = {
-                            cn: {
-                                "validationText": f"Add {int(taskMinNooEvide[c-3])} evidence for the task {task['name']}",
-                                "expression": "C1",
-                                "conditions": {
-                                    "C1": {
-                                        "scope": "task",
-                                        "key": "attachments",
-                                        "function": "count",
-                                        "filter": {
-                                            "key": "type",
-                                            "value": "all"
-                                        },
-                                        "operator": ">=",
-                                        "value": int(taskMinNooEvide[c-3]),
-                                        "taskDetails": [
-                                            task_id
-                                        ]
+                        if TaskEvidenceOperator.lower() == "no":
+                            c = c + 1
+                            cn = "C" + str(c)
+                            taskconditions = {
+                                cn: {
+                                    "validationText": f"Add {int(taskMinNooEvide[c-3])} evidence for the task {tasksLevelEvidance[c-3]}",
+                                    "expression": "C1",
+                                    "conditions": {
+                                        "C1": {
+                                            "scope": "task",
+                                            "key": "attachments",
+                                            "function": "count",
+                                            "filter": {
+                                                "key": "type",
+                                                "value": "all"
+                                            },
+                                            "operator": ">=",
+                                            "value": int(taskMinNooEvide[c-3]),
+                                            "taskDetails": [
+                                                task_id
+                                            ]
+                                        }
                                     }
                                 }
                             }
-                        }
-                        payload["criteria"]["conditions"].update(taskconditions)
+                            payload["criteria"]["conditions"].update(taskconditions)
+                        else:
+                            c = c + 1
+                            cn = "C" + str(c)
+                            taskconditions = {
+                                cn: {
+                                    # "validationText": f"Add {int(AnyTaskEvidenceNo)} evidence for any task",
+                                    # "validationText": f"Add {int(AnyTaskEvidenceNo)} evidence for any task {tasksLevelEvidance[c-3]}",
+                                    "expression": "C1",
+                                    "conditions": {
+                                        "C1": {
+                                            "scope": "task",
+                                            "key": "attachments",
+                                            "function": "count",
+                                            "filter": {
+                                                "key": "type",
+                                                "value": "all"
+                                            },
+                                            "operator": ">=",
+                                            "value": int(AnyTaskEvidenceNo),
+                                            "taskDetails": [
+                                                task_id
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                            payload["criteria"]["conditions"].update(taskconditions)    
                 else:
                     pass
 
 
-            condition = ""
-            for a, i in enumerate(payload["criteria"]["conditions"]):
-                if a == 0:
-                    condition = condition + str(i)
+            if TaskEvidenceOperator.lower() == "yes":
+                # payload["criteria"]["conditions"]["C1"]["validationText"] = f"Add {int(AnyTaskEvidenceNo)} evidence for any task"
+                payload["criteria"]["conditions"]["C3"]["validationText"] = f"Add {int(AnyTaskEvidenceNo)} evidence for any task"
+
+            if str(projectLevelEvidance).strip().lower() == "yes":       
+                condition = ""
+                print(payload["criteria"]["conditions"],"4514")
+                print(TaskEvidenceOperator.lower(),"4515")
+                condition_keys = list(payload["criteria"]["conditions"].keys())
+                TaskEvidenceOperator = TaskEvidenceOperator.lower()
+
+                if TaskEvidenceOperator.lower() == "yes" and len(condition_keys) > 2:
+                    first_part = "&&".join(condition_keys[:2])
+                    grouped_part = "||".join(condition_keys[2:])
+                    condition = f"{first_part}&&({grouped_part})"
                 else:
-                    condition = condition + "&&" + str(i)
-            payload["criteria"]["expression"] = condition
+                    condition = "&&".join(condition_keys)
+
+                payload["criteria"]["expression"] = condition
+            else:
+                condition = ""
+                condition_keys = list(payload["criteria"]["conditions"].keys())
+                TaskEvidenceOperator = TaskEvidenceOperator.lower()
+
+                if TaskEvidenceOperator.lower() == "yes" and len(condition_keys) > 1:
+                    first_part = "&&".join(condition_keys[:1])
+                    grouped_part = "||".join(condition_keys[1:])
+                    condition = f"{first_part}&&({grouped_part})"
+                else:
+                    condition = "&&".join(condition_keys)
+
+                payload["criteria"]["expression"] = condition
+
+            TaskEvidenceOperator = ""
+            print(payload["criteria"]["expression"])
 
 
             print(json.dumps(payload, indent=1))
@@ -2835,6 +3000,8 @@ class Elevateproject:
 
         responseFetchSolutionLinkApi = requests.get(url=urlFetchSolutionLinkApi, headers=headerFetchSolutionLinkApi,
                                                     data=payloadFetchSolutionLinkApi)
+        
+        print(responseFetchSolutionLinkApi.text, "responseFetchSolutionLinkApi")
         messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
         messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
         Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
@@ -3074,7 +3241,7 @@ class Elevateproject:
     def mainFunc(MainFilePath, programFile, addObservationSolution,resourceName, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType):
         scopeEntityType = scopeEntityType
-        global solutionLink, errorVar, ObservationOrSurveyResult, finalprojectsolutionlink
+        global solutionLink, errorVar, ObservationOrSurveyResult, finalprojectsolutionlink, AnyTaskEvidenceNo,TaskEvidenceOperator, entityHierarchy ,orgIDFromTemplate,tenantIDFromTemplate,programExternalId
         observationInstance = ElevateObservation
         if not isCourse:
             parentFolder = Elevateproject.createFileStructre(MainFilePath, addObservationSolution)
@@ -3117,7 +3284,7 @@ class Elevateproject:
                                 else:
                                     isProgramnamePresent = True
                                 scopeEntityType = scopeEntityType
-                                userEntity = dictProgramDetails['Targeted entities at program level'].encode('utf-8').decode('utf-8').lstrip().rstrip().split(",")
+                                userEntity = dictProgramDetails['Targeted state at program level'].encode('utf-8').decode('utf-8').lstrip().rstrip().split(",")
                                
                     for sheets in projectSheetNames:
                         if sheets.strip().lower() == 'Project upload'.lower():
@@ -3131,6 +3298,27 @@ class Elevateproject:
 
                                 ProjectName = projectDetails["title"].encode('utf-8').decode('utf-8')
                                 entityType = "school"
+                        
+                        elif sheets.strip().lower() == 'Tasks upload'.lower():
+                            projectsheet = wbproject.sheet_by_name('Tasks upload')
+                            keysEnv = [projectsheet.cell_value(1, col_index) for col_index in range(projectsheet.ncols)]
+                            try:
+                                evidence_col_index = keysEnv.index("Evidence required for any task for certificate criteria")
+                                no_evidence_col_index = keysEnv.index("Minimum No. of Evidence for any task criteria")
+                            except ValueError:
+                                print("Column 'Evidence required for any task for certificate criteria' or 'Min No. Evidence for any task' not found.")
+                                evidence_col_index = None
+                                no_evidence_col_index = None
+
+                            if evidence_col_index is not None:
+                                TaskEvidenceOperator = projectsheet.cell_value(2, evidence_col_index)
+                                if not TaskEvidenceOperator or str(TaskEvidenceOperator).strip().lower() == "":
+                                    TaskEvidenceOperator = "no"
+                            if TaskEvidenceOperator.lower() == "yes" and no_evidence_col_index is not None:
+                                AnyTaskEvidenceNo = projectsheet.cell_value(2, no_evidence_col_index)
+                                if not AnyTaskEvidenceNo or str(AnyTaskEvidenceNo).strip().lower() == "":
+                                    AnyTaskEvidenceNo = 1
+
                     if not Elevateproject.programsFileCheck(programFile, accessToken, parentFolder, MainFilePath):
                         finalprojectSolutionLink = {ProjectName: errorVar}
                         return finalprojectSolutionLink
@@ -3147,11 +3335,6 @@ class Elevateproject:
                                 print(finalprojectsolutionlink)  
                                 return finalprojectsolutionlink  
                             print('Add Project Function Called')
-                            # try:
-                            #     config.get(environment, 'internal-access-token')
-                            # except:
-                            #     print("Invalid Environment...")
-                            #     sys.exit()
 
                             projectName_for_folder = None
                             
@@ -3189,10 +3372,12 @@ class Elevateproject:
                                         if str(dictDetailsEnv['has certificate']).lower() == 'No'.lower():
                                             Elevateproject.prepareProjectAndTasksSheets(addObservationSolution, projectName_for_folder_path,
                                                                         accessToken)
+                                            print("prepareProjectAndTasksSheets")
                                             # sys.exit()
                                             if not Elevateproject.projectUpload(addObservationSolution, projectName_for_folder_path, accessToken):
                                                 finalprojectsolutionlink = {ProjectName: errorVar}
                                                 return finalprojectsolutionlink
+                                            print("projectUpload")
                                             if not Elevateproject.taskUpload(addObservationSolution, projectName_for_folder_path, accessToken):
                                                 finalprojectsolutionlink = {ProjectName: errorVar}
                                                 return finalprojectsolutionlink
@@ -3347,7 +3532,7 @@ class Elevateproject:
 
         wbPgm = xlrd.open_workbook(programFile, on_demand=True)
         sheetNames = wbPgm.sheet_names()
-        pgmSheets = ["Instructions", "Program Details", "Resource Details", "Program Manager Details"]
+        pgmSheets = ["Instructions", "Program Details", "Resource Details", "Program Manager Details","Role-Subrole Mapping"]
 
         solutionDict = {}
         programName = ""  # Initialize the programName variable
