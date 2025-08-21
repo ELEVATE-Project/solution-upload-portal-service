@@ -82,7 +82,7 @@ districtEntitiesPGM = []
 blockEntitiesPGM = []
 clusterEntitiesPGM = []
 schoolEntitiesPGM = []
-
+orgIdForScope = []
 entityToUpload = None
 programID = None
 programExternalId = None
@@ -329,6 +329,7 @@ class ElevateObservation:
                 "query": {
                     "metaInformation.name": entityName,
                     "tenantId":tenantID,  # Use the current entity name
+                    "entityType": scopeEntityType[0]
                     # "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')},
                 },
                 "projection": [
@@ -375,7 +376,7 @@ class ElevateObservation:
                 # Handle cases where the API call fails for a specific entity
                 raise RuntimeError(f"Failed to fetch entity type for '{entityName}'. Status code: {responseFetchEntityListApi.status_code}")
         # Return all found entity types
-        return entityTypes 
+        return entityTypes,entityTypeID
 
     def fetchEntityId(solutionName_for_folder_path, accessToken, entitiesNameList, scopeEntityType,entitiesPGM):
         try:
@@ -448,67 +449,63 @@ class ElevateObservation:
             print(errorVar,"---> API-Error")
 
 
-   
-
-    def fetchEntityParentChilds(solutionName_for_folder_path, accessToken, entityId):
+    def fetchEntityParentChilds(solutionName_for_folder_path, accessToken, entityIds):
         try:
             global errorVar
-            entityId = entityId[0] if isinstance(entityId, list) else entityId
+            if not isinstance(entityIds, list):
+                entityIds = [entityIds]
 
-            urlFetchEntity = elevateentityhost + fetchDetailsEntity + entityId
-            print(urlFetchEntity, "urlFetchEntity")
+            hierarchy = ["state", "district", "block", "cluster", "school"]
+            merged_output = {level: [] for level in hierarchy}
 
-            headers = {
-                'Content-Type': content_type,
-                'tenantId': tenantID
-            }
+            for entityId in entityIds:
+                urlFetchEntity = elevateentityhost + fetchDetailsEntity + entityId
+                print(urlFetchEntity, "urlFetchEntity")
 
-            response = requests.get(url=urlFetchEntity, headers=headers)
+                headers = {
+                    'Content-Type': content_type,
+                    'tenantId': tenantID,
+                    'Authorization': f'Bearer {accessToken}'
+                }
 
-            messageArr = [
-                "Entity Details API executed.",
-                "URL: " + urlFetchEntity,
-                "Status: " + str(response.status_code)
-            ]
-            ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                response = requests.get(url=urlFetchEntity, headers=headers)
 
-            if response.status_code == 200:
-                responseJson = response.json()
-                result = responseJson.get("result", [])[0]
+                if response.status_code == 200:
+                    responseJson = response.json()
+                    result = responseJson.get("result", [])[0]
 
-                parent_info = result.get("parentInformation", {})
-                current_entity_type = result.get("entityType").lower()  # e.g., "block"
-                current_entity_id = result.get("_id")
+                    parent_info = result.get("parentInformation", {})
+                    current_entity_type = result.get("entityType").lower()
+                    current_entity_id = result.get("_id")
 
-                hierarchy = ["state", "district", "block", "cluster", "school"]
-                output = {}
+                    current_index = hierarchy.index(current_entity_type)
 
-                current_index = hierarchy.index(current_entity_type)
+                    for i in range(current_index):
+                        level = hierarchy[i]
+                        if level in parent_info and parent_info[level]:
+                            val = parent_info[level][0]["_id"]
+                            if val not in merged_output[level]:
+                                merged_output[level].append(val)
 
-                # Fill levels above current from parentInformation
-                for i in range(current_index):
-                    level = hierarchy[i]
-                    if level in parent_info and parent_info[level]:
-                        output[level] = [parent_info[level][0]["_id"]]
-                    else:
-                        output[level] = ["ALL"]
+                    if current_entity_id not in merged_output[current_entity_type]:
+                        merged_output[current_entity_type].append(current_entity_id)
 
-                # Set current level with actual ID
-                output[current_entity_type] = [current_entity_id]
+                    for i in range(current_index + 1, len(hierarchy)):
+                        if not merged_output[hierarchy[i]]:  # only add ALL if empty
+                            merged_output[hierarchy[i]].append("ALL")
 
-                # Fill levels below with "ALL"
-                for i in range(current_index + 1, len(hierarchy)):
-                    output[hierarchy[i]] = ["ALL"]
+                else:
+                    errorVar = response.text
+                    print(f"---> Error in fetching entity details for {entityId}. "
+                        f"Status {response.status_code} Response {response.text}")
 
-                print("Structured Entity Hierarchy:", json.dumps(output, indent=2))
-                return output
+            # Final check: ensure each level has at least "ALL" if empty
+            for level in hierarchy:
+                if not merged_output[level]:
+                    merged_output[level].append("ALL")
 
-            else:
-                errorVar = response.text
-                messageArr = ["Error fetching entity details", str(response.status_code), response.text]
-                ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
-                print("---> Error in fetching entity details.")
-                return None
+            print("Structured Entity Hierarchy:", json.dumps(merged_output, indent=2))
+            return merged_output
 
         except Exception as e:
             errorVar = str(e)
@@ -516,11 +513,10 @@ class ElevateObservation:
             return None
 
 
-
     def getProgramInfo(accessToken, solutionName_for_folder_path, programNameInp):
         try:
             if programNameInp:
-                global programID, programExternalId, programDescription, isProgramnamePresent, programName, isExternalProgram,tenantID
+                global programID, programExternalId, programDescription, isProgramnamePresent, programName, isExternalProgram,tenantID,orgIdForScope
                 programName = programNameInp
                 programUrl = elevateprojecthost + fetchprograminfoapiurl
                 print(programUrl,"programUrl")
@@ -554,7 +550,7 @@ class ElevateObservation:
                     countOfPrograms = len(responseProgramSearch['result'])
                     messageArr.append("--->Program Count : " + str(countOfPrograms))
                     if countOfPrograms == 0:
-                        programUrl = internal_kong_ip + fetchprograminfoapiurl
+                        programUrl = elevateprojecthost + fetchprograminfoapiurl
                         print(programUrl,"programUrl")
                         # print(programUrl,"payload")
                         responseProgramSearch = requests.post(url=programUrl, headers=headersProgramSearch,data=payload)
@@ -725,8 +721,9 @@ class ElevateObservation:
             
 
     def programCreation(accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM,entityHierarchy):
-        global errorVar,scopeEntityType
+        global errorVar,scopeEntityType,orgIdForScope
         print(orgIDFromTemplate,"orgIDFromTemplate")
+        print(orgIdForScope,"orgIdForScope")
         try: 
             messageArr = []
             messageArr.append("++++++++++++ Program Creation ++++++++++++")
@@ -736,7 +733,7 @@ class ElevateObservation:
             # print(ProgramCreationurl,"ProgramCreationurl")
             # program creation payload
             scope = {
-                "organizations": [orgIDFromTemplate],
+                "organizations": orgIdForScope,
                 "professional_subroles": rolesPGMID,
                 "professional_role": mainRole
             }
@@ -817,7 +814,7 @@ class ElevateObservation:
             print(errorVar)
 
     def programsFileCheck(filePathAddPgm, accessToken, parentFolder, MainFilePath):
-        global errorVar, entityHierarchy,tenantID,orgIDFromTemplate
+        global errorVar, entityHierarchy,tenantID,orgIDFromTemplate,orgIdForScope
         errorVar = ""
         program_file = filePathAddPgm
         # open excel file 
@@ -963,11 +960,13 @@ class ElevateObservation:
                         print("entitiesType", entitiesType)
                         if scopeEntityType:
                             entitiesPGM = entitiesPGM
-                            # scopeEntityType = entitiesType[0]
+                            scopeEntityType = entitiesType[0]
 
                         global entitiesPGMID
-                        entitiesPGMID = ElevateObservation.fetchEntityId(parentFolder, accessToken,
-                                                    entitiesPGMs.lstrip().rstrip().split(","), scopeEntityType,entitiesPGM)
+                        entitiesPGMID = entitiesType[1]
+                        print(entitiesPGMID,"1068")
+                        # entitiesPGMID = ElevateObservation.fetchEntityId(parentFolder, accessToken,
+                        #                             entitiesPGMs.lstrip().rstrip().split(","), scopeEntityType,entitiesPGM)
                         
                         entityHierarchy = ElevateObservation.fetchEntityParentChilds(parentFolder, scopeEntityType, entitiesPGMID)
                         print("fetchedhirearchy", entityHierarchy)
@@ -1009,9 +1008,10 @@ class ElevateObservation:
                             
                             messageArr = []
 
-                            scopeEntityType = entitiesType
+                            scopeEntityType = entitiesType[0]
                             # fetch entity details 
-                            entitiesPGMID = ElevateObservation.fetchEntityId(parentFolder, accessToken,entitiesPGMs.lstrip().rstrip().split(","), scopeEntityType,entitiesPGM)
+                            # entitiesPGMID = ElevateObservation.fetchEntityId(parentFolder, accessToken,entitiesPGMs.lstrip().rstrip().split(","), scopeEntityType,entitiesPGM)
+                            entitiesPGMID = entitiesType[1]
                             print("entitiesPGMID915", entitiesPGMID)
                             entityHierarchy = ElevateObservation.fetchEntityParentChilds(parentFolder, scopeEntityType, entitiesPGMID)
                             
@@ -1571,6 +1571,7 @@ class ElevateObservation:
                 adminTokenHeaderName: adminAccessToken
             }
             queryparamsCreateSolutionApi = '?frameworkId=' + str(frameworkExternalId) + '&entityType=' + entityType + '&isExternalProgram=' + isExternalProgram
+            # queryparamsCreateSolutionApi = '?frameworkId=' + str(frameworkExternalId) + '&entityType=' + entityType
             print(queryparamsCreateSolutionApi)
             responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi + queryparamsCreateSolutionApi,
                                                     headers=headerCreateSolutionApi)
@@ -3000,7 +3001,7 @@ class ElevateObservation:
     def validateTenantAndOrgIdsFromProgramSheet(programFileContent):
             
             tenantIdFromProgramFile = None
-            orgIdsFromProgramFile = None
+            orgIdsFromProgramFile = []
                         
             sheetNames = programFileContent.sheet_names()
             # iterate through the sheets 
@@ -3020,14 +3021,18 @@ class ElevateObservation:
                                         col_index_env in range(detailsEnvSheet.ncols)}
                         tenantIdFromProgramFile = dictDetailsEnv.get('Tenant ID')
                         # orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
+                        global orgIdForScope
                         if tenantIdFromProgramFile == "shikshalokam":
-                            orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
+                            orgIds_str = dictDetailsEnv.get('Org ID', '')
+                            orgIds = [oid.strip() for oid in orgIds_str.split(',') if oid.strip()]
+                            orgIdForScope = orgIds
+                            orgIdsFromProgramFile = orgIds[0] if orgIds else None
                         else:
-                            if tenantIdFromProgramFile == "shikshagrahanew":
-                                orgIdsFromProgramFile = dictDetailsEnv.get('Targeted state at program level','').strip().lower()
-                            else:
-                                orgIdsFromProgramFile = dictDetailsEnv.get('Targeted District at program level', '').strip()
-
+                            # if tenantIdFromProgramFile == "shikshagrahanew":
+                            orgIds_str = dictDetailsEnv.get('Targeted state at program level', '')
+                            orgIds = [oid.strip().lower() for oid in orgIds_str.split(',') if oid.strip()]
+                            orgIdForScope = orgIds
+                            orgIdsFromProgramFile = orgIds[0] if orgIds else None
 
             global roleOfResourceCreator
             if roleOfResourceCreator not in ['org_admin', 'tenant_admin'] and not tenantIdFromProgramFile:
@@ -4660,8 +4665,12 @@ class ElevateObservation:
             'tenantId': tenantID,
             'X-Channel-id': x_channel_id,
         }
-        response = requests.get(urlFetchRoleList, headers=headers, data=json.dumps({}))
-
+        payload = {}
+        print(urlFetchRoleList,"urlFetchRoleList")
+        print(headers,"headers")
+        response = requests.request("GET", urlFetchRoleList, headers=headers, data=payload)
+        # response = requests.get(urlFetchRoleList, headers=headers, data=json.dumps({}))
+        print(response.text,"response4670")
         messageArr = []
         messageArr.append("Fetched professional roles from: " + urlFetchRoleList)
         messageArr.append("Status Code: " + str(response.status_code))
@@ -4685,8 +4694,9 @@ class ElevateObservation:
             if matched:
                 main_role_id = matched['_id']
                 validated_main_role_ids.append(main_role_id)
+                # subrole_url = requests.request("GET", userLoginHost+ "entity-management/v1/entities/subEntityList/" +main_role_id+"?type=professional_subroles", headers=headers, data=payload)
                 subrole_url = f"{userLoginHost}entity-management/v1/entities/subEntityList/{main_role_id}?type=professional_subroles"
-                subrole_resp = requests.get(subrole_url, headers=headers)
+                subrole_resp = requests.request("GET",subrole_url, headers=headers,data=payload)
                 if subrole_resp.status_code == 200:
                     subroles_data = subrole_resp.json()
                     for item in subroles_data['result']['data']:
@@ -4715,7 +4725,7 @@ class ElevateObservation:
     def mainFunc(MainFilePath, programFile, addObservationSolution, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType):
         print("entering mainFUnc")
-        global errorVar,pointBasedValue,solutionDict,allow_multiple_submissions,creator,userEntity,criteriaLevelsReport,isExternalProgram,orgIDFromTemplate,tenantID
+        global errorVar,pointBasedValue,solutionDict,allow_multiple_submissions,creator,userEntity,criteriaLevelsReport,isExternalProgram,orgIDFromTemplate,tenantID,orgIdForScope
         errorVar = ""
         scopeEntityType = scopeEntityType
         if not isCourse:

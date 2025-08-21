@@ -49,6 +49,15 @@ mongorestore --host localhost --port 27017 --db templateValidation --gzip ./
 cd apiServices/src/main/
 python app.py
 ```
+
+Sample Templates
+```
+Shikshalokam Program Template: https://docs.google.com/spreadsheets/d/1-XOpJSa4-3C2WezD-aUtDUXxlDgzjnsfxSlqO0kQJiI/edit?gid=0#gid=0
+
+
+Shikshagraha Program Template: https://docs.google.com/spreadsheets/d/1LcwSbKESqVovz6MUaLrcwqO9qWL-tF15UJu4hXQyNZs/edit?gid=0#gid=0
+```
+
 ## Sample .env file
 
 FLASK_APP = app.py

@@ -52,6 +52,7 @@ allow_multiple_submissions = None
 scopeEntityType = ""
 programName = None
 userEntity = None
+orgIdForScope = []
 roles = ""
 mainRole = ""
 dictCritLookUp = {}
@@ -244,14 +245,25 @@ class Elevateproject:
                                         for
                                         col_index_env in range(programDetailsSheet.ncols)}
                     tenantIdFromProgramFile = dictDetailsEnv.get('Tenant ID')
-                    orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
+                    # orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
                     if tenantIdFromProgramFile == "shikshalokam":
-                        orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
+                        # orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
+                        global orgIdForScope
+                        orgIds_str = dictDetailsEnv.get('Org ID', '')
+                        orgIds = [oid.strip() for oid in orgIds_str.split(',') if oid.strip()]
+                        orgIdForScope = orgIds
+                        orgIdsFromProgramFile = orgIds[0] if orgIds else None
                     else:
-                        if tenantIdFromProgramFile == "shikshagrahanew":
-                            orgIdsFromProgramFile = dictDetailsEnv.get('Targeted state at program level','').strip().lower()
-                        else:
-                            orgIdsFromProgramFile = dictDetailsEnv.get('Targeted District at program level', '').strip()
+                        # global orgIdForScope
+                        # if tenantIdFromProgramFile == "shikshagrahanew":
+                        orgIds_str = dictDetailsEnv.get('Targeted state at program level', '')
+                        orgIds = [oid.strip().lower() for oid in orgIds_str.split(',') if oid.strip()]
+                        orgIdForScope = orgIds
+                        orgIdsFromProgramFile = orgIds[0] if orgIds else None
+                        # if tenantIdFromProgramFile == "shikshagrahanew":
+                        # orgIdsFromProgramFile = dictDetailsEnv.get('Targeted state at program level','').strip().lower()
+                        # else:
+                            # orgIdsFromProgramFile = dictDetailsEnv.get('Targeted District at program level', '').strip()
 
         # global roleOfResourceCreator
         # if roleOfResourceCreator not in ['org_admin', 'tenant_admin'] and not tenantIdFromProgramFile:
@@ -377,6 +389,7 @@ class Elevateproject:
         }
         # Initialize a dictionary to store entity types for each entity
         entityTypes = []
+        entitiesScope = []
 
         # Loop through each entity name in the entitiesPGM list
         for entityName in entitiesPGM:
@@ -388,12 +401,14 @@ class Elevateproject:
                     "query": {
                         "metaInformation.name": entityName,  # Use the current entity name
                         "tenantId" : tenantIDFromTemplate,
+                        "entityType": scopeEntityType[0]
                         # "orgIds": {"$in": [orgIDFromTemplate]}   # Convert org_ids to strings for payload
                     },
                     "projection": [
                         "entityType"
                     ]
                 }
+            print(payload,"payload")
             data = json.dumps(payload)
             # Make the API call inside the loop to send one request per entity
             responseFetchEntityListApi = requests.post(url=urlFetchEntityListApi, headers=headerFetchEntityListApi, data=data)
@@ -411,12 +426,15 @@ class Elevateproject:
                 # entityToUpload = None  # Initialize for each entity
                 for listEntities in responseFetchEntityListApi['result']:
                     entityToUpload = listEntities.get('entityType')
+                    entityToScope = listEntities.get('_id')
                     # entityToUpload = listEntities.get('entityType', '').lower().strip()
 
                     # If a valid entityType is found, store it in the dictionary and break out of the loop
                     if entityToUpload:
                         entityTypes.append(entityToUpload)
 
+                    if entityToScope:
+                        entitiesScope.append(entityToScope)
                 # If no entityType is found for this entity, raise an error for that specific entity
                 if not entityToUpload:
                     raise ValueError(f"Entity type not found for entity '{entityName}'.")
@@ -425,11 +443,11 @@ class Elevateproject:
                 raise RuntimeError(f"Failed to fetch entity type for '{entityName}'. Status code: {responseFetchEntityListApi.status_code}")
 
         # Return all found entity types
-        return entityTypes
+        return entityTypes,entitiesScope
     
     def getProgramInfo(accessTokenUser, solutionName_for_folder_path, programNameInp):
         try:
-            global programID, programExternalId, programDescription, isProgramnamePresent, programName, errorVar,tenantIDFromTemplate
+            global programID, programExternalId, programDescription, isProgramnamePresent, programName, errorVar,tenantIDFromTemplate,orgIdForScope
             programName = programNameInp
             programUrl = elevateprojecthost + fetchprograminfoapiurl
             print(programUrl,"programUrl")
@@ -633,7 +651,7 @@ class Elevateproject:
 
     def programCreation(accessToken,parentFolder,externalId,pName,pDescription,roles,userId,mainRoleproff,rolesPGMID,entitiesPGMID,entityHierarchy):
         # accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,entitiesPGM,mainRole,rolesPGM
-        global errorVar
+        global errorVar,orgIdForScope
         messageArr = []
         messageArr.append("++++++++++++ Program Creation ++++++++++++")
         # program creation url 
@@ -646,7 +664,7 @@ class Elevateproject:
             # entities = stateEntitiesPGM.split(',')
             # entitiesTypeStr = entitiesType[0]
             scope={}
-            scope["organizations"] = [orgIDFromTemplate]
+            scope["organizations"] = orgIdForScope
             scope["professional_subroles"] = rolesPGMID
             scope["professional_role"] = mainRoleproff
             scope.update(entityHierarchy)
@@ -855,73 +873,73 @@ class Elevateproject:
             print(errorVar,"pdpm mapping failure")
             return False
     
-    def fetchEntityParentChilds(solutionName_for_folder_path, accessToken, entityId):
+    def fetchEntityParentChilds(solutionName_for_folder_path, accessToken, entityIds):
         try:
             global errorVar
-            entityId = entityId[0] if isinstance(entityId, list) else entityId
+            if not isinstance(entityIds, list):
+                entityIds = [entityIds]
 
-            urlFetchEntity = elevateentityhost + fetchDetailsEntity + entityId
-            print(urlFetchEntity, "urlFetchEntity")
+            hierarchy = ["state", "district", "block", "cluster", "school"]
+            merged_output = {level: [] for level in hierarchy}
 
-            headers = {
-                'Content-Type': content_type,
-                'tenantId': tenantIDFromTemplate
-            }
+            for entityId in entityIds:
+                urlFetchEntity = elevateentityhost + fetchDetailsEntity + entityId
+                print(urlFetchEntity, "urlFetchEntity")
 
-            response = requests.get(url=urlFetchEntity, headers=headers)
+                headers = {
+                    'Content-Type': content_type,
+                    'tenantId': tenantIDFromTemplate,
+                    'Authorization': f'Bearer {accessToken}'
+                }
 
-            messageArr = [
-                "Entity Details API executed.",
-                "URL: " + urlFetchEntity,
-                "Status: " + str(response.status_code)
-            ]
-            ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                response = requests.get(url=urlFetchEntity, headers=headers)
 
-            if response.status_code == 200:
-                responseJson = response.json()
-                result = responseJson.get("result", [])[0]
+                if response.status_code == 200:
+                    responseJson = response.json()
+                    result = responseJson.get("result", [])[0]
 
-                parent_info = result.get("parentInformation", {})
-                current_entity_type = result.get("entityType").lower()  # e.g., "block"
-                current_entity_id = result.get("_id")
+                    parent_info = result.get("parentInformation", {})
+                    current_entity_type = result.get("entityType").lower()
+                    current_entity_id = result.get("_id")
 
-                hierarchy = ["state", "district", "block", "cluster", "school"]
-                output = {}
+                    current_index = hierarchy.index(current_entity_type)
 
-                current_index = hierarchy.index(current_entity_type)
+                    for i in range(current_index):
+                        level = hierarchy[i]
+                        if level in parent_info and parent_info[level]:
+                            val = parent_info[level][0]["_id"]
+                            if val not in merged_output[level]:
+                                merged_output[level].append(val)
 
-                # Fill levels above current from parentInformation
-                for i in range(current_index):
-                    level = hierarchy[i]
-                    if level in parent_info and parent_info[level]:
-                        output[level] = [parent_info[level][0]["_id"]]
-                    else:
-                        output[level] = ["ALL"]
+                    if current_entity_id not in merged_output[current_entity_type]:
+                        merged_output[current_entity_type].append(current_entity_id)
 
-                # Set current level with actual ID
-                output[current_entity_type] = [current_entity_id]
+                    for i in range(current_index + 1, len(hierarchy)):
+                        if not merged_output[hierarchy[i]]:  # only add ALL if empty
+                            merged_output[hierarchy[i]].append("ALL")
 
-                # Fill levels below with "ALL"
-                for i in range(current_index + 1, len(hierarchy)):
-                    output[hierarchy[i]] = ["ALL"]
+                else:
+                    errorVar = response.text
+                    print(f"---> Error in fetching entity details for {entityId}. "
+                        f"Status {response.status_code} Response {response.text}")
 
-                print("Structured Entity Hierarchy:", json.dumps(output, indent=2))
-                return output
+            # Final check: ensure each level has at least "ALL" if empty
+            for level in hierarchy:
+                if not merged_output[level]:
+                    merged_output[level].append("ALL")
 
-            else:
-                errorVar = response.text
-                messageArr = ["Error fetching entity details", str(response.status_code), response.text]
-                ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
-                print("---> Error in fetching entity details.")
-                return None
+            print("Structured Entity Hierarchy:", json.dumps(merged_output, indent=2))
+            return merged_output
 
         except Exception as e:
             errorVar = str(e)
             print("Error occurred:", errorVar)
             return None
+
+        
         
     def programsFileCheck(filePathAddPgm, accessToken, parentFolder, MainFilePath):
-        global errorVar,entityHierarchy,orgIDFromTemplate,tenantIDFromTemplate
+        global errorVar,entityHierarchy,orgIDFromTemplate,tenantIDFromTemplate,orgIdForScope
         program_file = filePathAddPgm
         # open excel file 
         wbPgm = xlrd.open_workbook(filePathAddPgm, on_demand=True)
@@ -1046,14 +1064,15 @@ class Elevateproject:
                                                     entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
                         if entitiesPGM:
                             entitiesPGM = entitiesPGM
-                            scopeEntityType = entitiesType
+                            scopeEntityType = entitiesType[0]
                         global entitiesPGMID
-                        entitiesPGMID = Elevateproject.fetchEntityId(parentFolder, accessToken,
-                                                    entitiesPGM.lstrip().rstrip().split(","), scopeEntityType,entitiesPGM)
+                        entitiesPGMID = entitiesType[1]
+                        print(entitiesPGMID,"1068")
+                        # entitiesPGMID = Elevateproject.fetchEntityId(parentFolder, accessToken,
+                                                    # entitiesPGM.lstrip().rstrip().split(","), scopeEntityType,entitiesPGM)
                         global orgIds, entityHierarchy
                         entityHierarchy = Elevateproject.fetchEntityParentChilds(parentFolder, scopeEntityType, entitiesPGMID)
                         print("fetchedhirearchy", entityHierarchy)
-
                         if not Elevateproject.getProgramInfo(accessToken, parentFolder, programNameInp.encode('utf-8').decode('utf-8')):
                             if dictDetailsEnv.get('Program ID'):
                                 extIdPGM = dictDetailsEnv['Program ID'].encode('utf-8').decode('utf-8')
@@ -1074,17 +1093,18 @@ class Elevateproject:
                             # selecting entity type based on the users input 
                             if entitiesPGM:
                                 entitiesPGM = entitiesPGM
-                                scopeEntityType = entitiesType
+                                scopeEntityType = entitiesType[0]
 
                             userDetails = Elevateproject.fetchUserDetails(environment, accessToken, dictDetailsEnv['Username/user id/email id/phone no. of Program Designer'])
                             print(userDetails,"userDetails")
                             userId = userDetails[0]
                             messageArr = []
 
-                            scopeEntityType = entitiesType
+                            scopeEntityType = entitiesType[0]
                             # fetch entity details 
+                            entitiesPGMID = entitiesType[1]
                             print("entitiesPGMID915", entitiesPGMID)
-                            entitiesPGMID = Elevateproject.fetchEntityId(parentFolder, accessToken,entitiesPGM.lstrip().rstrip().split(","), scopeEntityType,entitiesPGM)
+                            # entitiesPGMID = Elevateproject.fetchEntityId(parentFolder, accessToken,entitiesPGM.lstrip().rstrip().split(","), scopeEntityType,entitiesPGM)
                             entityHierarchy = Elevateproject.fetchEntityParentChilds(parentFolder, scopeEntityType, entitiesPGMID)
 
                             # sys.exit()
@@ -1233,6 +1253,7 @@ class Elevateproject:
                 'password' : password
             }
             responseKeyClockUser = requests.post(userLoginHost + keyclockapiurl , headers=headerKeyClockUser, data=loginBody)
+            print(responseKeyClockUser.text,"1248")
             messageArr = []
             messageArr.append("URL : " + str(keyclockapiurl))
             messageArr.append("Body : " + str(keyclockapibody))
@@ -1328,11 +1349,11 @@ class Elevateproject:
             # sys.exit()
             
             taskUploadCols = ["TaskId", "TaskTitle", "parentTaskId",
-                            "Mandatory task(Yes or No)","observation Name","Number of submissions for observation","Mitra_Link"]
+                            "Mandatory task(Yes or No)","Solution Name","solutionType","isAnExternalTask","Number of submissions for observation","Mitra_Link","startDate","endDate"]
             detailsColCheck = wbObservation1.sheet_by_name('Tasks upload')
             keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
                                         range(detailsColCheck.ncols)]
-            lentasks = (len(keysColCheckDetai) - 10) // 2
+            lentasks = (len(keysColCheckDetai) - 14) // 2
             for i in range(lentasks):
                 taskUploadCols.append(f"learningResources{i+1}-name")
                 taskUploadCols.append(f"learningResources{i+1}-link")
@@ -1415,6 +1436,7 @@ class Elevateproject:
                     
                     print("keysColCheckDetai---------", keysColCheckDetai)
                     print("taskUploadCols 1417", taskUploadCols)
+                    print(len(keysColCheckDetai), len(taskUploadCols))
                     if len(keysColCheckDetai) != len(taskUploadCols) or set(keysColCheckDetai) == set(taskUploadCols):
                         errorVar = 'Columns is missing in Task Upload sheet'
                     detailsEnvSheet = wbObservation1.sheet_by_name(sheetColCheck)
@@ -1560,7 +1582,81 @@ class Elevateproject:
             print("Solution Update Failed.")
             return False
     
+
+    def checkEntityOfSolution(projectName_for_folder_path, solutionNameOrId, accessToken):
+        urldbFind = internal_kong_ip + dbfindapi_url
+        searchSolutionpayload = {}
+        headerdbFindApi = {
+                'Authorization': authorization,
+                'X-auth-token': accessToken,
+                'X-Channel-id': x_channel_id,
+                'internal-access-token': internal_access_token,
+                'Content-Type': content_type,
+                'tenantId': tenantIDFromTemplate,
+                'orgId' : orgIDFromTemplate,
+                adminTokenHeaderName: projAdminAccessToken
+            }
+        searchSolutionpayload = json.dumps({
+            "query": {
+                "name": solutionNameOrId
+            },
+            "mongoIdKeys": [
+                "_id",
+                "solutionId",
+                "metaInformation.solutionId"
+            ],
+            "limit": 10000
+        })
+        print(searchSolutionpayload,"searchSolutionpayload")
+        print(urldbFind,"2163")
+        searchSolutionresponse = requests.request("POST", url=urldbFind, headers=headerdbFindApi,
+                                                data=searchSolutionpayload)
+        print(searchSolutionresponse.text,"searchSolutionresponse")
+        if searchSolutionresponse.status_code == 200:
+            searchSolutionjson = searchSolutionresponse.json()
+            results = searchSolutionjson.get("result", [])
+            print(len(results), "1607")
+
+            for solution in results:
+                solution_id = solution["_id"]
+                print(solution.get("isReusable"))
+
+                if solution.get("isReusable") is True:
+                    messageArr = [f"Solution found : {solution_id}"]
+                    Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
+                    print("searchSolutionApi Success")
+
+                    solutionEntityType = solution.get("entityType")
+                    solutionExternalId = solution.get("externalId")
+
+                    messageArr = [f"Task solution Entity Type found : {solutionEntityType}"]
+                    Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
+                    print("FetchSolutionDocApi Success")
+
+                    return [solutionEntityType, solutionExternalId]
+                else:
+                    print("No solution Found..")
+                    messageArr = ["No Solution found"]
+                    Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
+
+        else:
+            messageArr = [
+                "Solution fetch failed",
+                f"URL : {urldbFind}",
+                f"Status Code : {searchSolutionresponse.status_code}",
+                f"Response : {searchSolutionresponse.text}"
+            ]
+            Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
+
+            # terminatingMessage("FetchSolutionDocApi is failed")
+
+        # else:
+            # terminatingMessage("search solution api is failed"
+    
+
+
     def prepareProjectAndTasksSheets(project_inputFile, projectName_for_folder_path, accessToken):
+        print("prepareProjectAndTasksSheets")
         millisecond = int(time.time() * 1000)
         projectFilePath = projectName_for_folder_path + '/projectUpload/'
         taskFilePath = projectName_for_folder_path + '/taskUpload/'
@@ -1601,9 +1697,10 @@ class Elevateproject:
         for row_index_env in range(2, projectDetailsSheet.nrows):
             dictProjectDetails = {keysProject[col_index_env]: projectDetailsSheet.cell(row_index_env, col_index_env).value
                                 for col_index_env in range(projectDetailsSheet.ncols)}
+            print(dictProjectDetails,"1603")
             title = str(dictProjectDetails["title"]).encode('utf-8').decode('utf-8').strip()
             externalId = str(dictProjectDetails["projectId"]).strip()  + "-" + str(millisecond)
-            categories_list = ["teachers", "students", "infrastructure", "community", "educationLeader", "schoolProcess"]
+            categories_list = ["teachers", "students", "infrastructure", "community", "educationLeader", "schoolProcess","learner","faciliator"]
             categories = str(dictProjectDetails["categories"]).encode('utf-8').decode('utf-8').split(",")
             categories_final = ""
             projectGoal = "TEMP"
@@ -1654,12 +1751,13 @@ class Elevateproject:
                 writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
                 writer.writerows([project_values])
 
+        print("1657")
         tasksDetailsSheet = wbproject.sheet_by_name('Tasks upload')
         keysTasks = [tasksDetailsSheet.cell(1, col_index_env).value for col_index_env in
                     range(tasksDetailsSheet.ncols)]
         taskColumns1 = ["name", "externalId", "description", "type", "hasAParentTask", "parentTaskOperator",
                         "parentTaskValue",
-                        "parentTaskId", "solutionType", "solutionSubType", "solutionId", "isDeletable"]
+                        "parentTaskId", "solutionType", "solutionSubType", "solutionId", "isDeletable","startDate","endDate","isAnExternalTask"]
         taskLearningResource_count = 0
 
         for tasksHeader in keysTasks:
@@ -1678,8 +1776,6 @@ class Elevateproject:
         taskColumns1.append("redirectLink")
         taskColumns1.append("buttonLabel")
 
-        print(taskColumns1,"taskColumns1")
-
         with open(taskFilePath + 'taskUpload.csv', 'w',encoding='utf-8') as file:
             writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
             writer.writerows([taskColumns1])
@@ -1693,27 +1789,27 @@ class Elevateproject:
                 Mitra_Link = Mitra_Link
                 
             # subtaskname = str(dictTasksDetails["Subtask"]).encode('utf-8').decode('utf-8').strip()
-            # startDate = dictTasksDetails["startDate"]
-            # endDate = dictTasksDetails["endDate"]
-            # if startDate:
-            #     startDateArr = str(startDate).split("-")
-            #     bodyStartDate = startDateArr[0] + "/" + startDateArr[1] + "/" + startDateArr[2]
-            #     if endDate:
-            #         endDateArr = str(endDate).split("-")
-            #         bodyEndDate = endDateArr[0] + "/" + endDateArr[1] + "/" + endDateArr[2]                     
+            startDate = dictTasksDetails["startDate"]
+            endDate = dictTasksDetails["endDate"]
+            if startDate:
+                startDateArr = str(startDate).split("-")
+                bodyStartDate = startDateArr[0] + "/" + startDateArr[1] + "/" + startDateArr[2]
+                if endDate:
+                    endDateArr = str(endDate).split("-")
+                    bodyEndDate = endDateArr[0] + "/" + endDateArr[1] + "/" + endDateArr[2]                     
 
             taskId = str(dictTasksDetails["TaskId"]).encode('utf-8').decode('utf-8').strip() + "-" + str(millisecond)
             taskminNoOfSubmissionsRequired = str(dictTasksDetails["Number of submissions for observation"]).strip()
             sequenceNumber = sequenceNumber + 1
             taskSolutionType = ""
-            
             try:
                 taskDescription = str(dictTasksDetails["description"]).strip()
             except:
                 taskDescription = ""
-        
-            if dictTasksDetails["observation Name"] != "":
-                taskType = "observation"
+
+            # print(dictTasksDetails["solutionType"],"1815")
+            if dictTasksDetails["solutionType"]:
+                taskType = dictTasksDetails["solutionType"]
             elif dictTasksDetails["learningResources1-name"] != "" and dictTasksDetails["learningResources1-link"] != "":
                 taskType = "content"
 
@@ -1738,32 +1834,35 @@ class Elevateproject:
                 parentTaskValue = ""
                 parentTaskId = ""
 
-            if dictTasksDetails["observation Name"] != "":
-                pass
-                #    solutionNameOrId = dictTasksDetails["observation Name"].encode('utf-8').decode('utf-8')
-                #    taskSolutionType = "observation"
-                #    solutionDetailsInTask = checkEntityOfSolution(projectName_for_folder_path, solutionNameOrId, accessToken)
-                #    solutionSubType = solutionDetailsInTask[0]
-                #    solutionId = solutionDetailsInTask[1]
+            solutionSubType = ""
+            solutionId = ""
+            AnExternalTask = ""
+            
+            # solutionSubTypeForTask = dictTasksDetails["SolutionSubType"]
+            # solutionIdForTask = dictTasksDetails["SolutionId"]
+            if dictTasksDetails["Solution Name"]:
+                solutionNameOrId = dictTasksDetails["Solution Name"]
+                print(solutionNameOrId,"solutionNameOrId")
+                taskSolutionType = taskType
+                solutionDetailsInTask = Elevateproject.checkEntityOfSolution(projectName_for_folder_path, solutionNameOrId, accessToken)
+                solutionSubType = solutionDetailsInTask[0]
+                solutionId = solutionDetailsInTask[1]
 
+                taskSolutionType = dictTasksDetails["solutionType"]
 
-                #    projectUpload = pd.read_csv(projectFilePath + "projectUpload.csv")
-                #    # updating the column value/data
-                #    projectUpload.loc[0, 'entityType'] = solutionDetailsInTask[0]
-
-                #    # writing into the file
-                #    projectUpload.to_csv(projectFilePath + "projectUpload.csv", index=False)
-            else:
-                solutionId = ""
-                taskSolutionType = ""
-                solutionSubType = ""
+                if dictTasksDetails["isAnExternalTask"] == "No":
+                    AnExternalTask = "False"
+                elif dictTasksDetails["isAnExternalTask"] == "Yes":
+                    AnExternalTask = "True"
 
             if str(dictTasksDetails["Mandatory task(Yes or No)"]).strip().strip().lower() == "no":
                 isDeletable = "TRUE"
             else:
                 isDeletable = "FALSE"
+            # task_values = [taskName, taskId, taskDescription, taskType, hasAParentTask, parentTaskOperator, parentTaskValue,
+                        #   parentTaskId, taskSolutionType, solutionSubTypeForTask, solutionIdForTask, isDeletable,bodyStartDate,bodyEndDate,AnExternalTask]
             task_values = [taskName, taskId, taskDescription, taskType, hasAParentTask, parentTaskOperator, parentTaskValue,
-                            parentTaskId, taskSolutionType, solutionSubType, solutionId, isDeletable]
+                          parentTaskId, taskSolutionType, solutionSubType, solutionId, isDeletable,bodyStartDate,bodyEndDate,AnExternalTask]
             task_lr_value_count = 1
             for task_lr in range(0, int(taskLearningResource_count)):
                 task_lr_name = str(dictTasksDetails["learningResources" + str(task_lr_value_count) + "-name"]).strip()
@@ -1876,7 +1975,7 @@ class Elevateproject:
                                 "File path : " + projectName_for_folder_path + '/taskUpload/taskUpload.csv']
                     messageArr.append("URL : " + str(fetchProjectIdApi))
                     messageArr.append("Upload status code : " + str(responseProjectListApi.status_code))
-                    Elevateproject.createAPILog(projectName_for_folder_path, messageArr).createAPILog(projectName_for_folder_path, messageArr)
+                    Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
 
                     if responseProjectListApi.status_code == 200:
                         print('project fetch api Success')
@@ -3184,9 +3283,10 @@ class Elevateproject:
             'tenantId': tenantIDFromTemplate,
             'X-Channel-id': x_channel_id,
         }
+        payload = {}
 
-
-        response = requests.get(urlFetchRoleList, headers=headers, data=json.dumps({}))
+        response = requests.request("GET", urlFetchRoleList, headers=headers, data=payload)
+        # response = requests.get(urlFetchRoleList, headers=headers, data=json.dumps({}))
 
         messageArr = []
         messageArr.append("Fetched professional roles from: " + urlFetchRoleList)
@@ -3212,7 +3312,7 @@ class Elevateproject:
                 main_role_id = matched['_id']
                 validated_main_role_ids.append(main_role_id)
                 subrole_url = f"{userLoginHost}entity-management/v1/entities/subEntityList/{main_role_id}?type=professional_subroles"
-                subrole_resp = requests.get(subrole_url, headers=headers)
+                subrole_resp = requests.request("GET",subrole_url, headers=headers,data=payload)
                 if subrole_resp.status_code == 200:
                     subroles_data = subrole_resp.json()
                     for item in subroles_data['result']['data']:
@@ -3241,7 +3341,7 @@ class Elevateproject:
     def mainFunc(MainFilePath, programFile, addObservationSolution,resourceName, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType):
         scopeEntityType = scopeEntityType
-        global solutionLink, errorVar, ObservationOrSurveyResult, finalprojectsolutionlink, AnyTaskEvidenceNo,TaskEvidenceOperator, entityHierarchy ,orgIDFromTemplate,tenantIDFromTemplate,programExternalId
+        global solutionLink, errorVar, ObservationOrSurveyResult, finalprojectsolutionlink, AnyTaskEvidenceNo,TaskEvidenceOperator, entityHierarchy ,orgIDFromTemplate,tenantIDFromTemplate,programExternalId,orgIdForScope
         observationInstance = ElevateObservation
         if not isCourse:
             parentFolder = Elevateproject.createFileStructre(MainFilePath, addObservationSolution)
