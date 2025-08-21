@@ -1249,7 +1249,7 @@ class Elevateproject:
                                                 #  data=json.dumps(config.get(environment, 'keyclockAPIBody')))
             # Elevateproject.terminatingMessage(type(json.loads(config.get(environment, 'keyclockAPIBody'))))\
             loginBody = {
-                'email' : identifier,
+                'identifier' : identifier,
                 'password' : password
             }
             responseKeyClockUser = requests.post(userLoginHost + keyclockapiurl , headers=headerKeyClockUser, data=loginBody)
