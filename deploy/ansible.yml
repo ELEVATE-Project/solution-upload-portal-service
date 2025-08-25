@@ -125,7 +125,7 @@
           fi
           {{ current_path }}/venv/bin/python -c "import flask, pymongo; print('All modules available')"
           echo "Starting Flask application..."
-          {{ current_path }}/venv/bin/python app.py
+          {{ current_path }}/venv/bin/python app.py --host=0.0.0.0
         dest: "{{ current_path }}/start_app.sh"
         mode: '0755'
       register: startup_script
