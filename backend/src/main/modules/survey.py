@@ -28,6 +28,14 @@ authorization = os.getenv("authorization")
 authorizationforhost = os.getenv("authorizationforhost")
 appname = os.getenv("appname")
 x_channel_id = os.getenv("x_channel_id")
+host = os.getenv("host")
+userLoginHost = os.getenv("userLoginHost")
+internal_kong_ip = os.getenv("internal_kong_ip")
+elevateprojecthost = os.getenv("elevateprojecthost")
+elevateentityhost = os.getenv("elevateentityhost")
+identifier = os.getenv("identifier")
+password = os.getenv("password")
+origin = os.getenv("origin")
 
 class SurveyCreate:
     def __init__(self):
