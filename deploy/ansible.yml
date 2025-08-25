@@ -37,7 +37,7 @@
 
     - name: Clone the Python repository
       git:
-        repo: https://github.com/priyanka-TL/solution-upload-portal-service
+        repo: https://github.com/ELEVATE-Project/solution-upload-portal-service
         dest: "{{ current_path }}"
         version: "{{ gitBranch }}"
         force: yes
