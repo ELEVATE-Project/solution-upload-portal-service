@@ -1,48 +1,155 @@
 ---
-- hosts: elevate-anlytics
+- hosts: elevate
   vars:
-    project_path: /opt/solution-upload-portal-service
-    root_path: /opt/
+    project_path: /opt/backend/deployment
+    pm2_app_name: solution-upload-portal-service
+    current_path: "{{ project_path }}/solution-upload-portal-service"
   tasks:
+    - name: Verify Python is available
+      command: /usr/bin/python3.10 --version
+      register: python_check
+      failed_when: python_check.rc != 0
+      changed_when: false
+
     - name: Slurp host file
       slurp:
-        src: "/opt/backend/deployment/.token"
+        src: "{{ project_path }}/.token"
       register: slurpfile
-      
-    - name: Run vault credentials
-      shell: "curl --location --request GET '{{ vaultAddress }}solution-upload-portal-service' --header 'X-Vault-Token: {{ slurpfile['content'] | b64decode }}' | jq '.data' > '{{root_path}}/data2.json'"
-      register: vaultCurl
+      failed_when: slurpfile.failed
+      ignore_errors: yes
 
-    - name: Change directory
-      shell: cd {{project_path}}
+    - name: Get vault credentials
+      shell: >
+        curl --location --request GET '{{ vaultAddress }}solution-upload-portal-service'
+        --header 'X-Vault-Token: {{ slurpfile.content | b64decode }}'
+        | jq '.data' > '{{ project_path }}/data2.json'
+      register: credentials
 
-    - name: Fetch the latest code
+    - debug: msg="{{ credentials }}"
+
+    - name: Delete existing project folder (if any)
+      file:
+        path: "{{ current_path }}"
+        state: absent
+      register: delete_folder
+      failed_when: delete_folder.failed and "Permission denied" not in delete_folder.msg
+      ignore_errors: yes
+
+    - name: Clone the Python repository
       git:
-        repo: https://github.com/ELEVATE-Project/solution-upload-portal-service
-        dest: "{{project_path}}"
-        version: "{{gitBranch}}"
+        repo: https://github.com/priyanka-TL/solution-upload-portal-service
+        dest: "{{ current_path }}"
+        version: "{{ gitBranch }}"
         force: yes
+      register: git_clone
+      failed_when: git_clone.failed
 
-    - name: Install Python dependencies
+    - name: Remove existing virtual environment
+      file:
+        path: "{{ current_path }}/venv"
+        state: absent
+      register: delete_venv
+      failed_when: delete_venv.failed and "Permission denied" not in delete_venv.msg
+      ignore_errors: yes
+
+    - name: Create Python virtual environment and install requirements
       shell: |
-        cd {{project_path}} 
-        python3 -m venv venv
-        source venv/bin/activate
-        pip install -r requirements.txt
+        set -e
+        /usr/bin/python3.10 -m venv {{ current_path }}/venv
+        source {{ current_path }}/venv/bin/activate
+        pip install --upgrade pip
+        if [ -f "requirements.txt" ]; then
+          echo "Installing from requirements.txt"
+          pip install -r requirements.txt
+        else
+          echo "requirements.txt not found, installing essential packages"
+          pip install flask flask-cors pymongo python-dotenv
+        fi
+        python -c "import flask; print('Flask installed successfully, version:', flask.__version__)"
+      args:
+        chdir: "{{ current_path }}"
+        executable: /bin/bash
+      register: pip_install
+      failed_when: pip_install.rc != 0
 
-    - name: Set permissions for scripts
-      shell: chmod +x {{ project_path }}/start.sh
+    - name: Debug virtual environment installation
+      debug:
+        msg: "{{ pip_install.stdout_lines }}"
+    
+    - name: Stop existing PM2 process if running
+      command: pm2 stop {{ pm2_app_name }}
+      ignore_errors: yes
+      environment:
+        PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
 
-    - name: Generate .env file
-      shell: cat {{root_path}}/data2.json | jq '.data' > {{ project_path }}/.env
+    - name: Set permissions for json2env.sh
+      file:
+        path: "{{ current_path }}/scripts/json2env.sh"
+        mode: '0744'
+      register: chmod_json2env
+      failed_when: chmod_json2env.failed and "Permission denied" not in chmod_json2env.msg
+      ignore_errors: yes
+
+    - name: Generate .env from Vault data
+      shell: |
+        set -e
+        cat {{ project_path }}/data2.json | {{ current_path }}/scripts/json2env.sh > {{ current_path }}/apiServices/src/main/.env.tmp
+        sed -i 's/= *"/=/g' {{ current_path }}/apiServices/src/main/.env.tmp
+        sed -i 's/"$//g' {{ current_path }}/apiServices/src/main/.env.tmp
+        mv {{ current_path }}/apiServices/src/main/.env.tmp {{ current_path }}/apiServices/src/main/.env
+      args:
+        executable: /bin/bash
       register: envConfig
+      when: credentials is defined and credentials.rc == 0
 
-    - debug: msg="Environment Config: {{ envConfig }}"
+    - debug: msg="Environment config {{ envConfig.stdout_lines }}"
+    - name: Verify Flask installation in virtual environment
+      shell: |
+        source {{ current_path }}/venv/bin/activate
+        python -c "import flask, pymongo; print('All required modules imported successfully')"
+      args:
+        chdir: "{{ current_path }}"
+        executable: /bin/bash
+      register: flask_verify
+      failed_when: flask_verify.rc != 0
+
+    - name: Create startup script
+      copy:
+        content: |
+          #!/bin/bash
+          set -e
+          cd {{ current_path }}/apiServices/src/main
+          export PYTHONPATH="{{ current_path }}:{{ current_path }}/apiServices/src/main"
+          if [ -f .env ]; then
+            export $(cat .env | grep -v '^#' | xargs)
+          fi
+          {{ current_path }}/venv/bin/python -c "import flask, pymongo; print('All modules available')"
+          echo "Starting Flask application..."
+          {{ current_path }}/venv/bin/python app.py
+        dest: "{{ current_path }}/start_app.sh"
+        mode: '0755'
+      register: startup_script
+      failed_when: startup_script.failed and "Permission denied" not in startup_script.msg
 
     - name: Start Flask application using PM2
-      shell: |
-        cd {{project_path}}
-        pm2 start {{project_path}}/start.sh --name "solution-upload-portal-service"
+      shell: >
+        pm2 start {{ current_path }}/start_app.sh
+        --name "{{ pm2_app_name }}"
+        --watch false
+      environment:
+        PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
+      register: pm2_start
+      failed_when: pm2_start.rc != 0
 
-    - name: Ensure PM2 runs on startup
-      shell: pm2 startup
+    - name: Save PM2 configuration
+      shell: pm2 save
+      environment:
+        PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
+      ignore_errors: yes
+
+    - name: Show PM2 logs if application failed to start
+      shell: pm2 logs {{ pm2_app_name }} --lines 20
+      environment:
+        PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
+      register: pm2_logs
+      when: pm2_start.rc != 0
