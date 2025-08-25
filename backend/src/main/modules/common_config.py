@@ -20,7 +20,7 @@ password = ""
 
 keyclockapicontent_type = "application/x-www-form-urlencoded"
 content_type = "application/json"
-keyclockapiurl ="user/v1/account/login"
+keyclockapiurl ="user/v1/admin/login"
  
 origin= "app.shikshagraha.org"
 
