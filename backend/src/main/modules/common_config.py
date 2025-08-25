@@ -1,12 +1,12 @@
 #Host for user Services
-host = "https://elevate-api.sunbirdsaas.com/"
-userLoginHost ="https://elevate-api.sunbirdsaas.com/"
+host = ""
+userLoginHost =""
 # Host URL for the elevate Samiksha service
-internal_kong_ip = "https://elevate-api.sunbirdsaas.com/survey/v1/"
-elevateprojecthost = "https://elevate-api.sunbirdsaas.com/project/v1/"
+internal_kong_ip = ""
+elevateprojecthost = ""
 
 # Host URL for the elevate entity service
-elevateentityhost = "https://elevate-api.sunbirdsaas.com/"
+elevateentityhost = ""
 
 # JSON body for Keycloak API login
 keyclockapibody = '{"email": "prajwal@tunerlabs.com","password": "Password1@"}'
@@ -15,8 +15,8 @@ keyclockapibody = '{"email": "prajwal@tunerlabs.com","password": "Password1@"}'
 email = "prajwal@tunerlabs.com"
 
 # Password for login credentials
-identifier = "nevil@tunerlabs.com"
-password = "PASSword###11"
+identifier = ""
+password = ""
 
 keyclockapicontent_type = "application/x-www-form-urlencoded"
 content_type = "application/json"
