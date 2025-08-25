@@ -8,7 +8,23 @@ import os
 import json
 from unidecode import unidecode
 from requests.models import Response
-from backend.src.main.modules.config import *
+from dotenv import load_dotenv
+from pathlib import Path
+# from backend.src.main.modules.config import *
+
+
+env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" / ".env"
+
+# Load the .env file
+load_dotenv(dotenv_path=env_path)
+connectionUrl = os.getenv("connectionUrl")
+databaseName = os.getenv("databaseName")
+collectionName = os.getenv("collectionName")
+conditionCollection = os.getenv("conditionCollection")
+hostUrl = os.getenv("hostUrl")
+preprodHostUrl = os.getenv("preprodHostUrl")
+errBasic = os.getenv("errBasic")
+errAdv = os.getenv("errAdv")
 
 
 

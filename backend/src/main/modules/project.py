@@ -37,7 +37,26 @@ import threading
 import wget
 import gdown
 import jwt
+from dotenv import load_dotenv
+from pathlib import Path
 from backend.src.main.modules.ElevateObs import ElevateObservation
+
+env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" / ".env"
+
+# Load the .env file
+load_dotenv(dotenv_path=env_path)
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+ADMIN_TOKEN = os.getenv("admin-token")
+internal_access_token = os.getenv("internal_access_token")
+adminTokenHeaderName = os.getenv("adminTokenHeaderName")
+jwtTokenSecret = os.getenv("jwtTokenSecret")
+projAdminAccessToken = os.getenv("projAdminAccessToken")
+adminAccessToken = os.getenv("adminAccessToken")
+authorization = os.getenv("authorization")
+authorizationforhost = os.getenv("authorizationforhost")
+appname = os.getenv("appname")
+x_channel_id = os.getenv("x_channel_id")
 
 # Global variable declaration
 criteriaLookUp = dict()

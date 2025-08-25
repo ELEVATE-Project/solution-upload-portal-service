@@ -39,6 +39,8 @@ import jwt
 import threading
 import wget
 import gdown
+from dotenv import load_dotenv
+from pathlib import Path
 # get current working directory
 currentDirectory = os.getcwd()
 
@@ -49,6 +51,23 @@ config.read('common_config/config.ini')
 
 # email regex
 regex = "\"?([-a-zA-Z0-9.`?{}]+@\w+\.\w+)\"?"
+
+env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" / ".env"
+
+# Load the .env file
+load_dotenv(dotenv_path=env_path)
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+ADMIN_TOKEN = os.getenv("admin-token")
+internal_access_token = os.getenv("internal_access_token")
+adminTokenHeaderName = os.getenv("adminTokenHeaderName")
+jwtTokenSecret = os.getenv("jwtTokenSecret")
+projAdminAccessToken = os.getenv("projAdminAccessToken")
+adminAccessToken = os.getenv("adminAccessToken")
+authorization = os.getenv("authorization")
+authorizationforhost = os.getenv("authorizationforhost")
+appname = os.getenv("appname")
+x_channel_id = os.getenv("x_channel_id")
 
 # Global variable declaration
 criteriaLookUp = dict()
@@ -363,7 +382,7 @@ class ElevateObservation:
                     # If a valid entityType is found, store it in the dictionary and break out of the loop
                     if entityToUpload:
                         entityTypes.append(entityToUpload)
-                        break
+                        # break
 
                     if entityId:
                         entityTypeID.append(entityId)

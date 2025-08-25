@@ -1,94 +1,129 @@
 #Host for user Services
-host = ""
-userLoginHost =""
+host = "https://elevate-api.sunbirdsaas.com/"
+userLoginHost ="https://elevate-api.sunbirdsaas.com/"
 # Host URL for the elevate Samiksha service
-internal_kong_ip = ""
-elevateprojecthost = ""
+internal_kong_ip = "https://elevate-api.sunbirdsaas.com/survey/v1/"
+elevateprojecthost = "https://elevate-api.sunbirdsaas.com/project/v1/"
+
 # Host URL for the elevate entity service
-elevateentityhost = ""
+elevateentityhost = "https://elevate-api.sunbirdsaas.com/"
 
 # JSON body for Keycloak API login
-keyclockapibody = ''
+keyclockapibody = '{"email": "prajwal@tunerlabs.com","password": "Password1@"}'
 
 # Email for login credentials
-email = ""
+email = "prajwal@tunerlabs.com"
 
 # Password for login credentials
-passwordold = ""
+identifier = "nevil@tunerlabs.com"
+password = "PASSword###11"
 
-
-identifier = "",
-password = ""
-
-# Internal access token used for internal API calls
-#internal-access-token = Fqn0m0HQ0gXydRtBCg5l
-internal_access_token = ""
-authorization = ""
-authorizationforhost = ""
-# ; appname = diksha
-appname = "samiksha"
-x_channel_id = ""
-# ; internal-access-token = 183c219f984050c0e89d
 keyclockapicontent_type = "application/x-www-form-urlencoded"
 content_type = "application/json"
-# ; keyclockapiurl = /auth/realms/sunbird/protocol/openid-connect/token
-keyclockapiurl = "user/v1/account/login"
+keyclockapiurl ="user/v1/account/login"
  
-origin= "shikshagrah-qa.tekdinext.com"
+origin= "app.shikshagraha.org"
 
-# Endpoint for user login API
-# Default content type for API requests
-# ; content-type = application/json
-
-# Endpoint for fetching user information
 userinfoapiurl = "user/v1/user/read"
-prouserinfoapiurl = "v1/profile/read"
+
 # Endpoint for searching locations in the entity management service
 searchforlocation = "entity-management/v1/entities/find"
-criteriauploadapiurl = "v1/criteria/upload"
-themeuploadapiurl = "v1/frameworks/uploadThemes/"
-solutioncreationapiurl = "v1/observations/importFromFramework"
-surveysolutioncreationapiurl = "v1/surveys/createSolutionTemplate"
-questionuploadapiurl = "v1/questions/bulkCreate"
-criteriarubricuploadapiurl = "v1/solutions/uploadCriteriaRubricExpressions/"
-themerubricuploadapiurl = "v1/solutions/uploadThemesRubricExpressions/"
-importsurveysolutiontemplateurl = "v1/surveys/importSurveryTemplateToSolution/"
-importsurveysolutiontoprogramurl = "v1/surveys/mapSurverySolutionToProgram/"
-solutiontoprogrammappingapiurl = "v1/solutions/importFromSolution"
-# ; fetchprograminfoapiurl = v1/programs/list?page=1&limit=5&search=
-fetchprograminfoapiurl="v1/admin/dbFind/programs"
-fetchsolutiondetails = "v1/solutions/list?type="
-frameworkcreationapi = "v1/frameworks/create"
-solutionupdateapi = "v1/solutions/update/"
-listofrolesapi = "v1/userRoles/list"
-ferchsolutioncriteria = "v1/solutionDetails/criteria/"
-projectuploadapi = "v1/project/templates/bulkCreate"
-taskuploadapi = "v1/project/templateTasks/bulkCreate/"
-projectsolutioncreationapi = "v1/solutions/create"
-mapsolutiontoproject = "v1/project/templates/importProjectTemplate/"
-fetchsolutiondoc = "v1/solutions/getDetails/"
-programcreationurl = "v1/programs/create"
-pdpmurl = "v1/userExtension/bulkUpload"
-fetchlink = "v1/solutions/fetchLink/"
-courseprogrammapping = "v1/solutions/create"
-readcourseurl = "/api/content/v1/read/"
-fetchsolutiondump = "v1/solutions/getDetails/"
+
+# Endpoint for fetching program information
+fetchprograminfoapiurl = "admin/dbFind/programs"
+
+# Endpoint for fetching solution details
+fetchsolutiondetails = "solutions/list?type="
+
+# Endpoint for updating a solution
+solutionupdateapi = "solutions/update/"
+
+# Endpoint for uploading project templates in bulk
+projectuploadapi = "project/templates/bulkCreate"
+
+
+# Endpoint for uploading project template tasks in bulk
+taskuploadapi = "project/templateTasks/bulkCreate/"
+
+
+# Endpoint for creating a project solution
+projectsolutioncreationapi = "solutions/create"
+
+
+# Endpoint for mapping a solution to a project
+mapsolutiontoproject = "project/templates/importProjectTemplate/"
+
+
+# Endpoint for fetching solution details
+fetchsolutiondoc = "solutions/getDetails/"
+
+
+# Endpoint for creating a program
+programcreationurl = "programs/create"
+
+fetchDetailsEntity = "entity-management/v1/entities/details/"
+
+# Endpoint for performing a database find operation for certificate base templates
+dbfindapi = "admin/dbFind/certificateBaseTemplates"
+
+
+# Endpoint for creating or updating a certificate template
+addcertificatetemplate = "certificateTemplates/createOrUpdate"
+
+
+# Endpoint for uploading a certificate template as SVG
+uploadcertificatetosvg = "certificateTemplates/uploadTemplate/"
+
+
+# Endpoint for editing an SVG template
+editsvgtemp = "certificateTemplates/createSvg?baseTemplateId="
+
+
+# Endpoint for updating a project template
+updateprojecttemplate = "project/templates/update/"
+
+
+# Endpoint for fetching a link related to a solution
+fetchlink = "solutions/fetchLink/"
+
+
+# Endpoint for reading course details
+readcourseurl = "api/content/v1/read/"
+
+
+# Endpoint for fetching organization details
 fetchorgdetails = "api/org/v1/search"
-fetchprojectlist = "api/private/mlprojects/v1/library/categories/projects"
-dbfindapi_url = "v1/admin/dbFind/"
-addingbasetemp = "v1/certificateBaseTemplates/createOrUpdate"
-dbfindapi = "v1/admin/dbFind/certificateBaseTemplates"
-addcertificatetemplate = "v1/certificateTemplates/createOrUpdate"
-editsvgtemp = "v1/certificateTemplates/createSvg?baseTemplateId="
-uploadcertificatetosvg = "v1/certificateTemplates/uploadTemplate/"
-updatecertificatesolu = "v1/solutions/update/"
-updateprojecttemplate = "v1/project/templates/update/"
+
+tenantFetch = "user/v1/tenant/read/"
+
+# Configuration for different logo-signature combinations (likely used in templates)
 certificatetypeof = {
     "onelogo-onesignature": "onelogo_onesign",
     "onelogo-twosignature": "onelogo_twosign",
     "twologo-onesignature": "twologo_onesign",
     "twologo-twosignature": "twologo_twosign"
 }
-jwtTokenSecret = ""
-adminTokenHeaderName = ""
-adminAccessToken = ""
+
+fetchprofessionalRole = "entity-management/v1/entities/entityListBasedOnEntityType?entityType=professional_role"
+
+# Endpoint for searching locations in the entity management service
+criteriauploadapiurl = "criteria/upload"
+themeuploadapiurl = "frameworks/uploadThemes/"
+solutioncreationapiurl = "observations/importFromFramework"
+surveysolutioncreationapiurl = "surveys/createSolutionTemplate"
+questionuploadapiurl = "questions/bulkCreate"
+criteriarubricuploadapiurl = "solutions/uploadCriteriaRubricExpressions/"
+themerubricuploadapiurl = "solutions/uploadThemesRubricExpressions/"
+importsurveysolutiontemplateurl = "surveys/importSurveyTemplateToSolution/"
+importsurveysolutiontoprogramurl = "surveys/mapSurveySolutionToProgram/"
+solutiontoprogrammappingapiurl = "solutions/importFromSolution"
+frameworkcreationapi = "frameworks/create"
+listofrolesapi = "userRoles/list"
+ferchsolutioncriteria = "solutionDetails/criteria/"
+pdpmurl = "userExtension/bulkUpload"
+courseprogrammapping = "solutions/create"
+readcourseurl = "api/content/v1/read/"
+fetchsolutiondump = "solutions/getDetails/"
+fetchprojectlist = "api/private/mlprojects/v1/library/categories/projects"
+dbfindapi_url = "admin/dbFind/"
+addingbasetemp = "certificateBaseTemplates/createOrUpdate"
