@@ -1282,8 +1282,8 @@ class Elevateproject:
             responseKeyClockUser = requests.post(userLoginHost + keyclockapiurl , headers=headerKeyClockUser, data=loginBody)
             print(responseKeyClockUser.text,"1248")
             messageArr = []
-            messageArr.append("URL : " + str(keyclockapiurl))
-            messageArr.append("Body : " + str(keyclockapibody))
+            # messageArr.append("URL : " + str(keyclockapiurl))
+            # messageArr.append("Body : " + str(keyclockapibody))
             messageArr.append("Status Code : " + str(responseKeyClockUser.status_code))
             if responseKeyClockUser.status_code == 200:
                 responseKeyClockUser = responseKeyClockUser.json()
