@@ -1,13 +1,13 @@
 keyclockapicontent_type = "application/x-www-form-urlencoded"
 content_type = "application/json"
-<<<<<<< Updated upstream
+
 keyclockapiurl ="user/v1/admin/login"
  
 origin= "app.shikshagraha.org"
-=======
+
 # Endpoint for user login API
 keyclockapiurl ="user/v1/admin/login"
->>>>>>> Stashed changes
+
 
 
 # Endpoint for fetching user information
