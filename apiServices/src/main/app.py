@@ -201,15 +201,15 @@ def login():
 @app.route("/template/api/v1/signup", methods = ['POST'])
 def signup():
     req_body = request.get_json()
-    # get the 'admin-token' from the request header 
-    auth = request.headers.get('admin-token')
+    # get the 'admin_token' from the request header 
+    auth = request.headers.get('admin_token')
     # check for the auth token 
     if(not auth):
         # if the auth token is missing return authorization failed 
         return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : ""}}
     else:
         # the auth token is present in the header and check the token present in the env file 
-        if not auth == os.environ.get('admin-token'):
+        if not auth == os.environ.get('admin_token'):
             return {"status" : 500,"code" : "Not Authorized" , "result" : {"templateLinks" : ""}}
 
     # if auth is checked 
@@ -317,12 +317,12 @@ def sampleAdd():
     # get body from the request 
     req_body = request.get_json()
     # fetch admin token from headers 
-    admin_token = request.headers.get('admin-token')
+    admin_token = request.headers.get('admin_token')
     # validation of admin token 
     if(not admin_token):
         return {"status" : 500,"code" : "Admin Authorization key missing" , "result" : []}
     
-    if not admin_token == os.environ.get("admin-token"):
+    if not admin_token == os.environ.get("admin_token"):
         return {"status" : 500,"code" : "Admin Authorization Failed" , "result" : []}
     
     # connect with sampleTemplate collection 
@@ -376,12 +376,12 @@ def sampleUpdate(code):
     # get body from the request 
     req_body = request.get_json()
     # fetch admin token from headers 
-    admin_token = request.headers.get('admin-token')
+    admin_token = request.headers.get('admin_token')
     # validation of admin token 
     if(not admin_token):
         return {"status" : 500,"code" : "Admin Authorization key missing" , "result" : []}
     
-    if not admin_token == os.environ.get("admin-token"):
+    if not admin_token == os.environ.get("admin_token"):
         return {"status" : 500,"code" : "Admin Authorization Failed" , "result" : []}
     
     # connect with sampleTemplate collection 
@@ -561,7 +561,7 @@ def update():
     result = {}
 
     req_body = request.get_json()
-    auth = request.headers.get('admin-token')
+    auth = request.headers.get('admin_token')
     request["auth"] = auth
 
 
@@ -569,7 +569,7 @@ def update():
     if(not auth):
         return {"status" : 500,"code" : "Authorization Failed" , "result" : []}
     else:
-        if not auth == os.environ.get("admin-token"):
+        if not auth == os.environ.get("admin_token"):
             return {"status" : 500,"code" : "Not Authorized" , "result" : []}
     try:
         mydict = {}
@@ -638,12 +638,12 @@ def listValidations():
     args = request.args
     validationsRes = None
     # Token validation
-    admin_token = request.headers.get("admin-token")
+    admin_token = request.headers.get("admin_token")
 
     if(not admin_token):
         return {"status" : 500,"code" : "Admin Authorization key missing" , "result" : []}
     
-    if not admin_token == os.environ.get("admin-token"):
+    if not admin_token == os.environ.get("admin_token"):
         return {"status" : 500,"code" : "Admin Authorization Failed" , "result" : []}
     
     # fetching the keys from arguments 
@@ -688,12 +688,12 @@ def updateValidations(_id):
     req_body = request.get_json()
 
     # Token validation
-    admin_token = request.headers.get("admin-token")
+    admin_token = request.headers.get("admin_token")
 
     if(not admin_token):
         return {"status" : 500,"code" : "Admin Authorization key missing" , "result" : []}
 
-    if not admin_token == os.environ.get("admin-token"):
+    if not admin_token == os.environ.get("admin_token"):
         return {"status" : 500,"code" : "Admin Authorization Failed" , "result" : []}
     # check if the body have validations key in it 
     try:
@@ -777,12 +777,12 @@ def listConditions():
     args = request.args
     validationsRes = None
     # Token validation
-    admin_token = request.headers.get("admin-token")
+    admin_token = request.headers.get("admin_token")
 
     if(not admin_token):
         return {"status" : 500,"code" : "Admin Authorization key missing" , "result" : []}
     
-    if not admin_token == os.environ.get("admin-token"):
+    if not admin_token == os.environ.get("admin_token"):
         return {"status" : 500,"code" : "Admin Authorization Failed" , "result" : []}
     
     # fetching the keys from arguments 
@@ -829,12 +829,12 @@ def update_conditions(_id):
         errors = []
         update_fields = request.get_json()
 
-        admin_token = request.headers.get("admin-token")
+        admin_token = request.headers.get("admin_token")
 
         if not admin_token:
             return jsonify({"status": 500, "code": "Admin Authorization key missing", "result": []})
 
-        if not admin_token == os.environ.get("admin-token"):
+        if not admin_token == os.environ.get("admin_token"):
             return jsonify({"status": 500, "code": "Admin Authorization Failed", "result": []})
 
         try:
