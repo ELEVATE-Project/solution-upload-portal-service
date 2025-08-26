@@ -5,6 +5,7 @@
     pm2_app_name: solution-upload-portal-service
     current_path: "{{ project_path }}/solution-upload-portal-service"
     default_port: 6001
+  
   tasks:
     - name: Verify Python is available
       command: /usr/bin/python3.10 --version
@@ -26,7 +27,9 @@
         | jq '.data' > '{{ project_path }}/data2.json'
       register: credentials
 
-    - debug: msg="{{ credentials }}"
+    - name: Debug credentials
+      debug:
+        msg: "{{ credentials }}"
 
     - name: Delete existing project folder (if any)
       file:
@@ -102,6 +105,7 @@
         executable: /bin/bash
       register: envConfig
       when: credentials is defined and credentials.rc == 0
+
     - name: Add PORT configuration to .env if not present
       lineinfile:
         path: "{{ current_path }}/apiServices/src/main/.env"
@@ -109,6 +113,7 @@
         regexp: '^PORT='
         create: yes
       when: credentials is defined and credentials.rc == 0
+
     - name: Add HOST configuration to .env if not present
       lineinfile:
         path: "{{ current_path }}/apiServices/src/main/.env"
@@ -116,7 +121,11 @@
         regexp: '^HOST='
         create: yes
       when: credentials is defined and credentials.rc == 0
-    - debug: msg="Environment config {{ envConfig.stdout_lines }}"
+
+    - name: Debug environment config
+      debug:
+        msg: "Environment config {{ envConfig.stdout_lines }}"
+
     - name: Verify Flask installation in virtual environment
       shell: |
         source {{ current_path }}/venv/bin/activate
@@ -160,12 +169,13 @@
       environment:
         PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
       ignore_errors: yes
+
     - name: Display application access information
-        debug:
-          msg: |
-            Application started successfully!
-            Access URL: http://{{ ansible_default_ipv4.address }}:{{ app_port | default(default_port) }}
-            Local access: http://localhost:{{ app_port | default(default_port) }}
+      debug:
+        msg: |
+          Application started successfully!
+          Access URL: http://{{ ansible_default_ipv4.address }}:{{ app_port | default(default_port) }}
+          Local access: http://localhost:{{ app_port | default(default_port) }}
 
     - name: Show PM2 logs if application failed to start
       shell: pm2 logs {{ pm2_app_name }} --lines 20
