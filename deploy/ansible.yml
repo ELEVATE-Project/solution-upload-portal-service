@@ -4,7 +4,7 @@
     project_path: /opt/backend/deployment
     pm2_app_name: solution-upload-portal-service
     current_path: "{{ project_path }}/solution-upload-portal-service"
-    default_port: 6001
+    default_port: 5000
   
   tasks:
     - name: Verify Python is available
