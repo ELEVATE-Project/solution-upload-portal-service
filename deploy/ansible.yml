@@ -142,13 +142,19 @@
           #!/bin/bash
           set -e
           cd {{ current_path }}/apiServices/src/main
-          export PYTHONPATH="{{ current_path }}:{{ current_path }}/apiServices/src/main"
+          
+          # The 'flask' command needs to know which file contains your app.
+          export FLASK_APP=app.py
+          
+          # Load environment variables from .env file if it exists
           if [ -f .env ]; then
             export $(cat .env | grep -v '^#' | xargs)
           fi
-          {{ current_path }}/venv/bin/python -c "import flask, pymongo; print('All modules available')"
-          echo "Starting Flask application on 0.0.0.0:${PORT:-{{ app_port | default(default_port) }}}"
-          {{ current_path }}/venv/bin/python app.py --host=0.0.0.0 --port=${PORT:-{{ app_port | default(default_port) }}}
+          
+          echo "Starting Flask application with 'flask run' on 0.0.0.0:${PORT:-{{ app_port | default(default_port) }}}"
+          
+          # Use the 'flask run' command which correctly handles the --host argument.
+          {{ current_path }}/venv/bin/flask run --host=0.0.0.0 --port=${PORT:-{{ app_port | default(default_port) }}}
         dest: "{{ current_path }}/start_app.sh"
         mode: '0755'
       register: startup_script
@@ -169,35 +175,6 @@
       environment:
         PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
       ignore_errors: yes
-
-    - name: Verify application is listening on correct interface
-      wait_for:
-        host: "{{ ansible_default_ipv4.address }}"
-        port: "{{ app_port | default(default_port) }}"
-        timeout: 30
-        msg: "Application failed to start on {{ ansible_default_ipv4.address }}:{{ app_port | default(default_port) }}"
-      ignore_errors: yes
-
-    - name: Check what's listening on the port
-      shell: "netstat -tlnp | grep {{ app_port | default(default_port) }} || ss -tlnp | grep {{ app_port | default(default_port) }}"
-      register: port_check
-      ignore_errors: yes
-
-    - name: Display port listening information
-      debug:
-        msg: "Port {{ app_port | default(default_port) }} listening status: {{ port_check.stdout_lines | default('No output') }}"
-
-    - name: Display application access information
-      debug:
-        msg: |
-          Application started successfully!
-          Internal Access: http://{{ ansible_default_ipv4.address }}:{{ app_port | default(default_port) }}
-          External Access: http://{{ ansible_default_ipv4.address }}:{{ app_port | default(default_port) }}
-          For Nginx proxy: http://{{ ansible_default_ipv4.address }}:{{ app_port | default(default_port) }}
-          
-          Note: Ensure your Flask app.py contains:
-          if __name__ == '__main__':
-              app.run(host='0.0.0.0', port={{ app_port | default(default_port) }}, debug=False)
 
     - name: Show PM2 logs if application failed to start
       shell: pm2 logs {{ pm2_app_name }} --lines 20
