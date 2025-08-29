@@ -151,6 +151,7 @@ roleOfResourceCreator = 'admin'
 solutionDict = {}
 entityHierarchy = []
 isExternalProgram = ""
+mainRoles = ""
 
 class ElevateObservation:
 
@@ -749,7 +750,7 @@ class ElevateObservation:
             
 
     def programCreation(accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM,entityHierarchy):
-        global errorVar,scopeEntityType,orgIdForScope
+        global errorVar,scopeEntityType,orgIdForScope,mainRoles
         print(orgIDFromTemplate,"orgIDFromTemplate")
         print(orgIdForScope,"orgIdForScope")
         try: 
@@ -793,7 +794,7 @@ class ElevateObservation:
             "scope": scope,
             "metaInformation": {
                 "state":stateEntitiesPGM.split(","),
-                "recommendedFor" : mainRole
+                "recommendedFor" : mainRoles
                 },
                 "requestForPIIConsent":True
                 })
