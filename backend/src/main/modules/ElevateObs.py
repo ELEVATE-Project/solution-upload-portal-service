@@ -793,7 +793,7 @@ class ElevateObservation:
             "scope": scope,
             "metaInformation": {
                 "state":stateEntitiesPGM.split(","),
-                "recommendedFor" : roles
+                "recommendedFor" : mainRole
                 },
                 "requestForPIIConsent":True
                 })
