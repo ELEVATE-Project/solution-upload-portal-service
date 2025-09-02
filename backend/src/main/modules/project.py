@@ -1219,7 +1219,7 @@ class Elevateproject:
                         if errorVar == "":
                             return True
                         else:
-                            return False
+                            return True
             
     def fetchSolutionDetailsFromProgramSheet(solutionName_for_folder_path, programFile, solutionId, accessToken):
         global solutionRolesArray, solutionStartDate, solutionEndDate
@@ -3719,8 +3719,7 @@ class Elevateproject:
             print("--->Solution input file successfully downloaded: " + str(downloaded_file))
             for addObservationSolution, resourceName in downloaded_file.items():
                 print(f"Processing file: {addObservationSolution} for resource: {resourceName}")
-                solutionSL = Elevateproject.mainFunc(MainFilePath, programFile, addObservationSolution,resourceName, millisecond, isProgramnamePresent, isCourse,
-             scopeEntityType=scopeEntityType)
+                solutionSL = Elevateproject.mainFunc(MainFilePath, programFile, addObservationSolution,resourceName, millisecond, isProgramnamePresent, isCourse,scopeEntityType=scopeEntityType)
                 print(solutionSL)
                 print(solutionSL.items(),"3400")
                 for resourceName, solutionLink in solutionSL.items():
