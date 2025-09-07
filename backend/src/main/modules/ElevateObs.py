@@ -750,7 +750,7 @@ class ElevateObservation:
             
 
     def programCreation(accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM,entityHierarchy):
-        global errorVar,scopeEntityType,orgIdForScope,mainRoles
+        global errorVar,scopeEntityType,orgIdForScope,mainRoles,programExternalId
         print(orgIDFromTemplate,"orgIDFromTemplate")
         print(orgIdForScope,"orgIdForScope")
         try: 
@@ -768,9 +768,9 @@ class ElevateObservation:
             }
 
             scope.update(entityHierarchy)
-
+            programExternalId = externalId
             payload = json.dumps({
-            "externalId": externalId,
+            "externalId": programExternalId,
             "name": pName,
             "description": pDescription,
             "resourceType": [

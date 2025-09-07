@@ -678,7 +678,7 @@ class Elevateproject:
 
     def programCreation(accessToken,parentFolder,externalId,pName,pDescription,roles,userId,mainRoleproff,rolesPGMID,entitiesPGMID,entityHierarchy):
         # accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,entitiesPGM,mainRole,rolesPGM
-        global errorVar,orgIdForScope
+        global errorVar,orgIdForScope,programExternalId
         messageArr = []
         messageArr.append("++++++++++++ Program Creation ++++++++++++")
         # program creation url 
@@ -696,9 +696,10 @@ class Elevateproject:
             scope["professional_role"] = mainRoleproff
             scope.update(entityHierarchy)
             print(scope,"scope")
+            programExternalId = externalId
             # program creation payload
             payload = json.dumps({
-                        "externalId": externalId,
+                        "externalId": programExternalId,
                         "name": pName,
                         "description": pDescription,
                         "isDeleted": False,
