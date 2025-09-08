@@ -1459,8 +1459,11 @@ class Elevateproject:
                     print("--->Checking Tasks upload sheet...")
                     # sys.exit()
                     detailsColCheck = wbObservation1.sheet_by_name(sheetColCheck)
+                    print(detailsColCheck,"detailsColCheck")
+                    print(sheetColCheck,"sheetColCheck")
                     keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
                                         range(detailsColCheck.ncols)]
+                    
                     
                     print("keysColCheckDetai---------", keysColCheckDetai)
                     print("taskUploadCols 1417", taskUploadCols)
