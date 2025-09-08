@@ -1461,6 +1461,11 @@ class Elevateproject:
                     detailsColCheck = wbObservation1.sheet_by_name(sheetColCheck)
                     print(detailsColCheck,"detailsColCheck")
                     print(sheetColCheck,"sheetColCheck")
+                    sheet_data = [detailsColCheck.row_values(row) for row in range(detailsColCheck.nrows)]
+                    print(sheet_data)
+                    for i in range(min(5, detailsColCheck.nrows)):
+                        print(detailsColCheck.row_values(i))
+                    print(f"Sheet Name: {detailsColCheck.name}, Rows: {detailsColCheck.nrows}, Cols: {detailsColCheck.ncols}")
                     keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
                                         range(detailsColCheck.ncols)]
                     
