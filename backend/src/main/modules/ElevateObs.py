@@ -794,7 +794,7 @@ class ElevateObservation:
             "scope": scope,
             "metaInformation": {
                 "state":stateEntitiesPGM.split(","),
-                "recommendedFor" : mainRoles
+                "recommendedFor" : roles
                 },
                 "requestForPIIConsent":True
                 })
@@ -908,6 +908,9 @@ class ElevateObservation:
                        
 
                         global mainRole,rolesPGMID,rolesPGM,mainRoleproff
+                        mainRole = dictDetailsEnv['Targeted role at program level']
+                        newProgramRole = mainRole.split(",")
+                        programRoleArray = list(newProgramRole)
                         if dictDetailsEnv.get('Targeted role at program level'):
                             mainRole = dictDetailsEnv['Targeted role at program level'].encode('utf-8').decode('utf-8')
                         else:
@@ -1052,7 +1055,7 @@ class ElevateObservation:
                             # rolesPGMID=rolesPGM.lstrip().rstrip().split(",")
                             # sys.exit()
                             # call function to create program 
-                            if not ElevateObservation.programCreation(accessToken, parentFolder, extIdPGM, programNameInp,descriptionPGM, keywordsPGM.lstrip().rstrip().split(","),entitiesPGMID, rolesPGMID, orgIds, creatorKeyCloakId, creatorName,entitiesPGM, mainRoleproff, rolesPGM, entityHierarchy):
+                            if not ElevateObservation.programCreation(accessToken, parentFolder, extIdPGM, programNameInp,descriptionPGM, keywordsPGM.lstrip().rstrip().split(","),entitiesPGMID, programRoleArray, orgIds, creatorKeyCloakId, creatorName,entitiesPGM, mainRoleproff, rolesPGM, entityHierarchy):
                                 return False
                             # sys.exit()
                             # programmappingpdpmsheetcreation(MainFilePath, accessToken, program_file, extIdPGM,parentFolder)
