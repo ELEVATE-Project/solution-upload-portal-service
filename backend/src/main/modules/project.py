@@ -3377,7 +3377,7 @@ class Elevateproject:
     def mainFunc(MainFilePath, programFile, addObservationSolution,resourceName, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType):
         scopeEntityType = scopeEntityType
-        global solutionLink, errorVar, ObservationOrSurveyResult, finalprojectsolutionlink, AnyTaskEvidenceNo,TaskEvidenceOperator, entityHierarchy ,orgIDFromTemplate,tenantIDFromTemplate,programExternalId,orgIdForScope
+        global solutionLink, errorVar, ObservationOrSurveyResult, finalprojectsolutionlink, AnyTaskEvidenceNo,TaskEvidenceOperator, entityHierarchy ,orgIDFromTemplate,tenantIDFromTemplate,programExternalId,orgIdForScope,programID
         observationInstance = ElevateObservation
         if not isCourse:
             parentFolder = Elevateproject.createFileStructre(MainFilePath, addObservationSolution)
