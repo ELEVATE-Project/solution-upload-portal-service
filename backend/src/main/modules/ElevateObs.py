@@ -1165,6 +1165,69 @@ class ElevateObservation:
             errorVar = ("Please check the Input sheet.")
         return typeofSolution
     
+    def FetchTempExternalID(solutionName_for_folder_path, accessToken, solutionName):
+        global errorVar
+        try:
+            urldbFind = elevateprojecthost + dbfindapi_url
+            headers = {
+                'X-auth-token': accessToken,
+                'Content-Type': content_type
+            }
+            searchSolutionpayload = {
+                "query": {"name": solutionName},
+                "projection": ["projectTemplateId", "name"],
+                "mongoIdKeys": ["_id"],
+                "limit": 10000
+            }
+            response = requests.post(urldbFind, headers=headers, json=searchSolutionpayload)
+
+            if response.status_code != 200:
+                errorVar = f"DBFind-Error {response.status_code}: {response.text}"
+                ElevateObservation.createAPILog(solutionName_for_folder_path, response.text)
+                print("Unable to fetch Solution...")
+                return False
+
+            results = response.json().get("result", [])
+            if not results:
+                errorVar = "No solutions found for name: " + solutionName
+                print(errorVar)
+                return False
+
+            projectTemplateId = results[0].get("projectTemplateId")
+            if not projectTemplateId:
+                errorVar = "Solution found but no projectTemplateId for: " + solutionName
+                print(errorVar)
+                return False
+
+            urldbFindPT = elevateprojecthost + dbfindapi_projectTemplate
+            searchSolutionpayloadPT = {
+                "query": {"_id": projectTemplateId},
+                "projection": ["externalId"],
+                "mongoIdKeys": ["_id", "solutionId", "metaInformation.solutionId"],
+                "limit": 10000
+            }
+            responsePT = requests.post(urldbFindPT, headers=headers, json=searchSolutionpayloadPT)
+
+            if responsePT.status_code != 200:
+                errorVar = f"DBFindPT-Error {responsePT.status_code}: {responsePT.text}"
+                ElevateObservation.createAPILog(solutionName_for_folder_path, responsePT.text)
+                print("Unable to fetch Project Template External ID.")
+                return False
+
+            resultsPT = responsePT.json().get("result", [])
+            if not resultsPT:
+                errorVar = "No projectTemplate found for ID: " + projectTemplateId
+                print(errorVar)
+                return False
+
+            ProjectTempExternalID = resultsPT[0].get("externalId")
+            return ProjectTempExternalID
+
+        except Exception as e:
+            errorVar = f"Exception in FetchTempExternalID: {str(e)}"
+            print(errorVar, "---> API-Error")
+            return False
+        
     def criteriaUpload(solutionName_for_folder_path, wbObservation, millisAddObs, accessToken, tabName, projectDrivenFlag):
         global errorVar,criteriaName
         error_message = ""
@@ -1185,7 +1248,11 @@ class ElevateObservation:
                     dictImp = {keysFromImpSheet[col_index]: impsToCriteria.cell(row_indexImp, col_index).value for col_index in range(impsToCriteria.ncols)}
                     criteriaImpDict[dictImp['criteriaId'].strip()] = {}
                     for levls in range(1, countImps + 1):
-                        criteriaImpDict[dictImp['criteriaId'].strip()].update({'L' + str(levls) + '-improvement-projects': dictImp['L' + str(levls) + '-improvement-projects'].strip()})
+                        solutionName = dictImp['L' + str(levls) + '-improvement-projects'].strip()
+                        ProjectTempExternalID = ElevateObservation.FetchTempExternalID(solutionName_for_folder_path, accessToken, solutionName)
+                        if not ProjectTempExternalID:
+                            return False
+                        criteriaImpDict[dictImp['criteriaId'].strip()].update({'L' + str(levls) + '-improvement-projects': ProjectTempExternalID})
 
             keysFromFrameWork = [fetchLevelsFromFramework.cell(1, col_index).value for col_index in
                                 range(fetchLevelsFromFramework.ncols)]
