@@ -363,10 +363,10 @@ class ElevateObservation:
                     # If a valid entityType is found, store it in the dictionary and break out of the loop
                     if entityToUpload:
                         entityTypes.append(entityToUpload)
-                        break
-
+                        
                     if entityId:
                         entityTypeID.append(entityId)
+                        
                         # print("Entity ID found:", entityId)
 
                 # If no entityType is found for this entity, raise an error for that specific entity
@@ -720,8 +720,8 @@ class ElevateObservation:
             print(errorVar)     
             
 
-    def programCreation(accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM,entityHierarchy):
-        global errorVar,scopeEntityType,orgIdForScope
+    def programCreation(accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM,entityHierarchy,recomFor):
+        global errorVar,scopeEntityType,orgIdForScope,programExternalId,programID
         print(orgIDFromTemplate,"orgIDFromTemplate")
         print(orgIdForScope,"orgIdForScope")
         try: 
@@ -739,9 +739,9 @@ class ElevateObservation:
             }
 
             scope.update(entityHierarchy)
-
+            programExternalId = externalId
             payload = json.dumps({
-            "externalId": externalId,
+            "externalId": programExternalId,
             "name": pName,
             "description": pDescription,
             "resourceType": [
@@ -764,11 +764,12 @@ class ElevateObservation:
             "author": creatorKeyCloakId,
             "scope": scope,
             "metaInformation": {
-                "state":stateEntitiesPGM.split(","),
-                "roles": mainRole
-                },
+                        "state":stateEntitiesPGM.split(","),
+                        "recommendedFor" : recomFor
+                        },
                 "requestForPIIConsent":True
                 })
+            # sys.exit()
             # messageArr.append("Body : " + str(payload))
             headers = {'X-auth-token': accessToken,
                 'internal-access-token': internal_access_token,
@@ -793,10 +794,13 @@ class ElevateObservation:
             ElevateObservation.createAPILog(parentFolder, messageArr)
             ElevateObservation.apicheckslog(parentFolder, fileheader)
             if responsePgmCreate.status_code == 200:
-                responsePgmCreateResp = responsePgmCreate.json()
-                # print(responsePgmCreateResp,"responsePgmCreateResp")
-                print("program created successful....")
-                return True
+                responsePgmCreatejson = responsePgmCreate.json()
+                program_data = responsePgmCreatejson.get("result", {})
+                programID = program_data.get("_id")
+                if programID:
+                    print("Program created successfully.")
+                    print("Program ID:", programID)
+                    return True
             else:
                 error_message = ""
                 if responsePgmCreate.status_code in [400, 401, 403, 404, 422]:
@@ -814,7 +818,7 @@ class ElevateObservation:
             print(errorVar)
 
     def programsFileCheck(filePathAddPgm, accessToken, parentFolder, MainFilePath):
-        global errorVar, entityHierarchy,tenantID,orgIDFromTemplate,orgIdForScope
+        global errorVar, entityHierarchy,tenantID,orgIDFromTemplate,orgIdForScope,programID
         errorVar = ""
         program_file = filePathAddPgm
         # open excel file 
@@ -879,6 +883,12 @@ class ElevateObservation:
                        
 
                         global mainRole,rolesPGMID,rolesPGM,mainRoleproff
+                        mainRole = dictDetailsEnv['Targeted role at program level']
+                        newProgramRole = mainRole.split(",")
+                        recomFor = list(newProgramRole)
+                        # if dictDetailsEnv.get('Targeted role at program level'):
+                            # recomFor = dictDetailsEnv['Targeted role at program level'].encode('utf-8').decode('utf-8')
+                        
                         if dictDetailsEnv.get('Targeted role at program level'):
                             mainRole = dictDetailsEnv['Targeted role at program level'].encode('utf-8').decode('utf-8')
                         else:
@@ -1023,7 +1033,7 @@ class ElevateObservation:
                             # rolesPGMID=rolesPGM.lstrip().rstrip().split(",")
                             # sys.exit()
                             # call function to create program 
-                            if not ElevateObservation.programCreation(accessToken, parentFolder, extIdPGM, programNameInp,descriptionPGM, keywordsPGM.lstrip().rstrip().split(","),entitiesPGMID, rolesPGMID, orgIds, creatorKeyCloakId, creatorName,entitiesPGM, mainRoleproff, rolesPGM, entityHierarchy):
+                            if not ElevateObservation.programCreation(accessToken, parentFolder, extIdPGM, programNameInp,descriptionPGM, keywordsPGM.lstrip().rstrip().split(","),entitiesPGMID, rolesPGMID, orgIds, creatorKeyCloakId, creatorName,entitiesPGM, mainRoleproff, rolesPGM, entityHierarchy,recomFor):
                                 return False
                             # sys.exit()
                             # programmappingpdpmsheetcreation(MainFilePath, accessToken, program_file, extIdPGM,parentFolder)
@@ -1080,7 +1090,6 @@ class ElevateObservation:
                         else:
                             errorVar = "\"Resource Status\" must not be Empty in \"Program details\" sheet"
                         
-                        global startDateOfResource, endDateOfResource
                         if dictDetailsEnv.get('Start date of resource'):
                             startDateOfResource = dictDetailsEnv['Start date of resource']
                         else:
@@ -1133,6 +1142,70 @@ class ElevateObservation:
             errorVar = ("Please check the Input sheet.")
         return typeofSolution
     
+    def FetchTempExternalID(solutionName_for_folder_path, accessToken, solutionName):
+        global errorVar
+        try:
+            urldbFind = elevateprojecthost + dbfindapi_url
+            headers = {
+                'X-auth-token': accessToken,
+                'Content-Type': content_type
+            }
+            searchSolutionpayload = {
+                "query": {"name": solutionName},
+                "projection": ["projectTemplateId", "name"],
+                "mongoIdKeys": ["_id"],
+                "limit": 10000
+            }
+            response = requests.post(urldbFind, headers=headers, json=searchSolutionpayload)
+
+            if response.status_code != 200:
+                errorVar = f"DBFind-Error {response.status_code}: {response.text}"
+                ElevateObservation.createAPILog(solutionName_for_folder_path, response.text)
+                print("Unable to fetch Solution...")
+                return False
+
+            results = response.json().get("result", [])
+            if not results:
+                errorVar = "No solutions found for name: " + solutionName
+                print(errorVar)
+                return False
+
+            projectTemplateId = results[0].get("projectTemplateId")
+            if not projectTemplateId:
+                errorVar = "Solution found but no projectTemplateId for: " + solutionName
+                print(errorVar)
+                return False
+
+            urldbFindPT = elevateprojecthost + dbfindapi_projectTemplate
+            searchSolutionpayloadPT = {
+                "query": {"_id": projectTemplateId},
+                "projection": ["externalId"],
+                "mongoIdKeys": ["_id", "solutionId", "metaInformation.solutionId"],
+                "limit": 10000
+            }
+            responsePT = requests.post(urldbFindPT, headers=headers, json=searchSolutionpayloadPT)
+
+            if responsePT.status_code != 200:
+                errorVar = f"DBFindPT-Error {responsePT.status_code}: {responsePT.text}"
+                ElevateObservation.createAPILog(solutionName_for_folder_path, responsePT.text)
+                print("Unable to fetch Project Template External ID.")
+                return False
+
+            resultsPT = responsePT.json().get("result", [])
+            if not resultsPT:
+                errorVar = "No projectTemplate found for ID: " + projectTemplateId
+                print(errorVar)
+                return False
+
+            ProjectTempExternalID = resultsPT[0].get("externalId")
+            return ProjectTempExternalID
+
+        except Exception as e:
+            errorVar = f"Exception in FetchTempExternalID: {str(e)}"
+            print(errorVar, "---> API-Error")
+            return False
+
+
     def criteriaUpload(solutionName_for_folder_path, wbObservation, millisAddObs, accessToken, tabName, projectDrivenFlag):
         global errorVar,criteriaName
         error_message = ""
@@ -1153,7 +1226,11 @@ class ElevateObservation:
                     dictImp = {keysFromImpSheet[col_index]: impsToCriteria.cell(row_indexImp, col_index).value for col_index in range(impsToCriteria.ncols)}
                     criteriaImpDict[dictImp['criteriaId'].strip()] = {}
                     for levls in range(1, countImps + 1):
-                        criteriaImpDict[dictImp['criteriaId'].strip()].update({'L' + str(levls) + '-improvement-projects': dictImp['L' + str(levls) + '-improvement-projects'].strip()})
+                        solutionName = dictImp['L' + str(levls) + '-improvement-projects'].strip()
+                        ProjectTempExternalID = ElevateObservation.FetchTempExternalID(solutionName_for_folder_path, accessToken, solutionName)
+                        if not ProjectTempExternalID:
+                            return False
+                        criteriaImpDict[dictImp['criteriaId'].strip()].update({'L' + str(levls) + '-improvement-projects': ProjectTempExternalID})
 
             keysFromFrameWork = [fetchLevelsFromFramework.cell(1, col_index).value for col_index in
                                 range(fetchLevelsFromFramework.ncols)]
@@ -1212,8 +1289,8 @@ class ElevateObservation:
                                                         lineterminator='\n')
                     if not file_exists:
                         writerCriteriaUpload.writeheader()
-                    writerCriteriaUpload.writerow(dictCriteriaToCsv)
-                    
+                    writerCriteriaUpload.writerow(dictCriteriaToCsv) 
+
         elif tabName == "criteria":
             criteriaSheet = wbObservation.sheet_by_name(tabName)
             keys = [criteriaSheet.cell(1, col_index).value for col_index in range(criteriaSheet.ncols)]
@@ -3540,7 +3617,7 @@ class ElevateObservation:
 
     def surveyValidate(filePathAddObs, accessToken, parentFolder):
         print("Validating survey temp....")
-        global errorVar
+        global errorVar,startDateOfResource, endDateOfResource, CurrentResourceName
         try:
             wbObservation1 = xlrd.open_workbook(filePathAddObs, on_demand=True)
             sheetNames1 = wbObservation1.sheet_names()
@@ -3593,6 +3670,8 @@ class ElevateObservation:
                             surveysolutionname = dictDetailsEnv['survey_solution_name']
                         else:
                             errorVar = "validation failed :survey_solution_name column must not be Empty in details sheet"
+                        # if CurrentResourceName != surveysolutionname:
+                        #     errorVar = "Validation Failed: The Solution name on Survey template should be same as in Program template"
                         if dictDetailsEnv['survey_solution_description']:
                             surveysolutiondescription = dictDetailsEnv['survey_solution_description']
                         else:
@@ -3613,6 +3692,8 @@ class ElevateObservation:
                             surveyenddate = dictDetailsEnv['survey_end_date']
                         else:
                             errorVar = "validation failed :survey_end_date column must not be Empty in details sheet"
+                        # if startDateOfResource != surveystartdate and endDateOfResource != surveyenddate:
+                            # errorVar = "validation failed - The survey Template start date and end date do not match the start date and end date at the Program Template."
 
                 if sheetColCheck.strip().lower() == 'questions':
                     questionsColCheck = wbObservation1.sheet_by_name(sheetColCheck)
@@ -4725,7 +4806,7 @@ class ElevateObservation:
     def mainFunc(MainFilePath, programFile, addObservationSolution, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType):
         print("entering mainFUnc")
-        global errorVar,pointBasedValue,solutionDict,allow_multiple_submissions,creator,userEntity,criteriaLevelsReport,isExternalProgram,orgIDFromTemplate,tenantID,orgIdForScope
+        global errorVar,pointBasedValue,solutionDict,allow_multiple_submissions,creator,userEntity,criteriaLevelsReport,isExternalProgram,orgIDFromTemplate,tenantID,orgIdForScope,startDateOfResource, endDateOfResource, CurrentResourceName, programID
         errorVar = ""
         scopeEntityType = scopeEntityType
         if not isCourse:
@@ -5583,9 +5664,8 @@ class ElevateObservation:
                 
     def loadSurveyFile(programFile,resourceName):
         print("entering the loadfile")
-        global downloaded_file,userEntity
+        global downloaded_file,userEntity, startDateOfResource, endDateOfResource, solutionDict,CurrentResourceName
         downloaded_file = ""
-        global solutionDict
         # start_time = time.time()
         # parser = argparse.ArgumentParser()
         # parser.add_argument('--programFile', '--resourceFile', type=ElevateObservation.valid_file)
@@ -5646,6 +5726,9 @@ class ElevateObservation:
                             print(resourceName)
                             print(resourceNamePGM)
                             if resourceNamePGM == resourceName:
+                                CurrentResourceName = resourceNamePGM
+                                startDateOfResource = dictDetailsEnv["Start date of resource"]
+                                endDateOfResource = dictDetailsEnv["End date of resource"]
                                 resourceStatus = dictDetailsEnv['Resource Status']
                                 if resourceStatus.strip()=="New Upload":
                                     print("--->Resource Name : "+str(resourceNamePGM))
