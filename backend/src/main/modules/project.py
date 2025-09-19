@@ -651,7 +651,7 @@ class Elevateproject:
 
     def programCreation(accessToken,parentFolder,externalId,pName,pDescription,roles,userId,mainRoleproff,rolesPGMID,entitiesPGMID,entityHierarchy):
         # accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,entitiesPGM,mainRole,rolesPGM
-        global errorVar,orgIdForScope
+        global errorVar,orgIdForScope,programExternalId,programID
         messageArr = []
         messageArr.append("++++++++++++ Program Creation ++++++++++++")
         # program creation url 
@@ -669,9 +669,11 @@ class Elevateproject:
             scope["professional_role"] = mainRoleproff
             scope.update(entityHierarchy)
             print(scope,"scope")
+            programExternalId = externalId
+            # print(programExternalId,"673")
             # program creation payload
             payload = json.dumps({
-                        "externalId": externalId,
+                        "externalId": programExternalId,
                         "name": pName,
                         "description": pDescription,
                         "isDeleted": False,
@@ -723,9 +725,13 @@ class Elevateproject:
             Elevateproject.apicheckslog(parentFolder, fileheader)
             print(responsePgmCreate.text,"responsePgmCreate")
             if responsePgmCreate.status_code == 200:
-                responsePgmCreateResp = responsePgmCreate.json()
-                print("program created successful....")
-                return True
+                responsePgmCreatejson = responsePgmCreate.json()
+                program_data = responsePgmCreatejson.get("result", {})
+                programID = program_data.get("_id")
+                if programID:
+                    print("Program created successfully.")
+                    print("Program ID:", programID)
+                    return True
             else:
                 error_message = ""
                 if responsePgmCreate.status_code in [400, 401, 403, 404, 422]:
@@ -939,7 +945,7 @@ class Elevateproject:
         
         
     def programsFileCheck(filePathAddPgm, accessToken, parentFolder, MainFilePath):
-        global errorVar,entityHierarchy,orgIDFromTemplate,tenantIDFromTemplate,orgIdForScope
+        global errorVar,entityHierarchy,orgIDFromTemplate,tenantIDFromTemplate,orgIdForScope,programID
         program_file = filePathAddPgm
         # open excel file 
         wbPgm = xlrd.open_workbook(filePathAddPgm, on_demand=True)
@@ -1282,7 +1288,7 @@ class Elevateproject:
 
     def validate_identifier(identifier, field_name="Field"):
         global errorVar
-        pattern = r'^[A-Za-z0-9_-]+$'
+        pattern = r'^[A-Za-z0-9 -]+$'
         if not re.match(pattern, identifier):
             errorVar = (f"Invalid {field_name}: '{identifier}'. Only A-Z, a-z, 0-9, '-', and '_' are allowed.")
             return False
@@ -1329,7 +1335,7 @@ class Elevateproject:
     
     def projectValidate(filePathAddObs, accessToken, parentFolder):
         print("Validating project temp....")
-        global scopeRoles, scopeEntityType , ccRootOrgName , ccRootOrgId, errorVar, criteriaLevelsReport,criteriaLevels, AnyTaskEvidenceNo,TaskEvidenceOperator
+        global scopeRoles, scopeEntityType , ccRootOrgName , ccRootOrgId, errorVar, criteriaLevelsReport,criteriaLevels, AnyTaskEvidenceNo,TaskEvidenceOperator, CurrentResourceName
         try:
             criteria_id_arr = list()
             wbObservation1 = xlrd.open_workbook(filePathAddObs, on_demand=True)
@@ -1378,16 +1384,29 @@ class Elevateproject:
                     detailsEnvSheet = wbObservation1.sheet_by_name(sheetColCheck)
                     keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in
                             range(detailsEnvSheet.ncols)]
-                    for row_index_env in range(1, detailsEnvSheet.nrows):
+                    keysEnVval = [detailsEnvSheet.cell(2, col_index_env).value for col_index_env in
+                            range(detailsEnvSheet.ncols)]
+                    for row_index_env in range(2, detailsEnvSheet.nrows):
                         # print(dictDetailsEnv)
                         # sys.exit()
                         dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
                                         for
                                         col_index_env in range(detailsEnvSheet.ncols)}
+                        # dictDetailsEnvVal = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
+                        #                 for
+                        #                 col_index_env in range(detailsEnvSheet.ncols)}
                         if dictDetailsEnv['title']:
                             projectTitle = dictDetailsEnv['title'].encode('utf-8').decode('utf-8')
                         else:
                             errorVar = "validation failed : Title must not be Empty in Project Upload sheet"
+                        # if dictDetailsEnvVal['title']:
+                        #     projectTitleVal = dictDetailsEnv['title'].encode('utf-8').decode('utf-8')
+                        # else:
+                        #     errorVar = "validation failed : Title must not be Empty in Project Upload sheet"
+                        print(CurrentResourceName,"CurrentResourceName")
+                        print(projectTitle,"projectTitle")
+                        if CurrentResourceName != projectTitle:
+                            errorVar = "validation failed: The Title in the Resource template do not match the title in the Program template."
                         if dictDetailsEnv['projectId']:
                             projectId = dictDetailsEnv['projectId']
                         else:
@@ -2051,9 +2070,13 @@ class Elevateproject:
         return datetime.strptime(date_str, "%d-%m-%Y")
 
     def solutionCreationAndMapping(projectName_for_folder_path, entityToUpload, listOfFoundRoles, accessToken, programFile):
+        global errorVar,entityHierarchy,programExternalId
+        print(programExternalId)
         try:
             print("solutionCreationAndMapping....")
-            global errorVar,entityHierarchy,programExternalId
+            
+            # global errorVar,entityHierarchy,programExternalId
+            print(programExternalId)
             error_message = ""
             SolutionFilePath = projectName_for_folder_path + '/solutionDetails/'
             if not os.path.exists(SolutionFilePath):
@@ -2120,6 +2143,7 @@ class Elevateproject:
                     duplicateTemplateExtId = projectExternalId + '_IMPORTED'
                     queryparamsMapProjectSolutionApi = projectExternalId + '?solutionId='+solutionId
                     urlMapProjectSolutionApi = elevateprojecthost + mapsolutiontoproject + queryparamsMapProjectSolutionApi
+                    print(urlMapProjectSolutionApi,"urlMapProjectSolutionApi")
                     headerMapSolutionProject = {
                         'Content-Type': content_type,
                         'Authorization': authorization,
@@ -2130,10 +2154,12 @@ class Elevateproject:
                         'orgId' : orgIDFromTemplate,
                         adminTokenHeaderName: projAdminAccessToken
                     }
+                    print(headerMapSolutionProject,"headerMapSolutionProject")
                     payloadMapSolutionProject = {
                         "externalId": duplicateTemplateExtId,
                         "rating": 5
                     }
+                    print(payloadMapSolutionProject,"payloadMapSolutionProject")
                     responseMapProjectSolutionApi = requests.post(
                         url=urlMapProjectSolutionApi ,
                         headers=headerMapSolutionProject,data=json.dumps(payloadMapSolutionProject))
@@ -2691,6 +2717,7 @@ class Elevateproject:
                 os.mkdir(addcetificateFilePath)
 
             urladdcertificate = elevateprojecthost + addcertificatetemplate
+            print(urladdcertificate,"urladdcertificate")
             headeraddcertificateApi = {
                 #'Authorization': authorization,
                 'X-auth-token': accessToken,
@@ -2701,7 +2728,7 @@ class Elevateproject:
                 'orgId' : orgIDFromTemplate,
                 adminTokenHeaderName: projAdminAccessToken
             }
-
+            print(headeraddcertificateApi,"headeraddcertificateApi")
             if str(projectLevelEvidance).strip().lower() == "yes":
                 payload = {}
                 payload['criteria'] = {}
@@ -2760,7 +2787,7 @@ class Elevateproject:
                 payload['programId'] = programID
                 payload['baseTemplateId'] = ""
             
-            
+            print(payload,"payload 2786")
             if prosheet.strip().lower() == 'Certificate details'.lower():
                 print("--->Checking Certificate details  sheet...")
                 detailsColCheck = wbproject.sheet_by_name(prosheet)
@@ -2918,6 +2945,7 @@ class Elevateproject:
                 tasksRes.write(json.dumps(payload))
 
             if responseaddcertificateUploadApi.status_code == 200:
+                print(responseaddcertificateUploadApi.text,"responseaddcertificateUploadApi")
                 responseaddcetificate = responseaddcertificateUploadApi.json()
                 certificatetemplateid = responseaddcetificate['result']['_id']
                 print("-->Certificate template id generated <--", certificatetemplateid)
@@ -3341,7 +3369,7 @@ class Elevateproject:
     def mainFunc(MainFilePath, programFile, addObservationSolution,resourceName, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType):
         scopeEntityType = scopeEntityType
-        global solutionLink, errorVar, ObservationOrSurveyResult, finalprojectsolutionlink, AnyTaskEvidenceNo,TaskEvidenceOperator, entityHierarchy ,orgIDFromTemplate,tenantIDFromTemplate,programExternalId,orgIdForScope
+        global solutionLink, errorVar, ObservationOrSurveyResult, finalprojectsolutionlink, AnyTaskEvidenceNo,TaskEvidenceOperator, entityHierarchy ,orgIDFromTemplate,tenantIDFromTemplate,programExternalId,orgIdForScope,CurrentResourceName,programID
         observationInstance = ElevateObservation
         if not isCourse:
             parentFolder = Elevateproject.createFileStructre(MainFilePath, addObservationSolution)
@@ -3624,7 +3652,7 @@ class Elevateproject:
     def loadSurveyFile(programFile):
         print("into the project file...")
         MainFilePath = Elevateproject.createFileStructForProgram(programFile)
-        global downloaded_file
+        global downloaded_file, CurrentResourceName
         global addObservationSolution
         # if downloaded_file is None:
         downloaded_file = {}
@@ -3692,6 +3720,7 @@ class Elevateproject:
             print("--->Solution input file successfully downloaded: " + str(downloaded_file))
             for addObservationSolution, resourceName in downloaded_file.items():
                 print(f"Processing file: {addObservationSolution} for resource: {resourceName}")
+                CurrentResourceName = resourceName
                 solutionSL = Elevateproject.mainFunc(MainFilePath, programFile, addObservationSolution,resourceName, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType)
                 print(solutionSL)
