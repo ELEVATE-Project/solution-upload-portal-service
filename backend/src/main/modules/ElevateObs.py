@@ -750,7 +750,7 @@ class ElevateObservation:
             
 
     def programCreation(accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,creatorKeyCloakId, creatorName,entitiesPGM,mainRole,rolesPGM,entityHierarchy):
-        global errorVar,scopeEntityType,orgIdForScope,mainRoles,programExternalId
+        global errorVar,scopeEntityType,orgIdForScope,mainRoles,programExternalId,programID
         print(orgIDFromTemplate,"orgIDFromTemplate")
         print(orgIdForScope,"orgIdForScope")
         try: 
@@ -822,10 +822,13 @@ class ElevateObservation:
             ElevateObservation.createAPILog(parentFolder, messageArr)
             ElevateObservation.apicheckslog(parentFolder, fileheader)
             if responsePgmCreate.status_code == 200:
-                responsePgmCreateResp = responsePgmCreate.json()
-                # print(responsePgmCreateResp,"responsePgmCreateResp")
-                print("program created successful....")
-                return True
+                responsePgmCreatejson = responsePgmCreate.json()
+                program_data = responsePgmCreatejson.get("result", {})
+                programID = program_data.get("_id")
+                if programID:
+                    print("Program created successfully.")
+                    print("Program ID:", programID)
+                    return True
             else:
                 error_message = ""
                 if responsePgmCreate.status_code in [400, 401, 403, 404, 422]:
@@ -843,7 +846,7 @@ class ElevateObservation:
             print(errorVar)
 
     def programsFileCheck(filePathAddPgm, accessToken, parentFolder, MainFilePath):
-        global errorVar, entityHierarchy,tenantID,orgIDFromTemplate,orgIdForScope
+        global errorVar, entityHierarchy,tenantID,orgIDFromTemplate,orgIdForScope,programID
         errorVar = ""
         program_file = filePathAddPgm
         # open excel file 
@@ -4824,7 +4827,7 @@ class ElevateObservation:
     def mainFunc(MainFilePath, programFile, addObservationSolution, millisecond, isProgramnamePresent, isCourse,
              scopeEntityType=scopeEntityType):
         print("entering mainFUnc")
-        global errorVar,pointBasedValue,solutionDict,allow_multiple_submissions,creator,userEntity,criteriaLevelsReport,isExternalProgram,orgIDFromTemplate,tenantID,orgIdForScope
+        global errorVar,pointBasedValue,solutionDict,allow_multiple_submissions,creator,userEntity,criteriaLevelsReport,isExternalProgram,orgIDFromTemplate,tenantID,orgIdForScope,programID
         errorVar = ""
         scopeEntityType = scopeEntityType
         if not isCourse:

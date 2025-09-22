@@ -678,7 +678,7 @@ class Elevateproject:
 
     def programCreation(accessToken,parentFolder,externalId,pName,pDescription,roles,userId,mainRoleproff,rolesPGMID,entitiesPGMID,entityHierarchy):
         # accessToken, parentFolder, externalId, pName, pDescription, keywords, entities, roles, orgIds,entitiesPGM,mainRole,rolesPGM
-        global errorVar,orgIdForScope,programExternalId
+        global errorVar,orgIdForScope,programExternalId,programID
         messageArr = []
         messageArr.append("++++++++++++ Program Creation ++++++++++++")
         # program creation url 
@@ -751,9 +751,13 @@ class Elevateproject:
             Elevateproject.apicheckslog(parentFolder, fileheader)
             print(responsePgmCreate.text,"responsePgmCreate")
             if responsePgmCreate.status_code == 200:
-                responsePgmCreateResp = responsePgmCreate.json()
-                print("program created successful....")
-                return True
+                responsePgmCreatejson = responsePgmCreate.json()
+                program_data = responsePgmCreatejson.get("result", {})
+                programID = program_data.get("_id")
+                if programID:
+                    print("Program created successfully.")
+                    print("Program ID:", programID)
+                    return True
             else:
                 error_message = ""
                 if responsePgmCreate.status_code in [400, 401, 403, 404, 422]:
@@ -967,7 +971,7 @@ class Elevateproject:
         
         
     def programsFileCheck(filePathAddPgm, accessToken, parentFolder, MainFilePath):
-        global errorVar,entityHierarchy,orgIDFromTemplate,tenantIDFromTemplate,orgIdForScope
+        global errorVar,entityHierarchy,orgIDFromTemplate,tenantIDFromTemplate,orgIdForScope,programID
         program_file = filePathAddPgm
         # open excel file 
         wbPgm = xlrd.open_workbook(filePathAddPgm, on_demand=True)
@@ -1511,6 +1515,15 @@ class Elevateproject:
                             projectTaskMandatory = dictDetailsEnv['Mandatory task(Yes or No)']
                         else:
                             errorVar = "validation failed :Mandatory task(Yes or No) column must not be Empty in Task Upload sheet"
+                    
+                    for row_index_env in range(2, detailsEnvSheet.nrows):
+                        dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
+                                        for
+                                        col_index_env in range(detailsEnvSheet.ncols)}
+                        if dictDetailsEnv["Solution Name"] and dictDetailsEnv["Mitra_Link"]:
+                            errorVar = "Validation Failed - Either an observation as a task or Mithra link, only one can be given per task."
+                        elif (dictDetailsEnv["learningResources1-link"] or dictDetailsEnv["learningResources2-link"] or dictDetailsEnv["learningResources3-link"] or dictDetailsEnv["learningResources4-link"]) and dictDetailsEnv["Mitra_Link"]:
+                            errorVar = "Validation Failed - Either an Learning Resource or Mithra link, only one can be given per task."    
                         # projectTaskMandatory = dictDetailsEnv['Mandatory task(Yes or No)'] if dictDetailsEnv[
                         #     'Mandatory task(Yes or No)'] else Elevateproject.terminatingMessage(
                         #     "\"Mandatory task(Yes or No)\" must not be Empty in \"Tasks Upload\" sheet")
