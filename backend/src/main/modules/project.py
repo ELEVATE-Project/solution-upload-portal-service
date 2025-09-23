@@ -40,6 +40,8 @@ import jwt
 from dotenv import load_dotenv
 from pathlib import Path
 from backend.src.main.modules.ElevateObs import ElevateObservation
+from backend.src.main.modules import ElevateObs
+from dateutil import parser
 
 env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" / ".env"
 
@@ -407,70 +409,126 @@ class Elevateproject:
         
         return returnPathStr
     
-    def fetchEntityType(solutionName_for_folder_path, accessToken, entitiesPGM, scopeEntityType):
-        # Define the API URL and headers
+    def fetchEntityType(solutionName_for_folder_path, accessToken, entitiesPGM, scopeEntityType,schoolEntitiesPGM,clusterEntitiesPGM,blockEntitiesPGM,districtEntitiesPGM,stateEntitiesPGM):
         urlFetchEntityListApi = elevateentityhost + searchforlocation
+        print(urlFetchEntityListApi,"urlFetchEntityListApi")
         headerFetchEntityListApi = {
             'Content-Type': content_type,
             'internal-access-token': internal_access_token,
         }
+        print(headerFetchEntityListApi,"headerFetchEntityListApi")
         # Initialize a dictionary to store entity types for each entity
         entityTypes = []
-        entitiesScope = []
-
+        entityTypeID =[]
         # Loop through each entity name in the entitiesPGM list
         for entityName in entitiesPGM:
             entityName = entityName.strip()  # Remove any extra spaces
-            print(entityName, "Processing entity...")  # Log the entity being processed
 
             # Prepare the payload for the API request
             payload = {
-                    "query": {
-                        "metaInformation.name": entityName,  # Use the current entity name
-                        "tenantId" : tenantIDFromTemplate,
-                        "entityType": scopeEntityType[0]
-                        # "orgIds": {"$in": [orgIDFromTemplate]}   # Convert org_ids to strings for payload
-                    },
-                    "projection": [
-                        "entityType"
-                    ]
-                }
-            print(payload,"payload")
+                "query": {
+                    "metaInformation.name": entityName,
+                    "tenantId":tenantID,  # Use the current entity name
+                    "entityType": scopeEntityType[0]
+                    # "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')},
+                },
+                "projection": [
+                    "entityType","_id","metaInformation.name"
+                ]
+            }
             data = json.dumps(payload)
+            print(data,"data")
             # Make the API call inside the loop to send one request per entity
             responseFetchEntityListApi = requests.post(url=urlFetchEntityListApi, headers=headerFetchEntityListApi, data=data)
             # Log API call details
+            print(responseFetchEntityListApi.text,"responseFetchEntityListApi")
             messageArr = ["Entities List Fetch API executed for entity: " + entityName, 
                         "URL  : " + str(urlFetchEntityListApi),
                         "Status : " + str(responseFetchEntityListApi.status_code)]
-            Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
-            print(responseFetchEntityListApi.text,"responseFetchEntityListApi")
+            ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+
             # Check if the API call was successful
             if responseFetchEntityListApi.status_code == 200:
                 responseFetchEntityListApi = responseFetchEntityListApi.json()
 
                 # Loop through the result to find the entityType
-                # entityToUpload = None  # Initialize for each entity
+                global entityToUpload
+                entityToUpload = None  # Initialize for each entity
                 for listEntities in responseFetchEntityListApi['result']:
-                    entityToUpload = listEntities.get('entityType')
-                    entityToScope = listEntities.get('_id')
+                    entityToUpload = listEntities['entityType']
+                    EntityName = listEntities['metaInformation']['name']
+                    entityId = listEntities['_id']
+                    print(entityId,"entityId")
                     # entityToUpload = listEntities.get('entityType', '').lower().strip()
 
                     # If a valid entityType is found, store it in the dictionary and break out of the loop
-                    if entityToUpload:
-                        entityTypes.append(entityToUpload)
+                    
+                    
+                    DetailsFetchURL = elevateentityhost + fetchDetailsEntity + entityId
+                    headerEntityDetails = {
+                        "tenantId": tenantID
+                    }
+                    payload = {}
+                    EntityDetailsResponse = requests.request("GET", DetailsFetchURL, headers=headerEntityDetails, data=payload)
+                    print(EntityDetailsResponse.text,"EntityDetailsResponse")
+                    if EntityDetailsResponse.status_code == 200:
+                        EntityDetailsResponseJson = EntityDetailsResponse.json()
+                        # EntityDetails = EntityDetailsResponseJson.get("result", {})
+                        # print(EntityDetails,"EntityDetails")\
+                        entities = EntityDetailsResponseJson.get("result", [])
+                        for entity in entities:
+                            # entity = entitie[0]
+                            entityId = entity.get("_id", {})
+                            entityToUpload = entity.get("entityType")
+                            parent_info = entity.get("parentInformation", {})
+                            EntityFlag = False
+                            if parent_info.get("school", [{}])[0].get("name"):
+                                school_name = parent_info.get("school", [{}])[0].get("name")
+                                print("school:", school_name)
+                                if schoolEntitiesPGM == "" or schoolEntitiesPGM == school_name:
+                                    EntityFlag = True
+                            elif parent_info.get("cluster", [{}])[0].get("name"):
+                                cluster_name = parent_info.get("cluster", [{}])[0].get("name")
+                                print("Cluster:", cluster_name)
+                                if clusterEntitiesPGM == "" or clusterEntitiesPGM == cluster_name:
+                                    EntityFlag = True
+                            elif parent_info.get("block", [{}])[0].get("name"):
+                                block_name = parent_info.get("block", [{}])[0].get("name")
+                                print("Block:", block_name)
+                                if blockEntitiesPGM == "" or block_name == blockEntitiesPGM:
+                                    EntityFlag = True
+                            elif parent_info.get("district", [{}])[0].get("name"):
+                                district_name = parent_info.get("district", [{}])[0].get("name")
+                                print("District:", district_name)
+                                if district_name == "" or district_name == districtEntitiesPGM:
+                                    EntityFlag = True
+                            elif EntityName:
+                                state_name = EntityName
+                                print("State:", state_name)
+                                if stateEntitiesPGM == state_name:
+                                    EntityFlag = True
+                            if EntityFlag:
+                                entityTypes.append(entityToUpload)
+                                
+                            if EntityFlag:
+                                entityTypeID.append(entityId)
+                            if EntityFlag == True:
+                                print(entityToUpload,entityId)
+                            else:
+                                print("Not the right entity ...")
 
-                    if entityToScope:
-                        entitiesScope.append(entityToScope)
+                    else:
+                    # Handle cases where the API call fails for a specific entity
+                        raise RuntimeError(f"Failed to fetch entity type for '{entityName}'. Status code: {EntityDetailsResponse.status_code}")
+            
                 # If no entityType is found for this entity, raise an error for that specific entity
                 if not entityToUpload:
                     raise ValueError(f"Entity type not found for entity '{entityName}'.")
             else:
                 # Handle cases where the API call fails for a specific entity
                 raise RuntimeError(f"Failed to fetch entity type for '{entityName}'. Status code: {responseFetchEntityListApi.status_code}")
-
         # Return all found entity types
-        return entityTypes,entitiesScope
+        return entityTypes,entityTypeID
     
     def getProgramInfo(accessTokenUser, solutionName_for_folder_path, programNameInp):
         try:
@@ -1023,20 +1081,24 @@ class Elevateproject:
                         if dictDetailsEnv.get('Targeted state at program level'):
                             stateEntitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8')
                         else:
+                            stateEntitiesPGM = ""
                             errorVar = "\"Targeted state at program level\" must not be Empty in \"Program details\" sheet"
                         if dictDetailsEnv.get('Targeted District at program level'):
                             districtEntitiesPGM = dictDetailsEnv['Targeted District at program level'].encode('utf-8').decode('utf-8')
-                        # else:
-                        #     errorVar = "\"Targeted District at program level\" must not be Empty in \"Program details\" sheet"
-
+                        else:
+                            districtEntitiesPGM = ""
                         if dictDetailsEnv.get('Targeted Block at program level'):
                             blockEntitiesPGM = dictDetailsEnv['Targeted Block at program level'].encode('utf-8').decode('utf-8')
-                        
+                        else:
+                            blockEntitiesPGM = ""
                         if dictDetailsEnv.get('Targeted Cluster at program level'):
                             clusterEntitiesPGM = dictDetailsEnv['Targeted Cluster at program level'].encode('utf-8').decode('utf-8')
-            
+                        else:
+                            clusterEntitiesPGM = ""
                         if dictDetailsEnv.get('Targeted School at program level'):
                             schoolEntitiesPGM = dictDetailsEnv['Targeted School at program level'].encode('utf-8').decode('utf-8')
+                        else:
+                            schoolEntitiesPGM = ""
                        
                         global startDateOfProgram, endDateOfProgram, ReffstartDateOfProgram, ReffendDateOfProgram
                         startDateOfProgram = dictDetailsEnv['Start date of program']
@@ -1702,7 +1764,26 @@ class Elevateproject:
         # else:
             # terminatingMessage("search solution api is failed"
     
-
+    def ObservationsolutionUpdate(solutionName_for_folder_path, accessToken, solutionId, bodySolutionUpdate):
+        solutionUpdateApiurl = internal_kong_ip + solutionupdateapi + str(solutionId)
+        headerUpdateSolutionApi = {
+            'Content-Type': content_type,
+            'X-auth-token': accessToken,
+            'X-Channel-id': x_channel_id,
+            "internal-access-token": internal_access_token,
+            'tenantId': tenantIDFromTemplate ,
+            'orgid': orgIDFromTemplate,
+            adminTokenHeaderName: projAdminAccessToken
+            }
+        responseUpdateSolutionApi = requests.post(url=solutionUpdateApiurl, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
+        messageArr = ["Solution Update API called.", "URL : " + str(solutionUpdateApiurl), "Body : " + str(bodySolutionUpdate),"Response : " + str(responseUpdateSolutionApi.text),"Status Code : " + str(responseUpdateSolutionApi.status_code)]
+        Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
+        if responseUpdateSolutionApi.status_code == 200:
+            print("Solution Update Success.")
+            return True
+        else:
+            print("Solution Update Failed.")
+            return False
 
     def prepareProjectAndTasksSheets(project_inputFile, projectName_for_folder_path, accessToken):
         print("prepareProjectAndTasksSheets")
@@ -1889,11 +1970,45 @@ class Elevateproject:
             
             # solutionSubTypeForTask = dictTasksDetails["SolutionSubType"]
             # solutionIdForTask = dictTasksDetails["SolutionId"]
-            if dictTasksDetails["Solution Name"]:
+            if dictTasksDetails.get("Solution Name"):
                 solutionNameOrId = dictTasksDetails["Solution Name"]
-                print(solutionNameOrId,"solutionNameOrId")
+                print(solutionNameOrId, "solutionNameOrId----")
+
                 taskSolutionType = taskType
-                solutionDetailsInTask = Elevateproject.checkEntityOfSolution(projectName_for_folder_path, solutionNameOrId, accessToken)
+                solutionDetailsInTask = Elevateproject.checkEntityOfSolution(
+                    projectName_for_folder_path, solutionNameOrId, accessToken
+                )
+
+                observationSolutionChildId = None
+                ObservationChildfrom = None
+
+                # Try getting the observation child ID
+                try:
+                    observationSolutionChildId = ElevateObs.ElevateObservation.observationChildId
+                    print("child id :", observationSolutionChildId)
+                except AttributeError:
+                    # Fallback if no observationChildId exists
+                    ObservationChildfrom = solutionDetailsInTask[2] if len(solutionDetailsInTask) > 2 else None
+                    print(ObservationChildfrom, "ObservationChild")
+
+                # Prepare body for update
+                bodysolutionUpdate = {
+                    "status": "inactive",
+                    "isDeleted": True
+                }
+
+                # Use whichever ID exists
+                child_id_to_update = observationSolutionChildId or ObservationChildfrom
+                if child_id_to_update:
+                    Elevateproject.ObservationsolutionUpdate(
+                        projectName_for_folder_path,
+                        accessToken,
+                        child_id_to_update,
+                        bodysolutionUpdate
+                    )
+
+
+                print("observation child solution deactivated")
                 solutionSubType = solutionDetailsInTask[0]
                 solutionId = solutionDetailsInTask[1]
 
