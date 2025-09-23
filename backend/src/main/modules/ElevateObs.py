@@ -152,6 +152,7 @@ solutionDict = {}
 entityHierarchy = []
 isExternalProgram = ""
 mainRoles = ""
+observationChildId = None
 
 class ElevateObservation:
 
@@ -338,7 +339,7 @@ class ElevateObservation:
         orgIDFromTemplate = ElevateObservation.clean_single_value(decodedToken['data']['organizations'][0].get('id'))
         print(orgIDFromTemplate,"312")
 
-    def fetchEntityType(solutionName_for_folder_path, accessToken, entitiesPGM, scopeEntityType,):
+    def fetchEntityType(solutionName_for_folder_path, accessToken, entitiesPGM, scopeEntityType,schoolEntitiesPGM,clusterEntitiesPGM,blockEntitiesPGM,districtEntitiesPGM,stateEntitiesPGM):
         urlFetchEntityListApi = elevateentityhost + searchforlocation
         print(urlFetchEntityListApi,"urlFetchEntityListApi")
         headerFetchEntityListApi = {
@@ -362,7 +363,7 @@ class ElevateObservation:
                     # "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')},
                 },
                 "projection": [
-                    "entityType","_id"
+                    "entityType","_id","metaInformation.name"
                 ]
             }
             data = json.dumps(payload)
@@ -385,19 +386,71 @@ class ElevateObservation:
                 entityToUpload = None  # Initialize for each entity
                 for listEntities in responseFetchEntityListApi['result']:
                     entityToUpload = listEntities['entityType']
+                    EntityName = listEntities['metaInformation']['name']
                     entityId = listEntities['_id']
                     print(entityId,"entityId")
                     # entityToUpload = listEntities.get('entityType', '').lower().strip()
 
                     # If a valid entityType is found, store it in the dictionary and break out of the loop
-                    if entityToUpload:
-                        entityTypes.append(entityToUpload)
-                        # break
+                    
+                    
+                    DetailsFetchURL = elevateentityhost + fetchDetailsEntity + entityId
+                    headerEntityDetails = {
+                        "tenantId": tenantID
+                    }
+                    payload = {}
+                    EntityDetailsResponse = requests.request("GET", DetailsFetchURL, headers=headerEntityDetails, data=payload)
+                    print(EntityDetailsResponse.text,"EntityDetailsResponse")
+                    if EntityDetailsResponse.status_code == 200:
+                        EntityDetailsResponseJson = EntityDetailsResponse.json()
+                        # EntityDetails = EntityDetailsResponseJson.get("result", {})
+                        # print(EntityDetails,"EntityDetails")\
+                        entities = EntityDetailsResponseJson.get("result", [])
+                        for entity in entities:
+                            # entity = entitie[0]
+                            entityId = entity.get("_id", {})
+                            entityToUpload = entity.get("entityType")
+                            parent_info = entity.get("parentInformation", {})
+                            EntityFlag = False
+                            if parent_info.get("school", [{}])[0].get("name"):
+                                school_name = parent_info.get("school", [{}])[0].get("name")
+                                print("school:", school_name)
+                                if schoolEntitiesPGM == "" or schoolEntitiesPGM == school_name:
+                                    EntityFlag = True
+                            elif parent_info.get("cluster", [{}])[0].get("name"):
+                                cluster_name = parent_info.get("cluster", [{}])[0].get("name")
+                                print("Cluster:", cluster_name)
+                                if clusterEntitiesPGM == "" or clusterEntitiesPGM == cluster_name:
+                                    EntityFlag = True
+                            elif parent_info.get("block", [{}])[0].get("name"):
+                                block_name = parent_info.get("block", [{}])[0].get("name")
+                                print("Block:", block_name)
+                                if blockEntitiesPGM == "" or block_name == blockEntitiesPGM:
+                                    EntityFlag = True
+                            elif parent_info.get("district", [{}])[0].get("name"):
+                                district_name = parent_info.get("district", [{}])[0].get("name")
+                                print("District:", district_name)
+                                if district_name == "" or district_name == districtEntitiesPGM:
+                                    EntityFlag = True
+                            elif EntityName:
+                                state_name = EntityName
+                                print("State:", state_name)
+                                if stateEntitiesPGM == state_name:
+                                    EntityFlag = True
+                            if EntityFlag:
+                                entityTypes.append(entityToUpload)
+                                
+                            if EntityFlag:
+                                entityTypeID.append(entityId)
+                            if EntityFlag == True:
+                                print(entityToUpload,entityId)
+                            else:
+                                print("Not the right entity ...")
 
-                    if entityId:
-                        entityTypeID.append(entityId)
-                        # print("Entity ID found:", entityId)
-
+                    else:
+                    # Handle cases where the API call fails for a specific entity
+                        raise RuntimeError(f"Failed to fetch entity type for '{entityName}'. Status code: {EntityDetailsResponse.status_code}")
+            
                 # If no entityType is found for this entity, raise an error for that specific entity
                 if not entityToUpload:
                     raise ValueError(f"Entity type not found for entity '{entityName}'.")
@@ -896,18 +949,24 @@ class ElevateObservation:
                         if dictDetailsEnv.get('Targeted state at program level'):
                             stateEntitiesPGM = dictDetailsEnv['Targeted state at program level'].encode('utf-8').decode('utf-8')
                         else:
+                            stateEntitiesPGM = ""
                             errorVar = "\"Targeted state at program level\" must not be Empty in \"Program details\" sheet"
                         if dictDetailsEnv.get('Targeted District at program level'):
                             districtEntitiesPGM = dictDetailsEnv['Targeted District at program level'].encode('utf-8').decode('utf-8')
-                        # else:
-                        #     errorVar = "\"Targeted District at program level\" must not be Empty in \"Program details\" sheet"
-
+                        else:
+                            districtEntitiesPGM = ""
                         if dictDetailsEnv.get('Targeted Block at program level'):
                             blockEntitiesPGM = dictDetailsEnv['Targeted Block at program level'].encode('utf-8').decode('utf-8')
+                        else:
+                            blockEntitiesPGM = ""
                         if dictDetailsEnv.get('Targeted Cluster at program level'):
                             clusterEntitiesPGM = dictDetailsEnv['Targeted Cluster at program level'].encode('utf-8').decode('utf-8')
+                        else:
+                            clusterEntitiesPGM = ""
                         if dictDetailsEnv.get('Targeted School at program level'):
                             schoolEntitiesPGM = dictDetailsEnv['Targeted School at program level'].encode('utf-8').decode('utf-8')
+                        else:
+                            schoolEntitiesPGM = ""
                        
 
                         global mainRole,rolesPGMID,rolesPGM,mainRoleproff
@@ -2887,7 +2946,7 @@ class ElevateObservation:
 
 
     def createChild(solutionName_for_folder_path, observationExternalId, accessToken):
-        global errorVar,solutionName, solutionDescription,entityType,programExternalId,isExternalProgram
+        global errorVar,solutionName, solutionDescription,entityType,programExternalId,isExternalProgram,observationChildId
         error_message=""
         try:
             childObservationExternalId = str(observationExternalId + "_CHILD")
@@ -2928,6 +2987,8 @@ class ElevateObservation:
 
                 responseSol_prog_mapping = responseSol_prog_mapping.json()
                 child_id = responseSol_prog_mapping['result']['_id']
+                ElevateObservation.observationChildId = child_id
+
                 ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
                 print("child solutionId: " + child_id)
                 return [child_id, childObservationExternalId]
