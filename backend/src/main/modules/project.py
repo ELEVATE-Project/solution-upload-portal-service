@@ -1157,7 +1157,7 @@ class Elevateproject:
                         
                         scopeEntityType = [EntityType] if isinstance(EntityType, str) else EntityType
                         entitiesType = Elevateproject.fetchEntityType(parentFolder, accessToken,
-                                                    entitiesPGM.lstrip().rstrip().split(","), scopeEntityType)
+                                                    entitiesPGM.lstrip().rstrip().split(","), scopeEntityType,schoolEntitiesPGM,clusterEntitiesPGM,blockEntitiesPGM,districtEntitiesPGM,stateEntitiesPGM)
                         if entitiesPGM:
                             entitiesPGM = entitiesPGM
                             scopeEntityType = entitiesType[0]

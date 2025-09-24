@@ -1051,7 +1051,7 @@ class ElevateObservation:
                         global entitiesType
                         print(districtEntitiesPGM, "entitiesPGM")
                         entitiesType = ElevateObservation.fetchEntityType(parentFolder, accessToken,
-                                                    entitiesPGMs.lstrip().rstrip().split(","), scopeEntityType)
+                                                    entitiesPGMs.lstrip().rstrip().split(","),scopeEntityType,schoolEntitiesPGM,clusterEntitiesPGM,blockEntitiesPGM,districtEntitiesPGM,stateEntitiesPGM)
 
                         print("entitiesType", entitiesType)
                         if scopeEntityType:
