@@ -428,7 +428,7 @@ class Elevateproject:
             payload = {
                 "query": {
                     "metaInformation.name": entityName,
-                    "tenantId":tenantID,  # Use the current entity name
+                    "tenantId":tenantIDFromTemplate,  # Use the current entity name
                     "entityType": scopeEntityType[0]
                     # "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')},
                 },
@@ -466,7 +466,7 @@ class Elevateproject:
                     
                     DetailsFetchURL = elevateentityhost + fetchDetailsEntity + entityId
                     headerEntityDetails = {
-                        "tenantId": tenantID
+                        "tenantId": tenantIDFromTemplate
                     }
                     payload = {}
                     EntityDetailsResponse = requests.request("GET", DetailsFetchURL, headers=headerEntityDetails, data=payload)
