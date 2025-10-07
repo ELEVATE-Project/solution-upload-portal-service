@@ -709,7 +709,7 @@ class Elevateproject:
                 'Authorization':authorization,
                 'tenantId': tenantIDFromTemplate ,
                 'orgid': orgIDFromTemplate,
-                adminTokenHeaderName: projAdminAccessToken
+                adminTokenHeaderName: adminAccessToken
                 }
             print(headers,"headers")
             # program creation 
@@ -1211,7 +1211,7 @@ class Elevateproject:
             'internal-access-token': internal_access_token,
             'tenantId': tenantIDFromTemplate ,
             'orgid': orgIDFromTemplate,
-            adminTokenHeaderName: projAdminAccessToken
+            adminTokenHeaderName: adminAccessToken
         }
         payloadFetchSolutionApi = {}
         responseFetchSolutionApiUrl = requests.get(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
@@ -1589,7 +1589,7 @@ class Elevateproject:
             "internal-access-token": internal_access_token,
             'tenantId': tenantIDFromTemplate ,
             'orgid': orgIDFromTemplate,
-            adminTokenHeaderName: projAdminAccessToken
+            adminTokenHeaderName: adminAccessToken
             }
         responseUpdateSolutionApi = requests.post(url=solutionUpdateApiurl, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
         messageArr = ["Solution Update API called.", "URL : " + str(solutionUpdateApiurl), "Body : " + str(bodySolutionUpdate),"Response : " + str(responseUpdateSolutionApi.text),"Status Code : " + str(responseUpdateSolutionApi.status_code)]
@@ -1613,7 +1613,7 @@ class Elevateproject:
                 'Content-Type': content_type,
                 'tenantId': tenantIDFromTemplate,
                 'orgId' : orgIDFromTemplate,
-                adminTokenHeaderName: projAdminAccessToken
+                adminTokenHeaderName: adminAccessToken
             }
         searchSolutionpayload = json.dumps({
             "query": {
@@ -1776,7 +1776,7 @@ class Elevateproject:
                     range(tasksDetailsSheet.ncols)]
         taskColumns1 = ["name", "externalId", "description", "type", "hasAParentTask", "parentTaskOperator",
                         "parentTaskValue",
-                        "parentTaskId", "solutionType", "solutionSubType", "solutionId", "isDeletable","startDate","endDate","isAnExternalTask"]
+                        "parentTaskId", "solutionType", "solutionSubType", "solutionId", "isDeletable"]
         taskLearningResource_count = 0
 
         for tasksHeader in keysTasks:
@@ -1808,14 +1808,14 @@ class Elevateproject:
                 Mitra_Link = Mitra_Link
                 
             # subtaskname = str(dictTasksDetails["Subtask"]).encode('utf-8').decode('utf-8').strip()
-            startDate = dictTasksDetails["startDate"]
-            endDate = dictTasksDetails["endDate"]
-            if startDate:
-                startDateArr = str(startDate).split("-")
-                bodyStartDate = startDateArr[0] + "/" + startDateArr[1] + "/" + startDateArr[2]
-                if endDate:
-                    endDateArr = str(endDate).split("-")
-                    bodyEndDate = endDateArr[0] + "/" + endDateArr[1] + "/" + endDateArr[2]                     
+            # startDate = dictTasksDetails["startDate"]
+            # endDate = dictTasksDetails["endDate"]
+            # if startDate:
+            #     startDateArr = str(startDate).split("-")
+            #     bodyStartDate = startDateArr[0] + "/" + startDateArr[1] + "/" + startDateArr[2]
+            #     if endDate:
+            #         endDateArr = str(endDate).split("-")
+            #         bodyEndDate = endDateArr[0] + "/" + endDateArr[1] + "/" + endDateArr[2]                     
 
             taskId = str(dictTasksDetails["TaskId"]).encode('utf-8').decode('utf-8').strip() + "-" + str(millisecond)
             taskminNoOfSubmissionsRequired = str(dictTasksDetails["Number of submissions for observation"]).strip()
@@ -1827,10 +1827,11 @@ class Elevateproject:
                 taskDescription = ""
 
             # print(dictTasksDetails["solutionType"],"1815")
-            if dictTasksDetails["solutionType"]:
-                taskType = dictTasksDetails["solutionType"]
+            if dictTasksDetails["observation Name"] != "":
+                taskType = "observation"
             elif dictTasksDetails["learningResources1-name"] != "" and dictTasksDetails["learningResources1-link"] != "":
                 taskType = "content"
+           
 
             elif dictTasksDetails["Mitra_Link"] != "":
                 taskType = "reflection"
@@ -1853,26 +1854,25 @@ class Elevateproject:
                 parentTaskValue = ""
                 parentTaskId = ""
 
-            solutionSubType = ""
-            solutionId = ""
-            AnExternalTask = ""
-            
-            # solutionSubTypeForTask = dictTasksDetails["SolutionSubType"]
-            # solutionIdForTask = dictTasksDetails["SolutionId"]
-            if dictTasksDetails["Solution Name"]:
-                solutionNameOrId = dictTasksDetails["Solution Name"]
-                print(solutionNameOrId,"solutionNameOrId")
-                taskSolutionType = taskType
-                solutionDetailsInTask = Elevateproject.checkEntityOfSolution(projectName_for_folder_path, solutionNameOrId, accessToken)
-                solutionSubType = solutionDetailsInTask[0]
-                solutionId = solutionDetailsInTask[1]
+            if dictTasksDetails["observation Name"] != "":
+                pass
+                #    solutionNameOrId = dictTasksDetails["observation Name"].encode('utf-8').decode('utf-8')
+                #    taskSolutionType = "observation"
+                #    solutionDetailsInTask = checkEntityOfSolution(projectName_for_folder_path, solutionNameOrId, accessToken)
+                #    solutionSubType = solutionDetailsInTask[0]
+                #    solutionId = solutionDetailsInTask[1]
 
-                taskSolutionType = dictTasksDetails["solutionType"]
 
-                if dictTasksDetails["isAnExternalTask"] == "No":
-                    AnExternalTask = "False"
-                elif dictTasksDetails["isAnExternalTask"] == "Yes":
-                    AnExternalTask = "True"
+                #    projectUpload = pd.read_csv(projectFilePath + "projectUpload.csv")
+                #    # updating the column value/data
+                #    projectUpload.loc[0, 'entityType'] = solutionDetailsInTask[0]
+
+                #    # writing into the file
+                #    projectUpload.to_csv(projectFilePath + "projectUpload.csv", index=False)
+            else:
+                solutionId = ""
+                taskSolutionType = ""
+                solutionSubType = ""
 
             if str(dictTasksDetails["Mandatory task(Yes or No)"]).strip().strip().lower() == "no":
                 isDeletable = "TRUE"
@@ -1881,7 +1881,7 @@ class Elevateproject:
             # task_values = [taskName, taskId, taskDescription, taskType, hasAParentTask, parentTaskOperator, parentTaskValue,
                         #   parentTaskId, taskSolutionType, solutionSubTypeForTask, solutionIdForTask, isDeletable,bodyStartDate,bodyEndDate,AnExternalTask]
             task_values = [taskName, taskId, taskDescription, taskType, hasAParentTask, parentTaskOperator, parentTaskValue,
-                          parentTaskId, taskSolutionType, solutionSubType, solutionId, isDeletable,bodyStartDate,bodyEndDate,AnExternalTask]
+                            parentTaskId, taskSolutionType, solutionSubType, solutionId, isDeletable]
             task_lr_value_count = 1
             for task_lr in range(0, int(taskLearningResource_count)):
                 task_lr_name = str(dictTasksDetails["learningResources" + str(task_lr_value_count) + "-name"]).strip()
@@ -1926,7 +1926,7 @@ class Elevateproject:
                 'internal-access-token': internal_access_token,
                 'tenantId': tenantIDFromTemplate,
                 'orgId' : orgIDFromTemplate,
-                adminTokenHeaderName: projAdminAccessToken
+                adminTokenHeaderName: adminAccessToken
             }
             print(headerProjectUploadApi,"headerProjectUploadApi")
             project_payload = {}
@@ -1984,7 +1984,7 @@ class Elevateproject:
                         'internal-access-token': internal_access_token,
                         'tenantId': tenantIDFromTemplate,
                         'orgId' : orgIDFromTemplate,
-                        adminTokenHeaderName: projAdminAccessToken
+                        adminTokenHeaderName: adminAccessToken
                     }
                     fetchProjectIdPayload = {}
 
@@ -2026,7 +2026,7 @@ class Elevateproject:
                     'internal-access-token': internal_access_token,
                     'tenantId': tenantIDFromTemplate,
                     'orgId' : orgIDFromTemplate,
-                    adminTokenHeaderName: projAdminAccessToken
+                    adminTokenHeaderName: adminAccessToken
                 }
                 task_payload = {}
                 filesTasks = {
@@ -2110,7 +2110,7 @@ class Elevateproject:
                     'X-Channel-id': x_channel_id,
                     'tenantId': tenantIDFromTemplate,
                     'orgId' : orgIDFromTemplate,
-                    adminTokenHeaderName: projAdminAccessToken
+                    adminTokenHeaderName: adminAccessToken
                 }
                 print(programExternalId,"programExternalId")
                 print(headerCreateSolutionApi,"headerCreateSolutionApi")
@@ -2152,7 +2152,7 @@ class Elevateproject:
                         'X-Channel-id': x_channel_id,
                         'tenantId': tenantIDFromTemplate,
                         'orgId' : orgIDFromTemplate,
-                        adminTokenHeaderName: projAdminAccessToken
+                        adminTokenHeaderName: adminAccessToken
                     }
                     print(headerMapSolutionProject,"headerMapSolutionProject")
                     payloadMapSolutionProject = {
@@ -2302,7 +2302,7 @@ class Elevateproject:
                 'Content-Type': content_type,
                 'tenantId': tenantIDFromTemplate,
                 'orgId' : orgIDFromTemplate,
-                adminTokenHeaderName: projAdminAccessToken
+                adminTokenHeaderName: adminAccessToken
             }
             payload = json.dumps({
                 "query": {
@@ -2612,7 +2612,7 @@ class Elevateproject:
                             'internal-access-token': internal_access_token,
                             'tenantId': tenantIDFromTemplate,
                             'orgId' : orgIDFromTemplate,
-                            adminTokenHeaderName: projAdminAccessToken
+                            adminTokenHeaderName: adminAccessToken
                         }
                         print(headereditingsvgApi,"headereditingsvgApi")
                         print(downloadedfiles,"downloadedfiles")
@@ -2726,7 +2726,7 @@ class Elevateproject:
                 'Content-Type': content_type,
                 'tenantId': tenantIDFromTemplate,
                 'orgId' : orgIDFromTemplate,
-                adminTokenHeaderName: projAdminAccessToken
+                adminTokenHeaderName: adminAccessToken
             }
             print(headeraddcertificateApi,"headeraddcertificateApi")
             if str(projectLevelEvidance).strip().lower() == "yes":
@@ -2977,7 +2977,7 @@ class Elevateproject:
                 'internal-access-token': internal_access_token,
                 'tenantId': tenantIDFromTemplate,
                     'orgId' : orgIDFromTemplate,
-                    adminTokenHeaderName: projAdminAccessToken
+                    adminTokenHeaderName: adminAccessToken
             }
             task_payload = {}
             task_file = []
@@ -3002,7 +3002,7 @@ class Elevateproject:
                     'Content-Type': content_type,
                     'tenantId': tenantIDFromTemplate,
                     'orgId' : orgIDFromTemplate,
-                    adminTokenHeaderName: projAdminAccessToken
+                    adminTokenHeaderName: adminAccessToken
                 }
 
                 certificate_payload = json.dumps({
@@ -3041,7 +3041,7 @@ class Elevateproject:
                     'Content-Type': content_type,
                     'tenantId': tenantIDFromTemplate,
                     'orgId' : orgIDFromTemplate,
-                    adminTokenHeaderName: projAdminAccessToken
+                    adminTokenHeaderName: adminAccessToken
                 }
 
                 certificate_payload = json.dumps({
@@ -3097,7 +3097,7 @@ class Elevateproject:
             'internal-access-token': internal_access_token,
             'tenantId': tenantIDFromTemplate,
                     'orgId' : orgIDFromTemplate,
-                    adminTokenHeaderName: projAdminAccessToken
+                    adminTokenHeaderName: adminAccessToken
         }
         payloadFetchSolutionApi = {}
 
@@ -3121,7 +3121,7 @@ class Elevateproject:
             # 'internal-access-token': internal_access_token,
             # 'tenantId': tenantIDFromTemplate,
             #         'orgId' : orgIDFromTemplate,
-            #         adminTokenHeaderName: projAdminAccessToken
+            #         adminTokenHeaderName: adminAccessToken
         }
         payloadFetchSolutionLinkApi = {}
 
@@ -3211,7 +3211,7 @@ class Elevateproject:
                 'internal-access-token': internal_access_token,
                 'tenantId': tenantIDFromTemplate,
                     'orgId' : orgIDFromTemplate,
-                    adminTokenHeaderName: projAdminAccessToken
+                    adminTokenHeaderName: adminAccessToken
             }
             payloadFetchSolutionLinkApi = {}
 

@@ -83,6 +83,10 @@ editsvgtemp = "v1/certificateTemplates/createSvg?baseTemplateId="
 uploadcertificatetosvg = "v1/certificateTemplates/uploadTemplate/"
 updatecertificatesolu = "v1/solutions/update/"
 updateprojecttemplate = "v1/project/templates/update/"
+fetchprofessionalRole = "entity-management/v1/entities/entityListBasedOnEntityType?entityType=professional_role"
+fetchDetailsEntity = "entity-management/v1/entities/details/"
+tenantFetch = "user/v1/tenant/read/"
+dbfindapi_projectTemplate = "v1/admin/dbFind/projectTemplates"
 certificatetypeof = {
     "onelogo-onesignature": "onelogo_onesign",
     "onelogo-twosignature": "onelogo_twosign",
