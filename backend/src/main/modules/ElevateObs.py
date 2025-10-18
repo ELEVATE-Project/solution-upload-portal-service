@@ -432,11 +432,9 @@ class ElevateObservation:
                                 print("District:", district_name)
                                 if district_name == "" or district_name == districtEntitiesPGM:
                                     EntityFlag = True
-                            elif EntityName:
-                                state_name = parent_info.get("state", [{}])[0].get("name")
-                                print("State:", state_name)
-                                if stateEntitiesPGM == state_name:
-                                    EntityFlag = True
+                            elif EntityName == stateEntitiesPGM:
+                                print("State:", stateEntitiesPGM)
+                                EntityFlag = True
                             else:
                                 EntityFlag = True
                             if EntityFlag:
@@ -1232,6 +1230,32 @@ class ElevateObservation:
     def FetchTempExternalID(solutionName_for_folder_path, accessToken, solutionName):
         global errorVar
         try:
+            urldbFindPT = elevateprojecthost + dbfindapi_projectTemplate
+            searchSolutionpayloadPT = {
+                "query": {
+                    "title": solutionName,
+                    "isReusable": True
+                    },
+                "projection": ["externalId"],
+                "mongoIdKeys": ["_id", "solutionId", "metaInformation.solutionId"],
+                "limit": 10000
+            }
+            responsePT = requests.post(urldbFindPT, headers=headers, json=searchSolutionpayloadPT)
+
+            if responsePT.status_code != 200:
+                errorVar = f"DBFindPT-Error {responsePT.status_code}: {responsePT.text}"
+                ElevateObservation.createAPILog(solutionName_for_folder_path, responsePT.text)
+                print("Unable to fetch Project Template External ID.")
+                return False
+
+            resultsPT = responsePT.json().get("result", [])
+            if not resultsPT:
+                errorVar = "No projectTemplate found for: " + solutionName
+                print(errorVar)
+                return False
+
+            ProjectTempExternalID = resultsPT[0].get("externalId")
+
             urldbFind = elevateprojecthost + dbfindapi_url
             headers = {
                 'X-auth-token': accessToken,
@@ -1239,7 +1263,7 @@ class ElevateObservation:
             }
             searchSolutionpayload = {
                 "query": {"name": solutionName},
-                "projection": ["projectTemplateId", "name"],
+                "projection": ["status", "name"],
                 "mongoIdKeys": ["_id"],
                 "limit": 10000
             }
@@ -1257,34 +1281,33 @@ class ElevateObservation:
                 print(errorVar)
                 return False
 
-            projectTemplateId = results[0].get("projectTemplateId")
-            if not projectTemplateId:
+            projectSolutionID = results[0].get("_id")
+            if not projectSolutionID:
                 errorVar = "Solution found but no projectTemplateId for: " + solutionName
                 print(errorVar)
                 return False
-
-            urldbFindPT = elevateprojecthost + dbfindapi_projectTemplate
+            
+            urldbFindPT = elevateprojecthost + solutionupdateapi + projectSolutionID
+            headerUpdateSolutionApi = {
+                'Content-Type': content_type,
+                'X-auth-token': accessToken,
+                'X-Channel-id': x_channel_id,
+                "internal-access-token": internal_access_token,
+                'tenantId': tenantID ,
+                'orgid': orgIDFromTemplate,
+                adminTokenHeaderName: projAdminAccessToken
+            } 
             searchSolutionpayloadPT = {
-                "query": {"_id": projectTemplateId},
-                "projection": ["externalId"],
-                "mongoIdKeys": ["_id", "solutionId", "metaInformation.solutionId"],
-                "limit": 10000
+                "status": "inactive",
+                "isDeleted": False
             }
-            responsePT = requests.post(urldbFindPT, headers=headers, json=searchSolutionpayloadPT)
+            responseSolutionUpdate = requests.post(urldbFindPT, headers=headerUpdateSolutionApi, json=searchSolutionpayloadPT)
 
-            if responsePT.status_code != 200:
-                errorVar = f"DBFindPT-Error {responsePT.status_code}: {responsePT.text}"
-                ElevateObservation.createAPILog(solutionName_for_folder_path, responsePT.text)
-                print("Unable to fetch Project Template External ID.")
+            if responseSolutionUpdate.status_code == 200:
+                print("Solution Update Success.")
+            else:
+                print("Solution Update Failed.")
                 return False
-
-            resultsPT = responsePT.json().get("result", [])
-            if not resultsPT:
-                errorVar = "No projectTemplate found for ID: " + projectTemplateId
-                print(errorVar)
-                return False
-
-            ProjectTempExternalID = resultsPT[0].get("externalId")
             return ProjectTempExternalID
 
         except Exception as e:
@@ -5082,7 +5105,7 @@ class ElevateObservation:
                             #         finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                             #         return finalObsRubricSolutionLink
                             if isProgramnamePresent:
-                                childId = ElevateObservation.createChild(parentFolder, observationExternalId, accessToken)
+                                childId = ElevateObservation.createChild(parentFolder, solutionId, accessToken)
                                 if not childId:
                                     finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                     return finalObsRubricSolutionLink

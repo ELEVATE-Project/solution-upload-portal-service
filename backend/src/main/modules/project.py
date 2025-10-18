@@ -502,11 +502,9 @@ class Elevateproject:
                                 print("District:", district_name)
                                 if district_name == "" or district_name == districtEntitiesPGM:
                                     EntityFlag = True
-                            elif EntityName:
-                                state_name = parent_info.get("state", [{}])[0].get("name")
-                                print("State:", state_name)
-                                if stateEntitiesPGM == state_name:
-                                    EntityFlag = True
+                            elif EntityName == stateEntitiesPGM:
+                                print("State:", stateEntitiesPGM)
+                                EntityFlag = True
                             else:
                                 EntityFlag = True
                             if EntityFlag:
