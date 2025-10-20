@@ -1231,6 +1231,10 @@ class ElevateObservation:
         global errorVar
         try:
             urldbFindPT = elevateprojecthost + dbfindapi_projectTemplate
+            headers = {
+                'X-auth-token': accessToken,
+                'Content-Type': content_type
+            }
             searchSolutionpayloadPT = {
                 "query": {
                     "title": solutionName,
