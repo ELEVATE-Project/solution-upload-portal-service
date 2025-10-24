@@ -1429,7 +1429,7 @@ class Elevateproject:
             wbObservation1 = xlrd.open_workbook(filePathAddObs, on_demand=True)
             sheetNames1 = wbObservation1.sheet_names()
             projectDetailsCols = ["title", "projectId", "Username/user id/email id/phone no. of content creator", "categories",
-                                "objective","duration","recommendedFor","keywords"]
+                                "objective","duration","entityType","recommendedFor","keywords"]
             detailsColCheck = wbObservation1.sheet_by_name('Project upload')
             keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
                                         range(detailsColCheck.ncols)]
@@ -1467,6 +1467,8 @@ class Elevateproject:
                     detailsColCheck = wbObservation1.sheet_by_name(sheetColCheck)
                     keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
                                         range(detailsColCheck.ncols)]
+                    print(keysColCheckDetai,"keysColCheckDetai")
+                    print(projectDetailsCols,"projectDetailsCols")
                     if len(keysColCheckDetai) != len(projectDetailsCols) or set(keysColCheckDetai) == set(projectDetailsCols):
                         errorVar = 'Columns is missing in Project Upload sheet'
                     detailsEnvSheet = wbObservation1.sheet_by_name(sheetColCheck)
@@ -1830,6 +1832,7 @@ class Elevateproject:
             print(dictProjectDetails,"1603")
             title = str(dictProjectDetails["title"]).encode('utf-8').decode('utf-8').strip()
             externalId = str(dictProjectDetails["projectId"]).strip()  + "-" + str(millisecond)
+            entityType = str(dictProjectDetails["entityType"]).encode('utf-8').decode('utf-8').strip()
             categories_list = ["teachers", "students", "infrastructure", "community", "educationLeader", "schoolProcess","learner","faciliator"]
             categories = str(dictProjectDetails["categories"]).encode('utf-8').decode('utf-8').split(",")
             categories_final = ""
@@ -1846,7 +1849,7 @@ class Elevateproject:
             projectAuthor = str(dictProjectDetails["Username/user id/email id/phone no. of content creator"]).encode('utf-8').decode('utf-8').strip()
             recommendedFor = str(dictProjectDetails["recommendedFor"]).encode('utf-8').decode('utf-8').strip()
             objective = str(dictProjectDetails["objective"]).encode('utf-8').decode('utf-8').strip()
-            entityType = None
+            # entityType = None
             project_values = [title, externalId, categories_final, recommendedFor,objective, entityType,projectGoal]
             lr_value_count = 1
             for lr in range(0, int(learningResource_count)):
