@@ -1441,13 +1441,16 @@ class Elevateproject:
             # projectDetailsCols.append("Project Level Evidence")
             # projectDetailsCols.append("Minimum No. of Evidence")
             # sys.exit()
-            
-            taskUploadCols = ["TaskId", "TaskTitle", "parentTaskId",
-                            "Mandatory task(Yes or No)","Solution Name","solutionType","isAnExternalTask","Number of submissions for observation","Mitra_Link","startDate","endDate"]
+            if tenantIDFromTemplate == "shikshalokam":
+                taskUploadCols = ["TaskId", "TaskTitle", "parentTaskId",
+                            "Mandatory task(Yes or No)","Solution Name","solutionType","isAnExternalTask","Number of submissions for observation"]
+            else: 
+                taskUploadCols = ["TaskId", "TaskTitle", "parentTaskId",
+                            "Mandatory task(Yes or No)","Solution Name","solutionType","isAnExternalTask","Number of submissions for observation","Mitra_Link"]
             detailsColCheck = wbObservation1.sheet_by_name('Tasks upload')
             keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
                                         range(detailsColCheck.ncols)]
-            lentasks = (len(keysColCheckDetai) - 14) // 2
+            lentasks = (len(keysColCheckDetai) - 12) // 2
             for i in range(lentasks):
                 taskUploadCols.append(f"learningResources{i+1}-name")
                 taskUploadCols.append(f"learningResources{i+1}-link")
@@ -1584,10 +1587,11 @@ class Elevateproject:
                         dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
                                         for
                                         col_index_env in range(detailsEnvSheet.ncols)}
-                        if dictDetailsEnv["Solution Name"] and dictDetailsEnv["Mitra_Link"]:
-                            errorVar = "Validation Failed - Either an observation as a task or Mithra link, only one can be given per task."
-                        elif (dictDetailsEnv["learningResources1-link"] or dictDetailsEnv["learningResources2-link"] or dictDetailsEnv["learningResources3-link"] or dictDetailsEnv["learningResources4-link"]) and dictDetailsEnv["Mitra_Link"]:
-                            errorVar = "Validation Failed - Either an Learning Resource or Mithra link, only one can be given per task."    
+                        if tenantIDFromTemplate != "shikshalokam":
+                            if dictDetailsEnv["Solution Name"] and dictDetailsEnv["Mitra_Link"]:
+                                errorVar = "Validation Failed - Either an observation as a task or Mithra link, only one can be given per task."
+                            elif (dictDetailsEnv["learningResources1-link"] or dictDetailsEnv["learningResources2-link"] or dictDetailsEnv["learningResources3-link"] or dictDetailsEnv["learningResources4-link"]) and dictDetailsEnv["Mitra_Link"]:
+                                errorVar = "Validation Failed - Either an Learning Resource or Mithra link, only one can be given per task."    
                         # projectTaskMandatory = dictDetailsEnv['Mandatory task(Yes or No)'] if dictDetailsEnv[
                         #     'Mandatory task(Yes or No)'] else Elevateproject.terminatingMessage(
                         #     "\"Mandatory task(Yes or No)\" must not be Empty in \"Tasks Upload\" sheet")
@@ -1890,7 +1894,7 @@ class Elevateproject:
                     range(tasksDetailsSheet.ncols)]
         taskColumns1 = ["name", "externalId", "description", "type", "hasAParentTask", "parentTaskOperator",
                         "parentTaskValue",
-                        "parentTaskId", "solutionType", "solutionSubType", "solutionId", "isDeletable","startDate","endDate","isAnExternalTask"]
+                        "parentTaskId", "solutionType", "solutionSubType", "solutionId", "isDeletable","isAnExternalTask"]
         taskLearningResource_count = 0
 
         for tasksHeader in keysTasks:
@@ -1917,19 +1921,20 @@ class Elevateproject:
             dictTasksDetails = {keysTasks[col_index_env]: tasksDetailsSheet.cell(row_index_env, col_index_env).value
                                 for col_index_env in range(tasksDetailsSheet.ncols)}
             taskName = str(dictTasksDetails["TaskTitle"]).encode('utf-8').decode('utf-8').strip()
-            Mitra_Link = str(dictTasksDetails["Mitra_Link"]).strip()
-            if Mitra_Link == "":
-                Mitra_Link = Mitra_Link
+            if tenantIDFromTemplate != 'shikshalokam':
+                Mitra_Link = str(dictTasksDetails["Mitra_Link"]).strip()
+                if Mitra_Link == "":
+                    Mitra_Link = Mitra_Link
                 
             # subtaskname = str(dictTasksDetails["Subtask"]).encode('utf-8').decode('utf-8').strip()
-            startDate = dictTasksDetails["startDate"]
-            endDate = dictTasksDetails["endDate"]
-            if startDate:
-                startDateArr = str(startDate).split("-")
-                bodyStartDate = startDateArr[0] + "/" + startDateArr[1] + "/" + startDateArr[2]
-                if endDate:
-                    endDateArr = str(endDate).split("-")
-                    bodyEndDate = endDateArr[0] + "/" + endDateArr[1] + "/" + endDateArr[2]                     
+            # startDate = dictTasksDetails["startDate"]
+            # endDate = dictTasksDetails["endDate"]
+            # if startDate:
+            #     startDateArr = str(startDate).split("-")
+            #     bodyStartDate = startDateArr[0] + "/" + startDateArr[1] + "/" + startDateArr[2]
+            #     if endDate:
+            #         endDateArr = str(endDate).split("-")
+            #         bodyEndDate = endDateArr[0] + "/" + endDateArr[1] + "/" + endDateArr[2]                     
 
             taskId = str(dictTasksDetails["TaskId"]).encode('utf-8').decode('utf-8').strip() + "-" + str(millisecond)
             taskminNoOfSubmissionsRequired = str(dictTasksDetails["Number of submissions for observation"]).strip()
@@ -1946,10 +1951,13 @@ class Elevateproject:
             elif dictTasksDetails["learningResources1-name"] != "" and dictTasksDetails["learningResources1-link"] != "":
                 taskType = "content"
 
-            elif dictTasksDetails["Mitra_Link"] != "":
-                taskType = "reflection"
+            elif tenantIDFromTemplate != 'shikshalokam':
+                if dictTasksDetails["Mitra_Link"] != "":
+                    taskType = "reflection"
+                else:
+                    taskType = "simple"
             else:
-                taskType = "simple"
+                    taskType = "simple"
         
             hasAParentTask = "NO"
             parentTaskOperator = ""
@@ -2029,7 +2037,7 @@ class Elevateproject:
             # task_values = [taskName, taskId, taskDescription, taskType, hasAParentTask, parentTaskOperator, parentTaskValue,
                         #   parentTaskId, taskSolutionType, solutionSubTypeForTask, solutionIdForTask, isDeletable,bodyStartDate,bodyEndDate,AnExternalTask]
             task_values = [taskName, taskId, taskDescription, taskType, hasAParentTask, parentTaskOperator, parentTaskValue,
-                          parentTaskId, taskSolutionType, solutionSubType, solutionId, isDeletable,bodyStartDate,bodyEndDate,AnExternalTask]
+                          parentTaskId, taskSolutionType, solutionSubType, solutionId, isDeletable,AnExternalTask]
             task_lr_value_count = 1
             for task_lr in range(0, int(taskLearningResource_count)):
                 task_lr_name = str(dictTasksDetails["learningResources" + str(task_lr_value_count) + "-name"]).strip()
@@ -2052,11 +2060,12 @@ class Elevateproject:
                     task_lr_value_count += 1
             task_values.append(taskminNoOfSubmissionsRequired)
             task_values.append(sequenceNumber)
-            task_values.append(Mitra_Link)
-            if Mitra_Link.strip() != "":
-                task_values.append("Start Reflection")
-            else:
-                task_values.append("")
+            if tenantIDFromTemplate != 'shikshalokam':
+                task_values.append(Mitra_Link)
+                if Mitra_Link.strip() != "":
+                    task_values.append("Start Reflection")
+                else:
+                    task_values.append("")
             with open(taskFilePath + 'taskUpload.csv','a',encoding='utf-8') as file:
                 writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
                 writer.writerows([task_values])
