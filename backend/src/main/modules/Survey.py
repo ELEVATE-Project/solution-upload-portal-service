@@ -29,6 +29,39 @@ class CreateSurvey:
     def __init__(self):
         self.errorVar = []
 
+    def createAPILog(self, solutionName_for_folder_path, messageArr):
+        print(solutionName_for_folder_path, "solutionName_for_folder_path")
+        file_exists = os.path.join(solutionName_for_folder_path, 'apiHitLogs', 'apiLogs.txt')
+        os.makedirs(os.path.dirname(file_exists), exist_ok=True)
+        # Create file with header if it doesn't exist
+        if not os.path.exists(file_exists):
+            with open(file_exists, "w", encoding='utf-8') as API_log:
+                API_log.write("===============================================================================\n")
+                API_log.write("ENVIRONMENT LOGS\n")
+                API_log.write("===============================================================================\n")
+        # Append logs
+        with open(file_exists, "a", encoding='utf-8') as API_log:
+            API_log.write("\n")
+            for msg in messageArr:
+                API_log.write(str(msg))
+                API_log.write("\n")
+
+    def apicheckslog(self, solutionName_for_folder_path, messageArr):
+        file_exists = os.path.join(solutionName_for_folder_path, 'apiHitLogs', 'apiLogs.csv')
+        fileheader = ["Resource", "Process", "Status", "Remark"]
+        os.makedirs(os.path.dirname(file_exists), exist_ok=True)
+
+        # ✅ Create file with header if it doesn't exist
+        if not os.path.exists(file_exists):
+            with open(file_exists, 'w', newline='', encoding='utf-8') as file:
+                writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
+                writer.writerow(fileheader)  
+                
+        # ✅ Append a new log entry
+        with open(file_exists, 'a', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
+            writer.writerow(messageArr)
+
     def solutionUpdate(self, solutionName_for_folder_path, accessToken, solutionId, bodySolutionUpdate,programdetails):
         try:
             solutionUpdateApi = internal_kong_ip + solutionupdateapi + str(solutionId)
@@ -43,8 +76,9 @@ class CreateSurvey:
                 adminTokenHeaderName: adminAccessToken
                 }
             responseUpdateSolutionApi = requests.post(url=solutionUpdateApi, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
+            messageArr = []
             messageArr = ["Solution Update API called.", "URL : " + str(solutionUpdateApi), "Body : " + str(bodySolutionUpdate),"Response : " + str(responseUpdateSolutionApi.text),"Status Code : " + str(responseUpdateSolutionApi.status_code)]
-            # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             if responseUpdateSolutionApi.status_code == 200:
                 print("Solution Update Success.")
                 return True
@@ -59,6 +93,9 @@ class CreateSurvey:
                 return False
             
         except Exception as e:
+            messageArr = []
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
         
@@ -94,13 +131,19 @@ class CreateSurvey:
                 'orgid': programdetails.get('OrgForAPIs'),
                 adminTokenHeaderName: adminAccessToken
             }
-
             response = requests.post(
                 url=urlCreateSolutionApi,
                 headers=headerCreateSolutionApi,
                 data=json.dumps(surveySolutionCreationReqBody)
             )
-
+            messageArr = []
+            messageArr = ["Survey Solution Creation.",
+                        "URL : " + str(urlCreateSolutionApi),
+                        "Headers: "+ str(headerCreateSolutionApi),
+                        "surveySolutionCreationReqBody: "+str(surveySolutionCreationReqBody),
+                        "Status Code : " + str(response.status_code),
+                        "Response : " + str(response.text)]
+            self.createAPILog(parentFolder, messageArr)
             if response.status_code == 200:
                 responseData = response.json()
                 solutionId = responseData["result"]["solutionId"]
@@ -110,6 +153,13 @@ class CreateSurvey:
                 urlSearchSolution = f"{internal_kong_ip}{fetchsolutiondetails}survey&page=1&limit=10&search={externalIdSearch}"
 
                 responseSearch = requests.post(urlSearchSolution, headers=headerCreateSolutionApi)
+                messageArr = []
+                messageArr = ["Survey Solution search Creation.",
+                            "URL : " + str(urlSearchSolution),
+                            "Headers: "+ str(headerCreateSolutionApi),
+                            "Status Code : " + str(responseSearch.status_code),
+                            "Response : " + str(responseSearch.text)]
+                self.createAPILog(parentFolder, messageArr)
                 if responseSearch.status_code == 200:
                     surveySolutionExternalId = responseSearch.json()['result']['data'][0]['externalId']
                     bodySolutionUpdate = {"creator": details["Name_of_the_creator"]}
@@ -119,13 +169,17 @@ class CreateSurvey:
                     return [solutionId, surveySolutionExternalId]
 
                 else:
-                    return f"❌ Search failed: {responseSearch.text}"
-
+                    self.errorVar.append(f"❌ Search failed: {responseSearch.text}")
+                    return False
             else:
-                return f"❌ Create solution error: {response.text}"
-
+                self.errorVar.append(f"❌ Create solution error: {response.text}")
+                return False
         except Exception as e:
-            return f"⚠️ Exception: {str(e)}"
+            messageArr = []
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(parentFolder, messageArr)
+            self.errorVar.append(f"⚠️ Exception: {str(e)}")
+            return False
 
     def fetchSolutionDetailsFromProgramSheet(self, solutionName_for_folder_path, programdetails, solutionId, accessToken, ProgramGlobalDict):
         try:
@@ -143,13 +197,16 @@ class CreateSurvey:
             payloadFetchSolutionApi = {}
             responseFetchSolutionApiUrl = requests.post(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
                                                     data=payloadFetchSolutionApi)
+            messageArr = []
+            messageArr = ["Solution Fetch Link.",
+                        "URL : " + str(urlFetchSolutionApi),
+                        "Headers: "+ str(headerFetchSolutionApi),
+                        "payloadFetchSolutionApi : " + str(payloadFetchSolutionApi),
+                        "Status Code : " + str(responseFetchSolutionApiUrl.status_code),
+                        "Response : " + str(responseFetchSolutionApiUrl.text)]
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             responseFetchSolutionJson = responseFetchSolutionApiUrl.json()
 
-            messageArr = ["Solution Fetch Link.",
-                        "solution name : " + responseFetchSolutionJson["result"]["name"],
-                        "solution ExternalId : " + responseFetchSolutionJson["result"]["externalId"]]
-            messageArr.append("Upload status code : " + str(responseFetchSolutionApiUrl.status_code))
-            # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
             if responseFetchSolutionApiUrl.status_code == 200:
                 solutionName = responseFetchSolutionJson["result"]["name"]
                 print(solutionName,"solutionName")
@@ -173,6 +230,9 @@ class CreateSurvey:
                     self.errorVar.append(f"FetchSolutionApiUrl-Unexpected Error {responseFetchSolutionApiUrl.status_code}: {responseFetchSolutionApiUrl.text}")
                 return False
         except Exception as e:
+            messageArr = []
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
     
@@ -186,12 +246,16 @@ class CreateSurvey:
         payload = {}
 
         response = requests.request("GET", urlFetchRoleList, headers=headers, data=payload)
-        # response = requests.get(urlFetchRoleList, headers=headers, data=json.dumps({}))
 
         messageArr = []
-        messageArr.append("Fetched professional roles from: " + urlFetchRoleList)
-        messageArr.append("Status Code: " + str(response.status_code))
-
+        messageArr = ["Solution Fetch Link.",
+                    "URL : " + str(urlFetchRoleList),
+                    "Headers: "+ str(headers),
+                    "payload : " + str(payload),
+                    "Status Code : " + str(response.status_code),
+                    "Response : " + str(response.text)]
+        self.createAPILog(parentFolder, messageArr)
+        
         if response.status_code != 200:
             messageArr.append("Error fetching roles.")
             print("Error fetching roles.")
@@ -381,15 +445,17 @@ class CreateSurvey:
             }
             responseQuestionUploadApi = requests.post(url=urlQuestionsUploadApi,
                                                     headers=headerQuestionUploadApi, files=filesQuestion)
+            messageArr = []
+            messageArr = ["Question Upload api.",
+                        "URL : " + str(urlQuestionsUploadApi),
+                        "Headers: "+ str(headerQuestionUploadApi),
+                        "file : " + str(filesQuestion),
+                        "Status Code : " + str(responseQuestionUploadApi.status_code),
+                        "Response : " + str(responseQuestionUploadApi.text)]
+            self.createAPILog(parentFolder, messageArr)
+
             if responseQuestionUploadApi.status_code == 200:
                 print('Question upload Success')
-                messageArr = ["********* Question Upload api *********", "URL : " + urlQuestionsUploadApi,
-                            "Path : " + str(parentFolder) + str('/questionUpload/uploadSheet.csv'),
-                            "Status code : " + str(responseQuestionUploadApi.status_code),
-                            "Response : " + responseQuestionUploadApi.text]
-                # ElevateObservation.createAPILog(parentFolder, messageArr)
-                messageArr1 = ["Questions","Question upload Success","Passed",str(responseQuestionUploadApi.status_code)]
-                # ElevateObservation.apicheckslog(parentFolder,messageArr1
                 with open(parentFolder + '/questionUpload/uploadInternalIdsSheet.csv', 'w+',encoding='utf-8') as questionRes:
                     questionRes.write(responseQuestionUploadApi.text)
                 urlImportSoluTemplate = internal_kong_ip + importsurveysolutiontemplateurl + str(surTempSolID) + "?appName=manage-learn&programId=" + programdetails.get('_id')
@@ -403,6 +469,13 @@ class CreateSurvey:
                 }
                 responseImportSoluTemplateApi = requests.post(url=urlImportSoluTemplate,
                                                             headers=headerImportSoluTemplateApi)
+                messageArr = []
+                messageArr = ["Import Solution Template Api.",
+                            "URL : " + str(urlImportSoluTemplate),
+                            "Headers: "+ str(headerImportSoluTemplateApi),
+                            "Status Code : " + str(responseImportSoluTemplateApi.status_code),
+                            "Response : " + str(responseImportSoluTemplateApi.text)]
+                self.createAPILog(parentFolder, messageArr)
                 if responseImportSoluTemplateApi.status_code == 200:
                     print('Creating Child Success')
                     messageArr = ["********* Creating Child api *********", "URL : " + urlImportSoluTemplate,
@@ -421,13 +494,15 @@ class CreateSurvey:
                         adminTokenHeaderName: adminAccessToken
                     }
                     responseSurveyProgramMappingApi = requests.post(url=urlSurveyProgramMapping,headers=headeSurveyProgramMappingApi)
+                    messageArr = []
+                    messageArr = ["Survey Program Mapping Api.",
+                                "URL : " + str(urlSurveyProgramMapping),
+                                "Headers: "+ str(headeSurveyProgramMappingApi),
+                                "Status Code : " + str(responseSurveyProgramMappingApi.status_code),
+                                "Response : " + str(responseSurveyProgramMappingApi.text)]
+                    self.createAPILog(parentFolder, messageArr)
                     if responseSurveyProgramMappingApi.status_code == 200:
                         print('Program Mapping Success')
-                        
-                        messageArr = ["********* Program mapping api *********", "URL : " + urlSurveyProgramMapping,
-                                    "Status code : " + str(responseSurveyProgramMappingApi.status_code),
-                                    "Response : " + responseSurveyProgramMappingApi.text]
-                        # ElevateObservation.createAPILog(parentFolder, messageArr)
                         surveyLink = None
                         solutionIdSuc = None
                         surveyExternalIdSuc = None
@@ -508,17 +583,13 @@ class CreateSurvey:
                 else:
                     self.errorVar.append(f"QuestionUploadApi-Unexpected Error {responseQuestionUploadApi.status_code}: {responseQuestionUploadApi.text}")
                 print('QuestionUploadApi Failed')
-                messageArr = ["********* Question Upload api *********", "URL : " + urlQuestionsUploadApi,
-                            "Path : " + str(parentFolder) + str('/questionUpload/uploadSheet.csv'),
-                            "Status code : " + str(responseQuestionUploadApi.status_code),
-                            "Response : " + responseQuestionUploadApi.text]
-                # ElevateObservation.createAPILog(parentFolder, messageArr)
-                messageArr.append(f"Error Response: {self.errorVar}")
-    
+                
         except Exception as e:
+            messageArr = []
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(parentFolder, messageArr)
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
-            # ElevateObservation.createAPILog(parentFolder, [f"Exception: {str(e)}"])
 
     def CreateSurvey(self, resource, PRName, parentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile):
         if resource.get('typeofSolution') == 3:

@@ -1,0 +1,1595 @@
+import os, uuid, requests, sys, json, time, csv, jwt, openpyxl, datetime, gdown
+from openpyxl.styles import Color, PatternFill
+from difflib import get_close_matches
+from dotenv import load_dotenv
+from pathlib import Path
+from backend.src.main.modules.common_config import *
+from difflib import get_close_matches
+env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" / ".env"
+
+# Load the .env file
+load_dotenv(dotenv_path=env_path)
+internal_access_token = os.getenv("internal_access_token")
+adminTokenHeaderName = os.getenv("adminTokenHeaderName")
+jwtTokenSecret = os.getenv("jwtTokenSecret")
+projAdminAccessToken = os.getenv("projAdminAccessToken")
+adminAccessToken = os.getenv("adminAccessToken")
+authorization = os.getenv("authorization")
+authorizationforhost = os.getenv("authorizationforhost")
+appname = os.getenv("appname")
+x_channel_id = os.getenv("x_channel_id")
+host = os.getenv("host")
+userLoginHost = os.getenv("userLoginHost")
+internal_kong_ip = os.getenv("internal_kong_ip")
+elevateprojecthost = os.getenv("elevateprojecthost")
+elevateentityhost = os.getenv("elevateentityhost")
+identifier = os.getenv("identifier")
+password = os.getenv("password")
+origin = os.getenv("origin")
+
+class CreateProject():
+
+    def __init__(self):
+        self.errorVar = []
+    
+    def createAPILog(self, solutionName_for_folder_path, messageArr):
+        print(solutionName_for_folder_path, "solutionName_for_folder_path")
+        file_exists = os.path.join(solutionName_for_folder_path, 'apiHitLogs', 'apiLogs.txt')
+        os.makedirs(os.path.dirname(file_exists), exist_ok=True)
+        # Create file with header if it doesn't exist
+        if not os.path.exists(file_exists):
+            with open(file_exists, "w", encoding='utf-8') as API_log:
+                API_log.write("===============================================================================\n")
+                API_log.write("ENVIRONMENT LOGS\n")
+                API_log.write("===============================================================================\n")
+        # Append logs
+        with open(file_exists, "a", encoding='utf-8') as API_log:
+            API_log.write("\n")
+            for msg in messageArr:
+                API_log.write(str(msg))
+                API_log.write("\n")
+
+    def apicheckslog(self, solutionName_for_folder_path, messageArr):
+        file_exists = os.path.join(solutionName_for_folder_path, 'apiHitLogs', 'apiLogs.csv')
+        fileheader = ["Resource", "Process", "Status", "Remark"]
+        os.makedirs(os.path.dirname(file_exists), exist_ok=True)
+
+        # ✅ Create file with header if it doesn't exist
+        if not os.path.exists(file_exists):
+            with open(file_exists, 'w', newline='', encoding='utf-8') as file:
+                writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
+                writer.writerow(fileheader)  
+                
+        # ✅ Append a new log entry
+        with open(file_exists, 'a', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
+            writer.writerow(messageArr)
+
+    def prepareProjectAndTasksSheets(self, wbObservation, parentFolder, accessToken):
+        print("prepareProjectAndTasksSheets")
+
+        millisecond = int(time.time() * 1000)
+        projectFilePath = os.path.join(parentFolder, 'projectUpload')
+        taskFilePath = os.path.join(parentFolder, 'taskUpload')
+
+        os.makedirs(projectFilePath, exist_ok=True)
+        os.makedirs(taskFilePath, exist_ok=True)
+
+        # --------------------- Project Sheet ---------------------
+        projectDetailsSheet = wbObservation.get("Project upload")
+        if not projectDetailsSheet:
+            self.errorVar.append("Missing 'Project upload' sheet in wbObservation.")
+
+        # Normalize to list-of-rows format
+        if isinstance(projectDetailsSheet, dict):
+            keysProject = list(projectDetailsSheet.keys())
+            projectRows = [list(projectDetailsSheet.values())]
+        elif isinstance(projectDetailsSheet, list) and len(projectDetailsSheet) >= 2:
+            keysProject = projectDetailsSheet[1]
+            projectRows = projectDetailsSheet[2:]
+        else:
+            self.errorVar.append("Invalid structure for 'Project upload'. Expected dict or list-with-headers.")
+
+        # Prepare project CSV headers
+        projectColnames1 = [
+            "title", "externalId", "categories", "recommendedFor", "description", 
+            "entityType", "goal"
+        ]
+        learningResource_count = sum(1 for h in keysProject if str(h).startswith('learningResources')) // 2
+        for lr_idx in range(1, learningResource_count + 1):
+            projectColnames1 += [
+                f"learningResources{lr_idx}-name",
+                f"learningResources{lr_idx}-link",
+                f"learningResources{lr_idx}-app",
+                f"learningResources{lr_idx}-id"
+            ]
+        projectColnames2 = [
+            "rationale", "primaryAudience", "taskCreationForm", "duration", "concepts",
+            "keywords", "successIndicators", "risks", "approaches", "_arrayFields"
+        ]
+        projectColnames1 += projectColnames2
+
+        projectCsvPath = os.path.join(projectFilePath, 'projectUpload.csv')
+        write_header_project = not os.path.exists(projectCsvPath)
+
+        with open(projectCsvPath, 'a', encoding='utf-8', newline='') as file:
+            writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
+            if write_header_project:
+                writer.writerow(projectColnames1)
+
+            categories_list = ["teachers", "students", "infrastructure", "community", 
+                            "educationLeader", "schoolProcess", "learner", "facilitator"]
+
+            for row in projectRows:
+                dictProjectDetails = {keysProject[i]: row[i] for i in range(len(keysProject))}
+                title = str(dictProjectDetails.get("title", "")).strip()
+                externalId = f"{dictProjectDetails.get('projectId', '')}-{millisecond}"
+                entityType = str(dictProjectDetails.get("entityType", "")).strip()
+                categories = str(dictProjectDetails.get("categories", "")).split(",")
+                categories_final = ",".join([
+                    get_close_matches(cat.strip().lower().replace(" ", ""), categories_list, n=1)[0]
+                    for cat in categories if cat.strip()
+                ])
+                projectGoal = "TEMP"
+                recommendedFor = str(dictProjectDetails.get("recommendedFor", "")).strip()
+                objective = str(dictProjectDetails.get("objective", "")).strip()
+
+                project_values = [title, externalId, categories_final, recommendedFor, objective, entityType, projectGoal]
+
+                for lr_idx in range(1, learningResource_count + 1):
+                    lr_name = str(dictProjectDetails.get(f"learningResources{lr_idx}-name", "")).strip()
+                    lr_link = str(dictProjectDetails.get(f"learningResources{lr_idx}-link", "")).strip()
+                    if lr_name == "" and lr_link == "":
+                        project_values += ["", "", "", ""]
+                    else:
+                        lr_link_id = lr_link.split("/")[-1] if lr_link else ""
+                        project_values += [lr_name, lr_link, "projectService", lr_link_id]
+
+                for col in projectColnames2:
+                    if col == "_arrayFields":
+                        project_values.append("categories,primaryAudience,successIndicators,risks,approaches,recommendedFor")
+                    else:
+                        project_values.append(str(dictProjectDetails.get(col, "")).strip())
+
+                writer.writerow(project_values)
+
+        print("Project CSV prepared successfully")
+
+        # --------------------- Tasks Sheet ---------------------
+        tasksDetailsSheet = wbObservation.get("Tasks upload")
+        if not tasksDetailsSheet:
+            self.errorVar.append("Missing 'Tasks upload' sheet in wbObservation.")
+
+        # Normalize tasks
+        if isinstance(tasksDetailsSheet, dict):
+            keysTasks = list(tasksDetailsSheet.keys())
+            taskRows = [list(tasksDetailsSheet.values())]
+        elif isinstance(tasksDetailsSheet, list) and len(tasksDetailsSheet) >= 1:
+            if isinstance(tasksDetailsSheet[0], dict):
+                keysTasks = list(tasksDetailsSheet[0].keys())
+                taskRows = [list(task.values()) for task in tasksDetailsSheet]
+            else:
+                self.errorVar.append("Invalid format for 'Tasks upload'.")
+        else:
+            self.errorVar.append("Invalid structure for 'Tasks upload'.")
+
+        taskColumns1 = [
+            "name", "externalId", "description", "type", "hasAParentTask", "parentTaskOperator",
+            "parentTaskValue", "parentTaskId", "solutionType", "solutionSubType", 
+            "solutionId", "isDeletable", "isAnExternalTask"
+        ]
+        taskLearningResource_count = sum(1 for h in keysTasks if str(h).startswith('learningResources')) // 2
+        for lr_idx in range(1, taskLearningResource_count + 1):
+            taskColumns1 += [
+                f"learningResources{lr_idx}-name",
+                f"learningResources{lr_idx}-link",
+                f"learningResources{lr_idx}-app",
+                f"learningResources{lr_idx}-id"
+            ]
+        taskColumns1 += ["minNoOfSubmissionsRequired", "sequenceNumber", "redirectLink", "buttonLabel"]
+
+        taskCsvPath = os.path.join(taskFilePath, 'taskUpload.csv')
+        write_header_task = not os.path.exists(taskCsvPath)
+
+        with open(taskCsvPath, 'a', encoding='utf-8', newline='') as file:
+            writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
+            if write_header_task:
+                writer.writerow(taskColumns1)
+
+            sequenceNumber = 0
+            for row in taskRows:
+                dictTasksDetails = {keysTasks[i]: row[i] for i in range(len(keysTasks))}
+                taskName = str(dictTasksDetails.get("TaskTitle", "")).strip()
+                taskId = f"{dictTasksDetails.get('TaskId', '')}-{millisecond}"
+                sequenceNumber += 1
+                taskDescription = str(dictTasksDetails.get("description", "")).strip()
+                taskSolutionType = dictTasksDetails.get("solutionType", "")
+                taskType = taskSolutionType or "simple"
+                hasAParentTask = "YES" if dictTasksDetails.get("parentTaskId", "") else "NO"
+                parentTaskId = f"{dictTasksDetails.get('parentTaskId', '')}-{millisecond}" if hasAParentTask == "YES" else ""
+                parentTaskOperator = "EQUALS" if hasAParentTask == "YES" else ""
+                parentTaskValue = "started" if hasAParentTask == "YES" else ""
+                solutionSubType = dictTasksDetails.get("SolutionSubType", "")
+                solutionId = dictTasksDetails.get("SolutionId", "")
+                AnExternalTask = "True" if str(dictTasksDetails.get("isAnExternalTask", "")).lower() == "yes" else "False"
+                isDeletable = "TRUE" if str(dictTasksDetails.get("Mandatory task(Yes or No)", "")).lower() == "no" else "FALSE"
+                taskminNoOfSubmissionsRequired = str(dictTasksDetails.get("Number of submissions for observation", "")).strip()
+
+                task_values = [
+                    taskName, taskId, taskDescription, taskType, hasAParentTask, 
+                    parentTaskOperator, parentTaskValue, parentTaskId, 
+                    taskSolutionType, solutionSubType, solutionId, isDeletable, AnExternalTask
+                ]
+
+                for lr_idx in range(1, taskLearningResource_count + 1):
+                    lr_name = str(dictTasksDetails.get(f"learningResources{lr_idx}-name", "")).strip()
+                    lr_link = str(dictTasksDetails.get(f"learningResources{lr_idx}-link", "")).strip()
+                    if lr_link and not lr_name:
+                        self.errorVar.append(f"Name is required for the learning resource with link: '{lr_link}'")
+                    if lr_name == "" and lr_link == "":
+                        task_values += ["", "", "", ""]
+                    else:
+                        lr_link_id = lr_link.split("/")[-1] if lr_link else ""
+                        task_values += [lr_name, lr_link, "projectService", lr_link_id]
+
+                task_values += [taskminNoOfSubmissionsRequired, sequenceNumber, "", ""]
+                writer.writerow(task_values)
+        if self.errorVar == []:
+            print("Task CSV prepared successfully")
+            return True
+        else:
+            return False
+
+    def projectUpload(self, parentFolder, accessToken, programdetails):
+        try:
+            urlProjectUploadApi = elevateprojecthost + projectuploadapi
+            headerProjectUploadApi = {
+                'X-auth-token': accessToken,
+                'X-Channel-id': x_channel_id,
+                'internal-access-token': internal_access_token,
+                'tenantId': programdetails.get('TenantID'),
+                'orgid': programdetails.get('OrgForAPIs'),
+                adminTokenHeaderName: projAdminAccessToken
+            }
+            project_payload = {}
+            filesProject = {
+                'projectTemplates': open(parentFolder + '/projectUpload/projectUpload.csv', 'rb')
+            }
+            responseProjectUploadApi = requests.post(url=urlProjectUploadApi, headers=headerProjectUploadApi,data=project_payload,files=filesProject)
+            print(responseProjectUploadApi.text,"responseProjectUploadApi")
+            messageArr = ["program mapping is success.","File path : " + parentFolder + '/projectUpload/projectUpload.csv']
+            messageArr.append("Upload status code : " + str(responseProjectUploadApi.status_code))
+            # Elevateproject.createAPILog(parentFolder, messageArr)
+            if responseProjectUploadApi.status_code == 200:
+                print('ProjectUploadApi Success')
+                with open(parentFolder + '/projectUpload/projectInternal.csv','w+',encoding='utf-8') as projectRes:
+                    projectRes.write(responseProjectUploadApi.text)
+
+                    messageArr=["responnse :" ,responseProjectUploadApi.text ]
+                    # Elevateproject.createAPILog(parentFolder,messageArr)
+                    return True
+            else:
+                if responseProjectUploadApi.status_code in [400, 401, 403, 404, 422]:
+                    self.errorVar.append(f"ProjectUploadApi-Client Error {responseProjectUploadApi.status_code}: {responseProjectUploadApi.text}")
+                elif responseProjectUploadApi.status_code in [500, 502, 503, 504]:
+                    self.errorVar.append(f"ProjectUploadApi-Server Error {responseProjectUploadApi.status_code}: {responseProjectUploadApi.text}")
+                else:
+                    self.errorVar.append(f"ProjectUploadApi-Unexpected Error {responseProjectUploadApi.status_code}: {responseProjectUploadApi.text}")
+
+                print(self.errorVar)
+                messageArr.append(f"Error Response: {responseProjectUploadApi.text}")
+                # Elevateproject.createAPILog(parentFolder, messageArr)
+                return False
+        except Exception as e:
+            self.errorVar.append(f"⚠️ Exception: {str(e)}")
+            # Elevateproject.createAPILog(projectName_for_folder_path, [f"Exception: {str(e)}"])
+            return False
+
+    def taskUpload(self, parentFolder, accessToken, programdetails):
+        try:
+            projectInternalfile = open(parentFolder + '/projectUpload/projectInternal.csv', mode='r',encoding='utf-8')
+            projectInternalfile = csv.DictReader(projectInternalfile)
+            for projectInternal in projectInternalfile:
+                projectExternalId = projectInternal["externalId"]
+                project_id = projectInternal["_SYSTEM_ID"]
+                if str(project_id).strip() == "Could not pushed to kafka":
+                    fetchProjectIdApi = elevateentityhost + fetchsolutiondetails
+                    headerfetchProjectIdApi = {
+                        'Authorization': authorization,
+                        'X-auth-token': accessToken,
+                        'X-Channel-id': x_channel_id,
+                        'internal-access-token': internal_access_token,
+                        'tenantId': programdetails.get('TenantID'),
+                        'orgid': programdetails.get('OrgForAPIs'),
+                        adminTokenHeaderName: projAdminAccessToken
+                    }
+                    fetchProjectIdPayload = {}
+
+                    responseProjectListApi = requests.get(url=fetchProjectIdApi, headers=headerfetchProjectIdApi,
+                                                        data=fetchProjectIdPayload)
+                    messageArr = ["Tasks Upload Sheet Prepared.",
+                                "File path : " + parentFolder + '/taskUpload/taskUpload.csv']
+                    messageArr.append("URL : " + str(fetchProjectIdApi))
+                    messageArr.append("Upload status code : " + str(responseProjectListApi.status_code))
+                    # Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
+
+                    if responseProjectListApi.status_code == 200:
+                        print('project fetch api Success')
+                        responsejson = responseProjectListApi.json()
+                        projectList = responsejson['result']['data']
+                        for project in projectList:
+                            if project['externalId'] == projectExternalId:
+                                project_id = project['_id']
+                        return True
+                    else:
+                        error_message = ""
+                        if responseProjectListApi.status_code in [400, 401, 403, 404, 422]:
+                            error_message = f"ProjectListApi-Client Error {responseProjectListApi.status_code}: {responseProjectListApi.text}"
+                        elif responseProjectListApi.status_code in [500, 502, 503, 504]:
+                            error_message = f"ProjectListApi-Server Error {responseProjectListApi.status_code}: {responseProjectListApi.text}"
+                        else:
+                            error_message = f"ProjectListApi-Unexpected Error {responseProjectListApi.status_code}: {responseProjectListApi.text}"
+
+                        errorVar = error_message
+                        print(error_message)
+                        messageArr.append(f"Error Response: {error_message}")
+                        # Elevateproject.createAPILog(projectName_for_folder_path, messageArr) 
+                        return False 
+
+                urlTasksUploadApi = elevateprojecthost + taskuploadapi + project_id
+                headerTasksUploadApi = {
+                    'X-auth-token': accessToken,
+                    'X-Channel-id': x_channel_id,
+                    'internal-access-token': internal_access_token,
+                    'tenantId': programdetails.get('TenantID'),
+                    'orgid': programdetails.get('OrgForAPIs'),
+                    adminTokenHeaderName: projAdminAccessToken
+                }
+                task_payload = {}
+                filesTasks = {
+                    'projectTemplateTasks': open(parentFolder + '/taskUpload/taskUpload.csv',
+                                                'rb')
+                }
+
+                responseTasksUploadApi = requests.post(url=urlTasksUploadApi, headers=headerTasksUploadApi,
+                                                    data=task_payload,
+                                                    files=filesTasks)
+                messageArr = ["Tasks Upload Sheet Prepared.",
+                            "File path : " + parentFolder + '/taskUpload/taskUpload.csv']
+                messageArr.append("URL : " + str(urlTasksUploadApi))
+                messageArr.append("Upload status code : " + str(responseTasksUploadApi.status_code))
+                # Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
+                if responseTasksUploadApi.status_code == 200:
+                    print('TaskUploadApi Success')
+                    with open(parentFolder + '/taskUpload/taskInternal.csv','w+',encoding='utf-8') as tasksRes:
+                        tasksRes.write(responseTasksUploadApi.text)
+                    return True
+                else:
+                    if responseTasksUploadApi.status_code in [400, 401, 403, 404, 422]:
+                        self.errorVar.append(f"TasksUploadApi-Client Error {responseTasksUploadApi.status_code}: {responseTasksUploadApi.text}")
+                    elif responseTasksUploadApi.status_code in [500, 502, 503, 504]:
+                        self.errorVar.append(f"TasksUploadApi-Server Error {responseTasksUploadApi.status_code}: {responseTasksUploadApi.text}")
+                    else:
+                        self.errorVar.append(f"TasksUploadApi-Unexpected Error {responseTasksUploadApi.status_code}: {responseTasksUploadApi.text}")
+
+                    messageArr.append(f"Error Response: {responseTasksUploadApi.text}")
+                    # Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
+                    return False
+        except Exception as e:
+            self.errorVar.append(f"⚠️ Exception: {str(e)}")
+            # Elevateproject.createAPILog(projectName_for_folder_path, [f"Exception: {str(e)}"])
+            return False
+
+    def fetchSolutionDetailsFromProgramSheet(self, parentFolder, solutionId, accessToken, programdetails, ProgramGlobalDict):
+        try:
+            print("fetching solution details...")
+            urlFetchSolutionApi = elevateprojecthost + fetchsolutiondoc + solutionId
+            headerFetchSolutionApi = {
+                'Content-Type': 'application/json',
+                'Authorization': authorization,
+                'X-auth-token': accessToken,
+                'X-Channel-id': x_channel_id,
+                'internal-access-token': internal_access_token,
+                'tenantId': programdetails.get('TenantID'),
+                'orgid': programdetails.get('OrgForAPIs'),
+                adminTokenHeaderName: adminAccessToken
+            }
+            print(headerFetchSolutionApi)
+            payloadFetchSolutionApi = {}
+            responseFetchSolutionApiUrl = requests.get(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
+                                                    data=payloadFetchSolutionApi)
+            responseFetchSolutionJson = responseFetchSolutionApiUrl.json()
+            messageArr = ["Solution Fetch Link.",
+                        "solution name : " + responseFetchSolutionJson["result"]["name"],
+                        "solution ExternalId : " + responseFetchSolutionJson["result"]["externalId"]]
+            messageArr.append("Upload status code : " + str(responseFetchSolutionApiUrl.status_code))
+            # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+            if responseFetchSolutionApiUrl.status_code == 200:
+                solutionName = responseFetchSolutionJson["result"]["name"]
+                print(solutionName,"solutionName")
+                # xfile = openpyxl.load_workbook(programdetails)
+                # sheet_name = 'Resource Details'.strip()
+                # resourceDetailsSheet = xfile[sheet_name]
+                resourceDetailsSheet = ProgramGlobalDict.get('Program Resources')
+                for solutions in resourceDetailsSheet:
+                    if solutionName == solutions.get('Nameofresourcesinprogram'):
+                        solutionMainRole = solutions.get('Targetroleattheresourcelevel')
+                        solutionRolesArray = solutions.get('Targetedsubroleatresourcelevel')
+                        solutionStartDate = solutions.get('Startdateofresource')
+                        solutionEndDate = solutions.get('Enddateofresource')
+                        return [solutionMainRole,solutionRolesArray, solutionStartDate, solutionEndDate]
+            else:
+                if responseFetchSolutionApiUrl.status_code in [400, 401, 403, 404, 422]:
+                    self.errorVar.append(f"FetchSolutionApiUrl-Client Error {responseFetchSolutionApiUrl.status_code}: {responseFetchSolutionApiUrl.text}")
+                elif responseFetchSolutionApiUrl.status_code in [500, 502, 503, 504]:
+                    self.errorVar.append(f"FetchSolutionApiUrl-Server Error {responseFetchSolutionApiUrl.status_code}: {responseFetchSolutionApiUrl.text}")
+                else:
+                    self.errorVar.append(f"FetchSolutionApiUrl-Unexpected Error {responseFetchSolutionApiUrl.status_code}: {responseFetchSolutionApiUrl.text}")
+                return False
+        except Exception as e:
+            self.errorVar.append(f"Error occurred: {str(e)}")
+            return False
+    
+    def validate_roles_against_api(self, mainRoles, subRoles, programdetails, parentFolder):
+        urlFetchRoleList = userLoginHost + fetchprofessionalRole
+        headers = {
+            'Content-Type': content_type,
+            'tenantId': programdetails.get('TenantID'),
+            'X-Channel-id': x_channel_id,
+        }
+        payload = {}
+
+        response = requests.request("GET", urlFetchRoleList, headers=headers, data=payload)
+        # response = requests.get(urlFetchRoleList, headers=headers, data=json.dumps({}))
+
+        messageArr = []
+        messageArr.append("Fetched professional roles from: " + urlFetchRoleList)
+        messageArr.append("Status Code: " + str(response.status_code))
+
+        if response.status_code != 200:
+            messageArr.append("Error fetching roles.")
+            print("Error fetching roles.")
+            return [], []
+
+        role_data = response.json()
+        validated_main_role_ids = []
+        validated_subrole_ids_list = []
+
+        remaining_subroles = [s.strip() for s in subRoles]
+
+        for role in mainRoles:
+            matched = next((r for r in role_data['result']
+                            if r.get('externalId', '').strip() == role.strip() or
+                            r.get('name', '').strip() == role.strip()), None)
+
+            if matched:
+                main_role_id = matched['_id']
+                validated_main_role_ids.append(main_role_id)
+                subrole_url = f"{userLoginHost}entity-management/v1/entities/subEntityList/{main_role_id}?type=professional_subroles"
+                subrole_resp = requests.request("GET",subrole_url, headers=headers,data=payload)
+                if subrole_resp.status_code == 200:
+                    subroles_data = subrole_resp.json()
+                    for item in subroles_data['result']['data']:
+                        sub_external_id = item.get('externalId', '').strip()
+                        sub_name = item.get('name', '').strip()
+                        if sub_external_id in remaining_subroles or sub_name in remaining_subroles:
+                            validated_subrole_ids_list.append(item['_id'])
+                            if sub_external_id in remaining_subroles:
+                                remaining_subroles.remove(sub_external_id)
+                            elif sub_name in remaining_subroles:
+                                remaining_subroles.remove(sub_name)
+                            messageArr.append(f"Subrole '{sub_external_id}' validated under mainRole '{role}'")
+                            print(f"Subrole '{sub_external_id}' validated under mainRole '{role}'")
+                else:
+                    messageArr.append(f"Failed to fetch subroles for mainRole '{role}'")
+                    self.errorVar.append(f"Failed to fetch subroles for mainRole '{role}'")
+            else:
+                messageArr.append(f"MainRole '{role}' not found in API")
+                self.errorVar.append(f"MainRole '{role}' not found in API")
+
+        for s in remaining_subroles:
+            messageArr.append(f"Subrole '{s}' not found in any of the provided mainRoles.")
+            self.errorVar.append(f"Subrole '{s}' not found in any of the provided mainRoles.")
+        # Programs.createAPILog(parentFolder, messageArr)
+        for err in self.errorVar:
+            print(err)
+
+        return validated_main_role_ids, validated_subrole_ids_list   
+    
+    def solutionUpdate(self, solutionName_for_folder_path, accessToken, solutionId, bodySolutionUpdate,programdetails):
+        try:
+            solutionUpdateApi = elevateprojecthost + solutionupdateapi + str(solutionId)
+            headerUpdateSolutionApi = {
+                'Content-Type': 'application/json',
+                'Authorization': authorization,
+                'X-auth-token': accessToken,
+                'X-Channel-id': x_channel_id,
+                "internal-access-token": internal_access_token,
+                'tenantId': programdetails.get('TenantID'),
+                'orgid': programdetails.get('OrgForAPIs'),
+                adminTokenHeaderName: adminAccessToken
+                }
+            responseUpdateSolutionApi = requests.post(url=solutionUpdateApi, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
+            messageArr = ["Solution Update API called.", "URL : " + str(solutionUpdateApi), "Body : " + str(bodySolutionUpdate),"Response : " + str(responseUpdateSolutionApi.text),"Status Code : " + str(responseUpdateSolutionApi.status_code)]
+            # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+            if responseUpdateSolutionApi.status_code == 200:
+                print("Solution Update Success.")
+                return True
+            else:
+                if responseUpdateSolutionApi.status_code in [400, 401, 403, 404, 422]:
+                    self.errorVar.append(f"UpdateSolutionApi-Client Error {responseUpdateSolutionApi.status_code}: {responseUpdateSolutionApi.text}")
+                elif responseUpdateSolutionApi.status_code in [500, 502, 503, 504]:
+                    self.errorVar.append(f"UpdateSolutionApi-Server Error {responseUpdateSolutionApi.status_code}: {responseUpdateSolutionApi.text}")
+                else:
+                    self.errorVar.append(f"UpdateSolutionApi-Unexpected Error {responseUpdateSolutionApi.status_code}: {responseUpdateSolutionApi.text}")
+                # ElevateObservation.createAPILog(solutionName_for_folder_path, errorVar)
+                return False
+            
+        except Exception as e:
+            self.errorVar.append(f"Error occurred: {str(e)}")
+            return False
+        
+    def fetchUserDetails(self, accessToken, projectServiceId):
+        try:
+            decoded_token = jwt.decode(accessToken, options={"verify_signature": False}, algorithms=["HS256"])
+            data=decoded_token.get('data')
+            user_id = data.get('id')  
+            url = userLoginHost + userinfoapiurl
+            messageArr = ["User search API called."]
+            headers = {#'Content-Type': 'application/json',
+                    'internal-access-token': internal_access_token,
+                    'X-auth-token': accessToken}
+            responseUserSearch = requests.request("GET", url, headers=headers)
+            if responseUserSearch.status_code == 200:
+                responseUserSearch = responseUserSearch.json()
+                if responseUserSearch['result']:
+                    userKeycloak = responseUserSearch['result']['id']
+                    userName = responseUserSearch['result']['name']
+                    firstName = responseUserSearch['result']['name']
+                    rootOrgId = responseUserSearch['result']['organizations'][0]['id']
+                    roledetails = None
+                    roles = responseUserSearch['result']['organizations'][0]['roles']
+                    for index in roles:
+                        if rootOrgId == index['organization_id']:
+                            roledetails = index['title']
+                    print("coming to a success")
+                    return [userKeycloak, userName, firstName,roledetails,rootOrgId]
+                else:
+                    self.errorVar.append("-->Given username/email is not present in projectService platform<--.")
+                    return False
+            else:
+                if responseUserSearch.status_code in [400, 401, 403, 404, 422]:
+                    self.errorVar.append(f"FetchSolutionApiUrl-Client Error {responseUserSearch.status_code}: {responseUserSearch.text}")
+                elif responseUserSearch.status_code in [500, 502, 503, 504]:
+                    self.errorVar.append(f"FetchSolutionApiUrl-Server Error {responseUserSearch.status_code}: {responseUserSearch.text}")
+                else:
+                    self.errorVar.append(f"FetchSolutionApiUrl-Unexpected Error {responseUserSearch.status_code}: {responseUserSearch.text}")
+                return False
+        except Exception as e:
+            self.errorVar.append(f"Error occurred: {str(e)}")
+            return False
+
+    def solutionCreationAndMapping(self, parentFolder, wbObservation, listOfFoundRoles, accessToken, programFile, programdetails, ProgramGlobalDict):
+        try:
+            print("solutionCreationAndMapping....")
+            SolutionFilePath = parentFolder + '/solutionDetails/'
+            if not os.path.exists(SolutionFilePath):
+                os.mkdir(SolutionFilePath)
+            with open(parentFolder + '/solutionDetails/solutionDetails.csv', 'w',encoding='utf-8') as file:
+                writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
+                writer.writerows(
+                    [["solutionExtId", "solutionName", "solutionDescription", "solution_id", "programExternalId", "entityType",
+                    "scopeEntityType", "entityNames", "roles", "duplicateTemplateExtId", "duplicateTemplate_id"]])
+
+            projectInternalfile = open(parentFolder + '/projectUpload/projectInternal.csv', mode='r',encoding='utf-8')
+            projectInternalfile = csv.DictReader(projectInternalfile)
+            for projectInternal in projectInternalfile:
+                projectExternalId = projectInternal["externalId"]
+                project_id = projectInternal["_SYSTEM_ID"]
+                project_name = projectInternal["title"]
+                project_description = projectInternal["description"]
+                if projectInternal["entityType"]:
+                    projectEntityType = projectInternal["entityType"]
+                else:
+                    projectEntityType = "school"
+                solutionExternalId = projectExternalId + "-PROJECT-SOLUTION"
+                programExternalId = programdetails.get('ProgramID')
+                subroles = programdetails.get('Targetedsubroleatprogramlevel', '')  # get string safely
+                subroleslst = [item.strip() for item in subroles.split(',') if item.strip()]
+                entityToUpload = programdetails.get("entity_type")
+                scopeEntityType = [programdetails.get("entitiesType")]
+
+                urlCreateProjectSolutionApi = elevateprojecthost + projectsolutioncreationapi
+                headerCreateSolutionApi = {
+                    'Content-Type': content_type,
+                    'X-auth-token': accessToken,
+                    "internal-access-token" : internal_access_token,
+                    'X-Channel-id': x_channel_id,
+                    'tenantId': programdetails.get('TenantID'),
+                    'orgid': programdetails.get('OrgForAPIs'),
+                    adminTokenHeaderName: projAdminAccessToken
+                }
+                startdate = programdetails.get('Startdateofprogram')
+                d, m, y = startdate.split('-')
+                ProgramStartDate = f"{y}-{m}-{d} 00:00:00"
+                enddate = programdetails.get('Enddateofprogram')
+                d, m, y = enddate.split('-')
+                ProgramEndDate = f"{y}-{m}-{d} 00:00:00"
+                sol_payload = {
+                    "createdFor": programdetails.get('OrgID'),
+                    "rootOrganisations": programdetails.get('OrgID'),
+                    "programExternalId": programExternalId,
+                    "entityType": projectEntityType,
+                    "externalId": solutionExternalId,
+                    "name": project_name,
+                    "scope": {
+                        "roles": subroleslst,
+                        },
+                    "description": project_description,
+                    "isReusable" : False,
+                    "startDate": ProgramStartDate,
+                    "endDate": ProgramEndDate,
+                }
+                responseCreateSolutionApi = requests.post(url=urlCreateProjectSolutionApi,headers=headerCreateSolutionApi, data=json.dumps(sol_payload))
+                messageArr = ["Project Solution Created.","URL : " + str(urlCreateProjectSolutionApi),"Status Code : " + str(responseCreateSolutionApi.status_code),"Response : " + str(responseCreateSolutionApi.text)]
+                if responseCreateSolutionApi.status_code == 200:
+                    responseCreateSolutionApi = responseCreateSolutionApi.json()
+                    solutionId = responseCreateSolutionApi['result']['_id']
+                    print(solutionId,"solutionId")
+                    messageArr.append("Solution Generated : " + str(solutionId))
+                    # Elevateproject.createAPILog(parentFolder, messageArr)
+                    print("ProjectSolutionCreationApi Success")
+                    duplicateTemplateExtId = projectExternalId + '_IMPORTED'
+                    queryparamsMapProjectSolutionApi = projectExternalId + '?solutionId='+solutionId
+                    urlMapProjectSolutionApi = elevateprojecthost + mapsolutiontoproject + queryparamsMapProjectSolutionApi
+                    headerMapSolutionProject = {
+                        'Content-Type': content_type,
+                        'Authorization': authorization,
+                        'internal-access-token' : internal_access_token,
+                        'X-auth-token': accessToken,
+                        'X-Channel-id': x_channel_id,
+                        'tenantId': programdetails.get('TenantID'),
+                        'orgid': programdetails.get('OrgForAPIs'),
+                        adminTokenHeaderName: projAdminAccessToken
+                    }
+                    payloadMapSolutionProject = {
+                        "externalId": duplicateTemplateExtId,
+                        "rating": 5
+                    }
+                    responseMapProjectSolutionApi = requests.post(
+                        url=urlMapProjectSolutionApi ,
+                        headers=headerMapSolutionProject,data=json.dumps(payloadMapSolutionProject))
+                    messageArr = ["Successfully mapped the project to Solution",
+                                "URL : " + str(urlMapProjectSolutionApi + queryparamsMapProjectSolutionApi),
+                                "Status Code : " + str(responseMapProjectSolutionApi.status_code),
+                                "Response : " + str(responseMapProjectSolutionApi.text)]
+                    if responseMapProjectSolutionApi.status_code == 200:
+                        responseMapProjectSolutionApi = responseMapProjectSolutionApi.json()
+                        duplicateTemplateId = responseMapProjectSolutionApi['result']['_id']
+                        messageArr.append("duplicate TemplateId successfully created: " + str(duplicateTemplateId))
+                        # Elevateproject.createAPILog(parentFolder, messageArr)
+                        print("MapSolutionToProjectApi Sucsess")
+                        with open(parentFolder + '/solutionDetails/solutionDetails.csv', 'a',encoding='utf-8') as file:
+                            writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
+                            writer.writerows([[solutionExternalId, project_name, project_description, solutionId,
+                                            programExternalId, projectEntityType,
+                                            scopeEntityType, entityToUpload, listOfFoundRoles, duplicateTemplateExtId,
+                                            duplicateTemplateId]])
+                        solutionDetails = self.fetchSolutionDetailsFromProgramSheet(parentFolder,
+                                                                            solutionId, accessToken, programdetails, ProgramGlobalDict)
+                        print("solutionDetails---",solutionDetails)
+                        if solutionDetails:
+                            scopeRoles = solutionDetails[0]
+                            scopeSubRoles = solutionDetails[1]
+                            if isinstance(scopeRoles, str):
+                                scopeRoles = [r.strip() for r in scopeRoles.split(',') if r.strip()]
+                            if isinstance(scopeSubRoles, str):
+                                scopeSubRoles = [r.strip() for r in scopeSubRoles.split(',') if r.strip()]
+                            verifiedRoles = self.validate_roles_against_api(scopeRoles, scopeSubRoles, programdetails, parentFolder)
+                            mainRoleproff = verifiedRoles[0]
+                            rolesPGMID = verifiedRoles[1]
+                            print("mainRole", mainRoleproff)
+                            print("rolesPGMID", rolesPGMID)
+                            scope = {}
+                            # s = programdetails.get('OrgID', '')
+                            scope["organizations"] = programdetails.get('OrgID', '')      
+                            scope["professional_subroles"] = rolesPGMID
+                            scope["professional_role"] = mainRoleproff
+                            scope.update(programdetails.get('entityHierarchy'))
+                            print(scope)
+                            bodySolutionUpdate = {
+                            "scope": scope
+                            }
+                            if self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails):
+                                projectAuthor = wbObservation.get('Username/user id/email id/phone no. of content creator')
+                                userDetails = self.fetchUserDetails(accessToken, projectAuthor)
+                                if userDetails:
+                                    matchedShikshalokamLoginId = userDetails[0]
+                                    projectCreator = userDetails[1]
+                                    bodySolutionUpdate = {
+                                        "creator": projectCreator, "author": matchedShikshalokamLoginId}
+                                    self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails)
+
+                                    if solutionDetails[2]:
+                                        startDateArr = str(solutionDetails[2]).split("-")
+                                        bodySolutionUpdate = {
+                                            "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
+                                        self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails)
+                                    if solutionDetails[3]:
+                                        endDateArr = str(solutionDetails[3]).split("-")
+                                        bodySolutionUpdate = {
+                                            "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
+                                        self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails)
+                                    else:
+                                        self.errorVar.append("Date mismatching!")
+                                        return False
+                                else:
+                                    return False
+                            else:
+                                return False
+                        else:
+                            if responseMapProjectSolutionApi.status_code in [400, 401, 403, 404, 422]:
+                                self.errorVar.append(f"MapProjectSolutionApi-Client Error {responseMapProjectSolutionApi.status_code}: {responseMapProjectSolutionApi.text}")
+                            elif responseMapProjectSolutionApi.solutionDetailsstatus_code in [500, 502, 503, 504]:
+                                self.errorVar.append(f"MapProjectSolutionApi-Server Error {responseMapProjectSolutionApi.status_code}: {responseMapProjectSolutionApi.text}")
+                            else:
+                                self.errorVar.append(f"MapProjectSolutionApi-Unexpected Error {responseMapProjectSolutionApi.status_code}: {responseMapProjectSolutionApi.text}")
+                            print("Map project to solution api failed.")
+                            return False
+                        if self.errorVar ==[]:
+                            print("its created......................")
+                            return [solutionExternalId, solutionId]
+                        else:
+                            return False
+                    else:
+                        self.errorVar.append(str(responseCreateSolutionApi.text))
+                        print("Project solution creation api failed.")
+                        if responseCreateSolutionApi.status_code in [400, 401, 403, 404, 422]:
+                            self.errorVar.append(f"CreateSolutionApi-Client Error {responseCreateSolutionApi.status_code}: {responseCreateSolutionApi.text}")
+                        elif responseCreateSolutionApi.status_code in [500, 502, 503, 504]:
+                            self.errorVar.append(f"CreateSolutionApi-Server Error {responseCreateSolutionApi.status_code}: {responseCreateSolutionApi.text}")
+                        else:
+                            self.errorVar.append(f"CreateSolutionApi-Unexpected Error {responseCreateSolutionApi.status_code}: {responseCreateSolutionApi.text}")
+                        return False
+        except Exception as e:
+            self.errorVar.append(f"Error occurred: {str(e)}")
+            return False
+    
+    def prepareProgramSuccessSheet(self, MainFilePath, solutionName_for_folder_path, programFile, solutionExternalId, solutionId,accessToken, programdetails):
+        urlFetchSolutionApi = elevateprojecthost + fetchsolutiondoc + solutionId
+        headerFetchSolutionApi = {
+            'Authorization': authorization,
+            'X-auth-token': accessToken,
+            'X-Channel-id': x_channel_id,
+            'internal-access-token': internal_access_token,
+            'tenantId': programdetails.get('TenantID'),
+            'orgid': programdetails.get('OrgForAPIs'),
+            adminTokenHeaderName: projAdminAccessToken
+        }
+        payloadFetchSolutionApi = {}
+
+        responseFetchSolutionApi = requests.get(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
+                                                data=payloadFetchSolutionApi)
+        responseFetchSolutionJson = responseFetchSolutionApi.json()
+        messageArr = ["Solution Fetch Link.",
+                    "solution name : " + responseFetchSolutionJson["result"]["name"],
+                    "solution ExternalId : " + responseFetchSolutionJson["result"]["externalId"]]
+        messageArr.append("Upload status code : " + str(responseFetchSolutionApi.status_code))
+        # Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
+
+        if responseFetchSolutionApi.status_code == 200:
+            print('Fetch solution Api Success')
+            solutionName = responseFetchSolutionJson["result"]["name"]
+        urlFetchSolutionLinkApi = elevateprojecthost + fetchlink + solutionId
+        headerFetchSolutionLinkApi = {
+            # 'Authorization': authorization,
+            'X-auth-token': accessToken
+            # 'X-Channel-id': x_channel_id
+            # 'internal-access-token': internal_access_token,
+            # 'tenantId': tenantIDFromTemplate,
+            #         'orgId' : orgIDFromTemplate,
+            #         adminTokenHeaderName: projAdminAccessToken
+        }
+        payloadFetchSolutionLinkApi = {}
+
+        responseFetchSolutionLinkApi = requests.get(url=urlFetchSolutionLinkApi, headers=headerFetchSolutionLinkApi,
+                                                    data=payloadFetchSolutionLinkApi)
+        
+        print(responseFetchSolutionLinkApi.text, "responseFetchSolutionLinkApi")
+        messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
+        messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
+        # Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
+        if responseFetchSolutionLinkApi.status_code == 200:
+            print(responseFetchSolutionLinkApi.text,"responseFetchSolutionLinkApi")
+            print('Fetch solution Link Api Success')
+            responseProjectUploadJson = responseFetchSolutionLinkApi.json()
+            solutionLink = responseProjectUploadJson["result"]
+            solutionLink = ','.join(solutionLink)
+            print(solutionLink,"solutionLink")
+            messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
+            # Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
+            # Ensure programFile is formatted correctly
+            programFileBase = str(programFile).replace(".xlsx", "")
+            success_file_path = os.path.join(MainFilePath, programFileBase + '-SuccessSheet.xlsx')
+
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(success_file_path), exist_ok=True)
+
+            # Load the workbook correctly
+            if os.path.exists(success_file_path):
+                xfile = openpyxl.load_workbook(success_file_path)
+            else:
+                xfile = openpyxl.load_workbook(programFile)
+
+            # Use the correct way to get the sheet
+            resourceDetailsSheet = xfile["Resource Details"]  # Instead of get_sheet_by_name
+
+            print(resourceDetailsSheet)
+
+            # Define fill color
+            greenFill = PatternFill(start_color='0000FF00', end_color='0000FF00', fill_type='solid')
+
+            # Get row and column count
+            rowCountRD = resourceDetailsSheet.max_row
+            columnCountRD = resourceDetailsSheet.max_column
+
+            for row in range(3, rowCountRD + 1):
+                if str(resourceDetailsSheet["B" + str(row)].value).strip().lower() == "course":
+                    resourceDetailsSheet["D1"].value = ""
+                    resourceDetailsSheet["E1"].value = ""
+                    resourceDetailsSheet['I2'].value = "External id of the resource"
+                    resourceDetailsSheet['J2'].value = "link to access the resource/Response"
+
+                    resourceDetailsSheet['I2'].fill = greenFill
+                    resourceDetailsSheet['J2'].fill = greenFill
+                    resourceDetailsSheet['I' + str(row)].value = solutionExternalId
+                    resourceDetailsSheet['J' + str(row)].value = "The course has been successfully mapped to the program"
+
+                    resourceDetailsSheet['I' + str(row)].fill = greenFill
+                    resourceDetailsSheet['J' + str(row)].fill = greenFill
+
+                elif str(resourceDetailsSheet["A" + str(row)].value).strip() == solutionName:
+                    resourceDetailsSheet["D1"].value = ""
+                    resourceDetailsSheet["E1"].value = ""
+                    resourceDetailsSheet['I2'].value = "External id of the resource"
+                    resourceDetailsSheet['J2'].value = "link to access the resource/Response"
+
+                    resourceDetailsSheet['I2'].fill = greenFill
+                    resourceDetailsSheet['J2'].fill = greenFill
+                    resourceDetailsSheet['I' + str(row)].value = solutionExternalId
+                    resourceDetailsSheet['J' + str(row)].value = solutionLink
+
+                    resourceDetailsSheet['I' + str(row)].fill = greenFill
+                    resourceDetailsSheet['J' + str(row)].fill = greenFill
+
+            # Save the file
+            xfile.save(success_file_path)
+            print("Program success sheet is created")
+            return solutionLink
+    
+    def fetchCertificateBaseTemplate(self, wbObservation, accessToken, parentFolder, programdetails):
+        try:
+            # --- Get certificate details dict from wbObservation ---
+            certificateDetails = wbObservation.get('Certificate details', {})
+            if not certificateDetails:
+                self.errorVar.append("No 'Certificate details' sheet found in wbObservation.")
+                return False
+            
+            # --- Extract type of certificate ---
+            typeOfCertificate = certificateDetails.get("Type of certificate", "")
+            if not typeOfCertificate:
+                self.errorVar.append("Type of certificate is missing in Certificate details.")
+                return False
+
+            # --- Normalize value ---
+            typeOfCertificate = typeOfCertificate.lower().replace(" ", "")
+
+            # --- Call DBFind API to get base templates ---
+            urldbFind = elevateprojecthost + dbfindapi
+            headerdbFindApi = {
+                'Authorization': authorization,
+                'X-auth-token': accessToken,
+                'X-Channel-id': x_channel_id,
+                'internal-access-token': internal_access_token,
+                'Content-Type': content_type,
+                'tenantId': programdetails.get('TenantID'),
+                'orgid': programdetails.get('OrgForAPIs'),
+                adminTokenHeaderName: projAdminAccessToken
+            }
+
+            payload = json.dumps({
+                "query": {'tenantId': programdetails.get('TenantID')},
+                "mongoIdKeys": []
+            })
+
+            print(urldbFind, "2163")
+            responsedbFindApi = requests.request("POST", url=urldbFind, headers=headerdbFindApi, data=payload)
+            print(responsedbFindApi.text, "responsedbFindApi 2166")
+
+            if responsedbFindApi.status_code == 200:
+                responseaddcetificate = responsedbFindApi.json()
+                result_list = responseaddcetificate.get('result', [])
+                baseTemplateLookup = {i['code']: i['_id'] for i in result_list if 'code' in i and '_id' in i}
+
+                baseTemplateCode = certificatetypeof.get(typeOfCertificate)
+                if not baseTemplateCode:
+                    self.errorVar.append(f"Certificate type '{typeOfCertificate}' not found in certificatetypeof mapping.")
+                    return False
+
+                baseTemplateId = baseTemplateLookup.get(baseTemplateCode)
+                if not baseTemplateId:
+                    self.errorVar.append(f"Base template code '{baseTemplateCode}' not found in DBFind API result.")
+                    return False
+
+                return baseTemplateId
+
+            else:
+                if responsedbFindApi.status_code in [400, 401, 403, 404, 422]:
+                    self.errorVar.append(f"dbFindApi-Client Error {responsedbFindApi.status_code}: {responsedbFindApi.text}")
+                elif responsedbFindApi.status_code in [500, 502, 503, 504]:
+                    self.errorVar.append(f"dbFindApi-Server Error {responsedbFindApi.status_code}: {responsedbFindApi.text}")
+                else:
+                    self.errorVar.append(f"dbFindApi-Unexpected Error {responsedbFindApi.status_code}: {responsedbFindApi.text}")
+
+                messageArr = f"Error Response: {responsedbFindApi.text}"
+                # Elevateproject.createAPILog(parentFolder, messageArr)
+                print("---> Error in fetching DBFind data; please give proper code value <---")
+                return False
+
+        except Exception as e:
+            self.errorVar.append(f"Error occurred: {str(e)}")
+            return False
+
+    def downloadlogosign(self, wbObservation, projectName_for_folder_path):
+        try:
+            certificateDetails = wbObservation.get('Certificate details', {})
+            if not certificateDetails:
+                self.errorVar.append("---> No 'Certificate details' found in wbObservation. <---")
+                return False
+
+            print("---> Checking Certificate details sheet (from wbObservation)...")
+
+            certificateissuer = certificateDetails.get('Certificate issuer', '').strip()
+            if not certificateissuer:
+                self.errorVar.append("\"Certificate issuer\" must not be empty in 'Certificate details'")
+
+            typeOfCertificate = certificateDetails.get('Type of certificate', '').strip()
+            if not typeOfCertificate:
+                self.errorVar.append("\"Type of certificate\" must not be empty in 'Certificate details'")
+
+            Logofilepath = os.path.join(projectName_for_folder_path, 'Logofile')
+            os.makedirs(Logofilepath, exist_ok=True)
+
+            # Helper function to extract Google Drive ID and download
+            def download_from_drive(drive_url, dest_name):
+                if not drive_url:
+                    self.errorVar.append(f"⚠️ Missing URL for {dest_name}")
+                    return False
+                try:
+                    parts = str(drive_url).split('/')
+                    if len(parts) < 6:
+                        self.errorVar.append(f"⚠️ Invalid Google Drive link for {dest_name}: {drive_url}")
+                        return False
+                    file_id = parts[5]
+                    file_url = f'https://drive.google.com/uc?export=download&id={file_id}'
+                    dest_file = os.path.join(Logofilepath, dest_name)
+                    print(f"⬇️ Downloading {dest_name}...")
+                    return gdown.download(file_url, dest_file, quiet=False)
+                except Exception as e:
+                    self.errorVar.append(f"Error downloading {dest_name}: {str(e)}")
+                    return False
+
+            # --- Handle certificate types ---
+            if typeOfCertificate == 'One Logo - One Signature':
+                download_from_drive(certificateDetails.get('Logo - 1'), 'logo1.jpg')
+                download_from_drive(certificateDetails.get('Authorised Signature Image - 1'), 'signature1.jpg')
+
+            elif typeOfCertificate == 'One Logo - Two Signature':
+                download_from_drive(certificateDetails.get('Logo - 1'), 'logo1.jpg')
+                download_from_drive(certificateDetails.get('Authorised Signature Image - 1'), 'signature1.jpg')
+                download_from_drive(certificateDetails.get('Authorised Signature Image - 2'), 'signature2.jpg')
+
+            elif typeOfCertificate == 'Two Logo - One Signature':
+                download_from_drive(certificateDetails.get('Logo - 1'), 'logo1.jpg')
+                download_from_drive(certificateDetails.get('Logo - 2'), 'logo2.jpg')
+                download_from_drive(certificateDetails.get('Authorised Signature Image - 1'), 'signature1.jpg')
+
+            elif typeOfCertificate == 'Two Logo - Two Signature':
+                download_from_drive(certificateDetails.get('Logo - 1'), 'logo1.jpg')
+                download_from_drive(certificateDetails.get('Logo - 2'), 'logo2.jpg')
+                download_from_drive(certificateDetails.get('Authorised Signature Image - 1'), 'signature1.jpg')
+                download_from_drive(certificateDetails.get('Authorised Signature Image - 2'), 'signature2.jpg')
+
+            else:
+                self.errorVar.append("---> Logos and signature downloading failed (check 'Type of certificate' or link access). <---")
+                return False
+
+            print("---> Logo(s) and signature(s) downloaded successfully. <---")
+            return True
+
+        except Exception as e:
+            self.errorVar.append(f"Error occurred while downloading logos/signatures: {str(e)}")
+            return False
+    
+    def editsvg(self, accessToken, wbObservation, parentFolder, baseTemplate_id, programdetails):
+        try:
+            certificateDetails = wbObservation.get('Certificate details', {})
+            # --- Read values from dictionary safely ---
+            Typeofcertificate = certificateDetails.get('Type of certificate', '').strip()
+            Certificateissuer = str(certificateDetails.get('Certificate issuer', '')).encode('utf-8').decode('utf-8')
+            Logo1 = certificateDetails.get('Logo - 1', '')
+            Logo2 = certificateDetails.get('Logo - 2', '')
+            authsignaturelogo1 = certificateDetails.get('Authorised Signature Image - 1', '')
+            authsignaturelogo2 = certificateDetails.get('Authorised Signature Image - 2', '')
+            authsignatory1 = str(certificateDetails.get('Authorised Signatory - 1', '')).encode('utf-8').decode('utf-8')
+            authsignatory2 = str(certificateDetails.get('Authorised Signatory - 2', '')).encode('utf-8').decode('utf-8')
+
+            print(f"---> Certificate type: {Typeofcertificate}")
+
+            # --- Prepare request payload ---
+            payload = {}
+            downloadedfiles = []
+            baseTemplateId = baseTemplate_id
+
+            # --- Build paths ---
+            # print(parentFolder)
+            # projectName_for_folder_path = os.path.join(parentFolder, 'CertificateAssets')
+
+            # --- Based on type ---
+            if Typeofcertificate == 'One Logo - One Signature':
+                print("-->This is One Logo - One Signature<--")
+                stateLogo1 = ('stateLogo1', ('logo1.jpg', open(os.path.join(parentFolder, 'Logofile/logo1.jpg'), 'rb'), 'image/jpeg'))
+                downloadedfiles.append(stateLogo1)
+
+                payload['stateTitle'] = Certificateissuer
+                signatureImg1 = ('signatureImg1', ('signatureImg1.jpg', open(os.path.join(parentFolder, 'Logofile/signature1.jpg'), 'rb'), 'image/jpeg'))
+                downloadedfiles.append(signatureImg1)
+                payload['signatureTitle1a'] = authsignatory1
+
+            elif Typeofcertificate == 'One Logo - Two Signature':
+                print("-->This is One Logo - Two Signature<--")
+                stateLogo1 = ('stateLogo1', ('logo1.jpg', open(os.path.join(parentFolder, 'Logofile/logo1.jpg'), 'rb'), 'image/jpeg'))
+                downloadedfiles.append(stateLogo1)
+
+                payload['stateTitle'] = Certificateissuer
+                signatureImg1 = ('signatureImg1', ('signature1.jpg', open(os.path.join(parentFolder, 'Logofile/signature1.jpg'), 'rb'), 'image/jpeg'))
+                downloadedfiles.append(signatureImg1)
+                signatureImg2 = ('signatureImg2', ('signature2.jpg', open(os.path.join(parentFolder, 'Logofile/signature2.jpg'), 'rb'), 'image/jpeg'))
+                downloadedfiles.append(signatureImg2)
+
+                payload['signatureTitle1a'] = authsignatory1
+                payload['signatureTitle2a'] = authsignatory2
+
+            elif Typeofcertificate == 'Two Logo - One Signature':
+                print("-->This is Two Logo - One Signature<--")
+                stateLogo1 = ('stateLogo1', ('logo1.jpg', open(os.path.join(parentFolder, 'Logofile/logo1.jpg'), 'rb'), 'image/jpeg'))
+                stateLogo2 = ('stateLogo2', ('logo2.jpg', open(os.path.join(parentFolder, 'Logofile/logo2.jpg'), 'rb'), 'image/jpeg'))
+                downloadedfiles.extend([stateLogo1, stateLogo2])
+
+                payload['stateTitle'] = Certificateissuer
+                signatureImg1 = ('signatureImg1', ('signature1.jpg', open(os.path.join(parentFolder, 'Logofile/signature1.jpg'), 'rb'), 'image/jpeg'))
+                downloadedfiles.append(signatureImg1)
+                payload['signatureTitle1a'] = authsignatory1
+
+            elif Typeofcertificate == 'Two Logo - Two Signature':
+                print("-->This is Two Logo - Two Signature<--")
+                stateLogo1 = ('stateLogo1', ('logo1.jpg', open(os.path.join(parentFolder, 'Logofile/logo1.jpg'), 'rb'), 'image/jpeg'))
+                stateLogo2 = ('stateLogo2', ('logo2.jpg', open(os.path.join(parentFolder, 'Logofile/logo2.jpg'), 'rb'), 'image/jpeg'))
+                signatureImg1 = ('signatureImg1', ('signature1.jpg', open(os.path.join(parentFolder, 'Logofile/signature1.jpg'), 'rb'), 'image/jpeg'))
+                signatureImg2 = ('signatureImg2', ('signature2.jpg', open(os.path.join(parentFolder, 'Logofile/signature2.jpg'), 'rb'), 'image/jpeg'))
+                downloadedfiles.extend([stateLogo1, stateLogo2, signatureImg1, signatureImg2])
+
+                payload['stateTitle'] = Certificateissuer
+                payload['signatureTitle1a'] = authsignatory1
+                payload['signatureTitle2a'] = authsignatory2
+
+            else:
+                self.errorVar.append(f"Unknown certificate type: {Typeofcertificate}")
+                return False
+
+            # --- API call setup ---
+            urleditnigsvgApi = f"{elevateprojecthost}{editsvgtemp}{baseTemplateId}"
+            headereditingsvgApi = {
+                'Authorization': authorization,
+                'X-auth-token': accessToken,
+                'X-Channel-id': x_channel_id,
+                'internal-access-token': internal_access_token,
+                'tenantId': programdetails.get('TenantID'),
+                'orgid': programdetails.get('OrgForAPIs'),
+                adminTokenHeaderName: projAdminAccessToken
+            }
+
+            print(urleditnigsvgApi, "urleditnigsvgApi")
+            print(headereditingsvgApi, "headereditingsvgApi")
+
+            responseeditsvg = requests.post(url=urleditnigsvgApi, headers=headereditingsvgApi, data=payload, files=downloadedfiles)
+            print(responseeditsvg.text, "responseeditsvg")
+
+            # --- Handle response ---
+            if responseeditsvg.status_code == 200:
+                result = responseeditsvg.json()
+                svg_url = result['result']['url']
+
+                dest_folder = os.path.join(parentFolder, 'DownloadedSVG')
+                os.makedirs(dest_folder, exist_ok=True)
+                dest_file = os.path.join(dest_folder, 'Downloaded.svg')
+
+                gdown.download(svg_url, dest_file, quiet=False)
+                return True
+            else:
+                self.errorVar.append(f"editsvg Error {responseeditsvg.status_code}: {responseeditsvg.text}")
+                return False
+
+        except Exception as e:
+            self.errorVar.append(f"Error occurred: {str(e)}")
+            return False
+
+    def prepareaddingcertificatetemp(self, wbObservation, parentFolder, accessToken, solutionId,baseTemplate_id, programdetails):
+        try:
+            tasksLevelEvidance = []
+            projectMinNooEvide = None
+            projectLevelEvidance = []
+            taskMinNooEvide =[]
+            programID = programdetails.get('_id')
+            projectdetails = wbObservation.get('Project upload')
+            projectLevelMinNooEvidence = projectdetails.get("Minimum No. of Evidence")
+            projectLevelEvidance = projectdetails.get("Project Level Evidence").lower()
+            if projectLevelMinNooEvidence == "":
+                projectLevelMinNooEvidence = 1  # Set default value to 1
+                projectMinNooEvide = int(projectLevelMinNooEvidence)
+            else:
+                projectMinNooEvide = int(projectLevelMinNooEvidence)
+
+            # projectTaskdetails = wbObservation.get('Tasks upload')               
+            for projectTaskdetails in wbObservation.get('Tasks upload'):         
+                taskLevelEvidence = projectTaskdetails.get("Task Level Evidence req. for certificate criteria").lower()
+                minNoOfEvidence = projectTaskdetails.get("Minimum No. of Evidence for task level evidence criteria")
+                TaskEvidenceOperator =  projectTaskdetails.get("Evidence required for any task for certificate criteria")
+                AnyTaskEvidenceNo = projectTaskdetails.get("Minimum No. of Evidence for any task criteria")
+                if AnyTaskEvidenceNo == "":
+                    AnyTaskEvidenceNo == 1
+                if TaskEvidenceOperator.lower() == "yes":
+                    tasksLevelEvidance.append(projectTaskdetails.get("TaskTitle")) 
+                else:
+                    if taskLevelEvidence == "yes":
+                        tasksLevelEvidance.append(projectTaskdetails.get("TaskTitle"))
+                        if minNoOfEvidence == "":
+                            minNoOfEvidence = 1  # Set default value to 1
+                            taskMinNooEvide.append(minNoOfEvidence)
+                        else:
+                            taskMinNooEvide.append(minNoOfEvidence)
+
+            addcetificateFilePath = parentFolder + '/addCertificate/'
+            if not os.path.exists(addcetificateFilePath):
+                os.mkdir(addcetificateFilePath)
+
+            urladdcertificate = elevateprojecthost + addcertificatetemplate
+            headeraddcertificateApi = {
+                #'Authorization': authorization,
+                'X-auth-token': accessToken,
+                'X-Channel-id': x_channel_id,
+                'internal-access-token': internal_access_token,
+                'Content-Type': content_type,
+                'tenantId': programdetails.get('TenantID'),
+                'orgid': programdetails.get('OrgForAPIs'),
+                adminTokenHeaderName: projAdminAccessToken
+            }
+
+            if str(projectLevelEvidance).strip().lower() == "yes":
+                payload = {}
+                payload['criteria'] = {}
+                payload['criteria']['validationText'] = "Complete validation message"
+                payload['criteria']['expression'] = ""
+                payload['criteria']['conditions'] = {}
+                payload['criteria']['conditions']['C1'] = {}
+                payload['criteria']['conditions']['C1']['validationText'] = "Submit your project."
+                payload['criteria']['conditions']['C1']['expression'] = "C1"
+                payload['criteria']['conditions']['C1']['conditions'] = {}
+                payload['criteria']['conditions']['C1']['conditions']['C1'] = {}
+                payload['criteria']['conditions']['C1']['conditions']['C1']['scope'] = "project"
+                payload['criteria']['conditions']['C1']['conditions']['C1']['key'] = "status"
+                payload['criteria']['conditions']['C1']['conditions']['C1']['operator'] = "=="
+                payload['criteria']['conditions']['C1']['conditions']['C1']['value'] = "submitted"
+                payload['criteria']['conditions']['C2'] = {}
+                payload['criteria']['conditions']['C2']['validationText'] = f"Add {int(projectMinNooEvide)} evidence at the project level",
+                payload['criteria']['conditions']['C2']['expression'] = "C1"
+                payload['criteria']['conditions']['C2']['conditions'] = {}
+                payload['criteria']['conditions']['C2']['conditions']['C1'] = {}
+                payload['criteria']['conditions']['C2']['conditions']['C1']['scope'] = "project"
+                payload['criteria']['conditions']['C2']['conditions']['C1']['key'] = "attachments"
+                payload['criteria']['conditions']['C2']['conditions']['C1']['function'] = "count"
+                payload['criteria']['conditions']['C2']['conditions']['C1']['filter'] = {}
+                payload['criteria']['conditions']['C2']['conditions']['C1']['filter']['key'] = "type"
+                payload['criteria']['conditions']['C2']['conditions']['C1']['filter']['value'] = "all"
+                payload['criteria']['conditions']['C2']['conditions']['C1']['operator'] = ">="
+                payload['criteria']['conditions']['C2']['conditions']['C1']['value'] = int(projectMinNooEvide)
+                payload['issuer'] ={}
+                payload['issuer']['name']=""
+                payload['status'] = "active"
+                payload['solutionId'] = solutionId
+                payload['programId'] = programID
+                payload['baseTemplateId'] = ""
+
+            else:
+                # str(projectLevelEvidance).strip().lower() == "no":
+                payload = {}
+                payload['criteria'] = {}
+                payload['criteria']['validationText'] = "Complete validation message"
+                payload['criteria']['expression'] = ""
+                payload['criteria']['conditions'] = {}
+                payload['criteria']['conditions']['C1'] = {}
+                payload['criteria']['conditions']['C1']['validationText'] = "Submit your project."
+                payload['criteria']['conditions']['C1']['expression'] = "C1"
+                payload['criteria']['conditions']['C1']['conditions'] = {}
+                payload['criteria']['conditions']['C1']['conditions']['C1'] = {}
+                payload['criteria']['conditions']['C1']['conditions']['C1']['scope'] = "project"
+                payload['criteria']['conditions']['C1']['conditions']['C1']['key'] = "status"
+                payload['criteria']['conditions']['C1']['conditions']['C1']['operator'] = "=="
+                payload['criteria']['conditions']['C1']['conditions']['C1']['value'] = "submitted"
+                payload['issuer'] ={}
+                payload['issuer']['name']=""
+                payload['status'] = "active"
+                payload['solutionId'] = solutionId
+                payload['programId'] = programID
+                payload['baseTemplateId'] = ""
+            
+            projectCertificatedetails = wbObservation.get('Certificate details')
+            if projectCertificatedetails.get('Certificate issuer'):
+                certificateissuer = projectCertificatedetails.get('Certificate issuer')
+            else:
+                self.errorVar.append("\"Certificate issuer\" must not be Empty in \"Certificate details\" sheet")
+            payload["issuer"]["name"] = certificateissuer
+
+            # Typeofcertificate = dictDetailsEnv['Type of certificate'] if dictDetailsEnv['Type of certificate'] in ["One Logo - One Signature", "One Logo - Two Signature", "Two Logo - One Signature","Two Logo - Two Signature"] else Elevateproject.terminatingMessage("\"Type of certificate\" must not be Empty in \"Certificate details\" sheet")
+            if projectCertificatedetails.get('Type of certificate') in ["One Logo - One Signature", "One Logo - Two Signature", "Two Logo - One Signature", "Two Logo - Two Signature"]:
+                Typeofcertificate = projectCertificatedetails.get('Type of certificate')
+            else:
+                self.errorVar.append("\"Type of certificate\" must not be Empty or invalid in \"Certificate details\" sheet")
+            payload["baseTemplateId"]=baseTemplate_id
+                    
+
+
+            projectInternalfile = open(parentFolder + '/projectUpload/projectInternal.csv', mode='r',encoding='utf-8')
+            projectInternalfile = csv.DictReader(projectInternalfile)
+            for projectInternal in projectInternalfile:
+                projectExternalId = projectInternal["externalId"]
+                project_id = projectInternal["_SYSTEM_ID"]
+
+            taskinternalfile = open(parentFolder + '/taskUpload/taskInternal.csv', mode='r',encoding='utf-8')
+            taskinternalfile = csv.DictReader(taskinternalfile)
+            projectTemplatefile = open(parentFolder + '/solutionDetails/solutionDetails.csv', mode='r',encoding='utf-8')
+            projectTemplatefile = csv.DictReader(projectTemplatefile)
+            for Projecttemp in projectTemplatefile:
+                projectTemplateId = Projecttemp["duplicateTemplate_id"]
+            c = 2
+            for task in taskinternalfile:
+                if task['name'] in tasksLevelEvidance:
+                    hasAparent = task["hasAParentTask"]
+                    if task["hasAParentTask"].lower() == "no":
+                        
+                        task_id = task["_SYSTEM_ID"]
+                        if TaskEvidenceOperator.lower() == "no":
+                            c = c + 1
+                            cn = "C" + str(c)
+                            taskconditions = {
+                                cn: {
+                                    "validationText": f"Add {int(taskMinNooEvide[c-3])} evidence for the task {tasksLevelEvidance[c-3]}",
+                                    "expression": "C1",
+                                    "conditions": {
+                                        "C1": {
+                                            "scope": "task",
+                                            "key": "attachments",
+                                            "function": "count",
+                                            "filter": {
+                                                "key": "type",
+                                                "value": "all"
+                                            },
+                                            "operator": ">=",
+                                            "value": int(taskMinNooEvide[c-3]),
+                                            "taskDetails": [
+                                                task_id
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                            payload["criteria"]["conditions"].update(taskconditions)
+                            print(payload)
+                            
+                        else:
+                            c = c + 1
+                            cn = "C" + str(c)
+                            taskconditions = {
+                                cn: {
+                                    "expression": "C1",
+                                    "conditions": {
+                                        "C1": {
+                                            "scope": "task",
+                                            "key": "attachments",
+                                            "function": "count",
+                                            "filter": {
+                                                "key": "type",
+                                                "value": "all"
+                                            },
+                                            "operator": ">=",
+                                            "value": int(AnyTaskEvidenceNo),
+                                            "taskDetails": [
+                                                task_id
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                            payload["criteria"]["conditions"].update(taskconditions)    
+                else:
+                    pass
+
+
+            if TaskEvidenceOperator.lower() == "yes":
+                # payload["criteria"]["conditions"]["C1"]["validationText"] = f"Add {int(AnyTaskEvidenceNo)} evidence for any task"
+                payload["criteria"]["conditions"]["C3"]["validationText"] = f"Add {int(AnyTaskEvidenceNo)} evidence for any task"
+
+            if str(projectLevelEvidance).strip().lower() == "yes":       
+                condition = ""
+                print(payload["criteria"]["conditions"],"4514")
+                print(TaskEvidenceOperator.lower(),"4515")
+                condition_keys = list(payload["criteria"]["conditions"].keys())
+                TaskEvidenceOperator = TaskEvidenceOperator.lower()
+
+                if TaskEvidenceOperator.lower() == "yes" and len(condition_keys) > 2:
+                    first_part = "&&".join(condition_keys[:2])
+                    grouped_part = "||".join(condition_keys[2:])
+                    condition = f"{first_part}&&({grouped_part})"
+                else:
+                    condition = "&&".join(condition_keys)
+
+                payload["criteria"]["expression"] = condition
+            else:
+                condition = ""
+                condition_keys = list(payload["criteria"]["conditions"].keys())
+                TaskEvidenceOperator = TaskEvidenceOperator.lower()
+
+                if TaskEvidenceOperator.lower() == "yes" and len(condition_keys) > 1:
+                    first_part = "&&".join(condition_keys[:1])
+                    grouped_part = "||".join(condition_keys[1:])
+                    condition = f"{first_part}&&({grouped_part})"
+                else:
+                    condition = "&&".join(condition_keys)
+
+                payload["criteria"]["expression"] = condition
+
+            TaskEvidenceOperator = ""
+            print(payload["criteria"]["expression"])
+
+
+            print(json.dumps(payload, indent=1))
+            responseaddcertificateUploadApi = requests.post(url=urladdcertificate, headers=headeraddcertificateApi, data=json.dumps(payload))
+            messageArr = ["Add certificate json is prepared",
+                        "File path : " + parentFolder + '/addCertificate/Addcertificate.text']
+            messageArr.append("URL : " + str(responseaddcertificateUploadApi))
+            messageArr.append("Upload status code : " + str(responseaddcertificateUploadApi.status_code))
+            self.createAPILog(parentFolder, messageArr)
+            with open(parentFolder + '/addCertificate/Addcertificatejson.json',
+                    'w+',encoding='utf-8') as tasksRes:
+                tasksRes.write(json.dumps(payload))
+
+            if responseaddcertificateUploadApi.status_code == 200:
+                responseaddcetificate = responseaddcertificateUploadApi.json()
+                certificatetemplateid = responseaddcetificate['result']['_id']
+                print("-->Certificate template id generated <--", certificatetemplateid)
+                with open(parentFolder + '/addCertificate/Addcertificate.text',
+                        'w+',encoding='utf-8') as tasksRes:
+                    tasksRes.write(responseaddcertificateUploadApi.text)
+
+            else:
+                error_message = ""
+                if responseaddcertificateUploadApi.status_code in [400, 401, 403, 404, 422]:
+                    error_message = f"addcertificateUploadApi-Client Error {responseaddcertificateUploadApi.status_code}: {responseaddcertificateUploadApi.text}"
+                elif responseaddcertificateUploadApi.status_code in [500, 502, 503, 504]:
+                    error_message = f"addcertificateUploadApi-Server Error {responseaddcertificateUploadApi.status_code}: {responseaddcertificateUploadApi.text}"
+                else:
+                    error_message = f"addcertificateUploadApi-Unexpected Error {responseaddcertificateUploadApi.status_code}: {responseaddcertificateUploadApi.text}"
+                errorVar = error_message
+                print(error_message)
+                print("Add certificate mission failed please check logs")
+                messageArr.append("Response : " + str(responseaddcertificateUploadApi.text))
+                self.createAPILog(parentFolder, messageArr)
+                return False
+
+            urluploadcertificatepi = elevateprojecthost + uploadcertificatetosvg + certificatetemplateid
+
+            headeruploadcertificateApi = {
+                'Authorization': authorization,
+                'X-auth-token': accessToken,
+                'X-Channel-id': x_channel_id,
+                'internal-access-token': internal_access_token,
+                'tenantId': programdetails.get('TenantID'),
+                'orgid': programdetails.get('OrgForAPIs'),
+                adminTokenHeaderName: projAdminAccessToken
+            }
+            task_payload = {}
+            task_file = []
+            certificateaddtotemplate = ('file', ( 'Dowloaded.svg',open(parentFolder + '/DownloadedSVG/Downloaded.svg', 'rb'), 'image/svg+xml'))
+            task_file.append(certificateaddtotemplate)
+
+
+            responseDownloadsvgApi = requests.request("POST",url=urluploadcertificatepi, headers=headeruploadcertificateApi,
+                                                data=task_payload,
+                                                files=task_file)
+            if responseDownloadsvgApi.status_code == 200:
+                responseeditsvg = responseDownloadsvgApi.json()
+                svgid = responseeditsvg['result']['data']['templateId']
+
+                urlsolutionupdateapi = elevateprojecthost + solutionupdateapi + solutionId
+
+                headersolutionupdateApi = {
+                    'Authorization': authorization,
+                    'X-auth-token': accessToken,
+                    'X-Channel-id': x_channel_id,
+                    'internal-access-token': internal_access_token,
+                    'Content-Type': content_type,
+                    'tenantId': programdetails.get('TenantID'),
+                    'orgid': programdetails.get('OrgForAPIs'),
+                    adminTokenHeaderName: projAdminAccessToken
+                }
+
+                certificate_payload = json.dumps({
+                    'certificateTemplateId':certificatetemplateid
+                })
+                responseupdatecertificateApi = requests.request("POST", url=urlsolutionupdateapi,
+                                                        headers=headersolutionupdateApi,
+                                                        data=certificate_payload)
+
+
+                if responseupdatecertificateApi.status_code == 200:
+                    print("--->certificate added to the solution<---")
+
+                else:
+                    error_message = ""
+                    if responseupdatecertificateApi.status_code in [400, 401, 403, 404, 422]:
+                        error_message = f"updatecertificateApi-Client Error {responseupdatecertificateApi.status_code}: {responseupdatecertificateApi.text}"
+                    elif responseupdatecertificateApi.status_code in [500, 502, 503, 504]:
+                        error_message = f"updatecertificateApi-Server Error {responseupdatecertificateApi.status_code}: {responseupdatecertificateApi.text}"
+                    else:
+                        error_message = f"updatecertificateApi-Unexpected Error {responseupdatecertificateApi.status_code}: {responseupdatecertificateApi.text}"
+
+                    errorVar = error_message
+                    print(error_message)
+                    print("error in updating solution")
+                    messageArr.append(f"Error Response: {error_message}")
+                    self.createAPILog(parentFolder, messageArr)
+                    return False
+
+                urlprojecttemplateapi = elevateprojecthost + updateprojecttemplate + projectTemplateId
+                headerprojectrtemplateupdateApi = {
+                    'Authorization': authorization,
+                    'X-auth-token': accessToken,
+                    'X-Channel-id': x_channel_id,
+                    'internal-access-token': internal_access_token,
+                    'Content-Type': content_type,
+                    'tenantId': programdetails.get('TenantID'),
+                    'orgid': programdetails.get('OrgForAPIs'),
+                    adminTokenHeaderName: projAdminAccessToken
+                }
+
+                certificate_payload = json.dumps({
+                    'certificateTemplateId': certificatetemplateid
+                })
+                responseupdatecertificateApi = requests.request("POST", url=urlprojecttemplateapi,
+                                                                headers=headerprojectrtemplateupdateApi,
+                                                                data=certificate_payload)
+                if responseupdatecertificateApi.status_code == 200:
+                    print("--->Certificate added to project<---")
+                    return True
+                else:
+                    if responseupdatecertificateApi.status_code in [400, 401, 403, 404, 422]:
+                        self.errorVar.append(f"TasksUploadApi-Client Error {responseupdatecertificateApi.status_code}: {responseupdatecertificateApi.text}")
+                    elif responseupdatecertificateApi.status_code in [500, 502, 503, 504]:
+                        self.errorVar.append(f"TasksUploadApi-Server Error {responseupdatecertificateApi.status_code}: {responseupdatecertificateApi.text}")
+                    else:
+                        self.errorVar.append(f"TasksUploadApi-Unexpected Error {responseupdatecertificateApi.status_code}: {responseupdatecertificateApi.text}")
+                    print("error in updating certificate with project")
+                    return False
+            else:
+                error_message = ""
+                if responseDownloadsvgApi.status_code in [400, 401, 403, 404, 422]:
+                    error_message = f"DownloadsvgApi-Client Error {responseDownloadsvgApi.status_code}: {responseDownloadsvgApi.text}"
+                elif responseDownloadsvgApi.status_code in [500, 502, 503, 504]:
+                    error_message = f"DownloadsvgApi-Server Error {responseDownloadsvgApi.status_code}: {responseDownloadsvgApi.text}"
+                else:
+                    error_message = f"DownloadsvgApi-Unexpected Error {responseDownloadsvgApi.status_code}: {responseDownloadsvgApi.text}"
+                self.errorVar.append(error_message)
+                print(error_message)
+                messageArr.append(f"Error Response: {error_message}")
+                self.createAPILog(parentFolder, messageArr)
+                print("error in updating certificate with project")
+                return False
+        except Exception as e:
+            self.errorVar.append(f"Error occurred: {str(e)}")
+            return False
+
+    def CreateProject(self, resource, PRName, parentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile):
+        if resource.get('typeofSolution') == 4:
+            print("Creating Project Solution...")
+            print(resource)
+            projectSolutionlink = ""
+            wbObservation = resource.get("ResourceCre")
+            print(wbObservation)
+            projectUpload = wbObservation.get('Project upload')
+            if (projectUpload.get('has certificate')).lower() == 'no':
+                if not self.prepareProjectAndTasksSheets(wbObservation, parentFolder, accessToken):
+                    self.errorVar.append('Unable to prepare Project And Tasks Upload Sheets')
+                    return projectSolutionlink, self.errorVar
+                print("Prepared project and task upload sheet success...")
+                if not self.projectUpload(parentFolder, accessToken, programdetails):
+                    self.errorVar.append('Project Upload Failed...')
+                    return projectSolutionlink, self.errorVar
+                print("projectUpload")
+                if not self.taskUpload(parentFolder, accessToken, programdetails):
+                    self.errorVar.append('Task Upload Failed...')
+                    return projectSolutionlink, self.errorVar
+                print("Task Upload Success...")
+                
+                listOfFoundRoles = []
+                ProjectSolutionResp = self.solutionCreationAndMapping(parentFolder, wbObservation, listOfFoundRoles, accessToken,programFile, programdetails, ProgramGlobalDict)
+                if not ProjectSolutionResp:
+                    self.errorVar.append('Solution creation and mapping Failed...')
+                    return projectSolutionlink, self.errorVar
+                ProjectSolutionExternalId = ProjectSolutionResp[0]
+                ProjectSolutionId = ProjectSolutionResp[1]
+                projectSolutionlink = self.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, ProjectSolutionExternalId, ProjectSolutionId, accessToken, programdetails)
+                if not projectSolutionlink:
+                    self.errorVar.append('Fetching DeepLink Failed...')
+                    return projectSolutionlink, self.errorVar
+                else:
+                    print("solution created successfully!")
+                    return projectSolutionlink, self.errorVar
+            else:
+                print("---->this is certificate with project<---")
+                baseTemplate_id=self.fetchCertificateBaseTemplate(wbObservation,accessToken,parentFolder, programdetails)
+                if not baseTemplate_id:
+                    self.errorVar.append('Unable to fetch Certificate Base Template...')
+                    return projectSolutionlink, self.errorVar
+                print("Base template id found -", baseTemplate_id)
+                if not self.downloadlogosign(wbObservation,parentFolder):
+                    self.errorVar.append('Unable to download logo and sign...')
+                    return projectSolutionlink, self.errorVar
+                print("Successfully downloaded logos and signs...")
+                if not self.editsvg(accessToken,wbObservation,parentFolder,baseTemplate_id, programdetails):
+                    self.errorVar.append('Unable to edit svg...')
+                    return projectSolutionlink, self.errorVar
+                print("Successfully Edited SVGs...")
+                if not self.prepareProjectAndTasksSheets(wbObservation, parentFolder, accessToken):
+                    self.errorVar.append('Unable to prepare Project And Tasks Upload Sheets')
+                    return projectSolutionlink, self.errorVar
+                print("Prepared project and task upload sheet success...")
+                if not self.projectUpload(parentFolder, accessToken, programdetails):
+                    self.errorVar.append('Project Upload Failed...')
+                    return projectSolutionlink, self.errorVar
+                print("projectUpload")
+                if not self.taskUpload(parentFolder, accessToken, programdetails):
+                    self.errorVar.append('Task Upload Failed...')
+                    return projectSolutionlink, self.errorVar
+                print("Task Upload Success...")
+                
+                listOfFoundRoles = []
+                ProjectSolutionResp = self.solutionCreationAndMapping(parentFolder, wbObservation, listOfFoundRoles, accessToken,programFile, programdetails, ProgramGlobalDict)
+                if not ProjectSolutionResp:
+                    self.errorVar.append('Solution creation and mapping Failed...')
+                    return projectSolutionlink, self.errorVar
+                ProjectSolutionExternalId = ProjectSolutionResp[0]
+                ProjectSolutionId = ProjectSolutionResp[1]
+                certificatetemplateid= self.prepareaddingcertificatetemp(wbObservation,parentFolder, accessToken,ProjectSolutionId,baseTemplate_id,programdetails)
+                if not certificatetemplateid:
+                    self.errorVar.append('prepare adding certificate temp failed...')
+                    return projectSolutionlink, self.errorVar
+                print("certificate added...")
+                projectSolutionlink = self.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, ProjectSolutionExternalId, ProjectSolutionId, accessToken, programdetails)
+                print(projectSolutionlink,"projectSolutionlink")
+                if not projectSolutionlink:
+                    self.errorVar.append('Fetching DeepLink Failed...')
+                    return projectSolutionlink, self.errorVar
+                else:
+                    print("solution created successfully!")
+                    return projectSolutionlink, self.errorVar
+                

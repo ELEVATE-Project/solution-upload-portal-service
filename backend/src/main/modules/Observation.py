@@ -34,6 +34,39 @@ class CreateObservation:
     def __init__(self):
         self.errorVar = []
 
+    def createAPILog(self, solutionName_for_folder_path, messageArr):
+        print(solutionName_for_folder_path, "solutionName_for_folder_path")
+        file_exists = os.path.join(solutionName_for_folder_path, 'apiHitLogs', 'apiLogs.txt')
+        os.makedirs(os.path.dirname(file_exists), exist_ok=True)
+        # Create file with header if it doesn't exist
+        if not os.path.exists(file_exists):
+            with open(file_exists, "w", encoding='utf-8') as API_log:
+                API_log.write("===============================================================================\n")
+                API_log.write("ENVIRONMENT LOGS\n")
+                API_log.write("===============================================================================\n")
+        # Append logs
+        with open(file_exists, "a", encoding='utf-8') as API_log:
+            API_log.write("\n")
+            for msg in messageArr:
+                API_log.write(str(msg))
+                API_log.write("\n")
+
+    def apicheckslog(self, solutionName_for_folder_path, messageArr):
+        file_exists = os.path.join(solutionName_for_folder_path, 'apiHitLogs', 'apiLogs.csv')
+        fileheader = ["Resource", "Process", "Status", "Remark"]
+        os.makedirs(os.path.dirname(file_exists), exist_ok=True)
+
+        # ✅ Create file with header if it doesn't exist
+        if not os.path.exists(file_exists):
+            with open(file_exists, 'w', newline='', encoding='utf-8') as file:
+                writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
+                writer.writerow(fileheader)  
+                
+        # ✅ Append a new log entry
+        with open(file_exists, 'a', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
+            writer.writerow(messageArr)
+
     def FetchTempExternalID(self, parentFolder, accessToken, solutionName, programdetails):
         try:
             urldbFindPT = elevateprojecthost + dbfindapi_projectTemplate
@@ -318,16 +351,21 @@ class CreateObservation:
                 f"File path : {csv_path}",
                 f"Upload status code : {responseCriteriaUploadApi.status_code}"
             ]
+            self.createAPILog(parentFolder, messageArr)
             if responseCriteriaUploadApi.status_code == 200:
                 print('✅ CriteriaUploadApi Success')
                 with open(os.path.join(criteriaFilePath, 'uploadInternalIdsSheet.csv'), 'w+', encoding='utf-8') as criteriaRes:
                     criteriaRes.write(responseCriteriaUploadApi.text)
                 return True
             else:
+                messageArr.append("Response : " + str(responseCriteriaUploadApi.text))
+                self.createAPILog(parentFolder, messageArr)
                 self.errorVar.append(f"CriteriaUploadApi Error {responseCriteriaUploadApi.status_code}: {responseCriteriaUploadApi.text}")
                 print("❌ Criteria Upload failed.")
                 return False
         except Exception as e:
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(parentFolder, messageArr)
             self.errorVar.append(f"Error occurred during Criteria Upload API: {str(e)}")
             return False
 
@@ -489,6 +527,7 @@ class CreateObservation:
             messageArr = ["Framwork json file created.",
                         "File loc : " + solutionName_for_folder_path + '/framework/uploadFile.json',
                         "Framework upload API called,", "Status code : " + str(responseFrameworkUploadApi.status_code)]
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
             if responseFrameworkUploadApi.status_code == 200:
                 print('Framework upload Success')
@@ -502,13 +541,16 @@ class CreateObservation:
                 else:
                     self.errorVar.append(f"FrameworkUploadApi-Unexpected Error {responseFrameworkUploadApi.status_code}: {responseFrameworkUploadApi.text}")
                 messageArr = ["Framwork upload Failed.", "Response : " + responseFrameworkUploadApi.text]
-                # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                self.createAPILog(solutionName_for_folder_path, messageArr)
                 print('Framework upload api failed ',
                     'with response from api is ' + str(responseFrameworkUploadApi.text))
                 return False
                 
         except Exception as e:
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             self.errorVar.append(f"Error occurred: {str(e)}")
+            return False
             
     def themesUpload(self, solutionName_for_folder_path, wbObservation, millisAddObs, accessToken, frameworkExternalId,obsWORubWS,programdetails):
         dictCritLookUp = {}
@@ -586,7 +628,7 @@ class CreateObservation:
                         "File path : " + solutionName_for_folder_path + '/themeUpload/uploadSheet.csv',
                         "Theme upload to framework API called.", "URL : " + urlThemesUploadApi,
                         "Status code : " + str(responseThemeUploadApi.status_code)]
-            # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             if responseThemeUploadApi.status_code == 200:
                 print('Theme UploadApi Success')
                 with open(solutionName_for_folder_path + '/themeUpload/uploadInternalIdsSheet.csv', 'w+',encoding='utf-8') as criteriaRes:
@@ -600,12 +642,13 @@ class CreateObservation:
                 else:
                     self.errorVar.append(f"ThemeUploadApi-Unexpected Error {responseThemeUploadApi.status_code}: {responseThemeUploadApi.text}")
                 messageArr = ["Themes upload failed.", "Response : " + str(responseThemeUploadApi.text)]
-                # errorVar = str(responseThemeUploadApi.text)
-                # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                self.createAPILog(solutionName_for_folder_path, messageArr)
                 print("Theme upload failed.")
                 return False
                 # sys.exit()
         except Exception as e:
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
         
@@ -627,7 +670,6 @@ class CreateObservation:
             }
             isExternalProgram = "true"
             queryparamsCreateSolutionApi = '?frameworkId=' + str(frameworkExternalId) + '&entityType=' + entity_type + '&isExternalProgram=' + isExternalProgram
-            # queryparamsCreateSolutionApi = '?frameworkId=' + str(frameworkExternalId) + '&entityType=' + entityType
             responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi + queryparamsCreateSolutionApi,
                                                     headers=headerCreateSolutionApi)
 
@@ -635,14 +677,14 @@ class CreateObservation:
                         "URL : " + str(urlCreateSolutionApi + queryparamsCreateSolutionApi),
                         "Status Code : " + str(responseCreateSolutionApi.status_code),
                         "Response : " + str(responseCreateSolutionApi.text)]
-            # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             messageArr = []
             if responseCreateSolutionApi.status_code == 200:
                 responseCreateSolutionApi = responseCreateSolutionApi.json()
                 solutionId = responseCreateSolutionApi['result']['templateId']
                 messageArr.append("Parent Solution Generated : " + str(solutionId))
                 print("Parent Solution Generated : " + str(solutionId))
-                # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                self.createAPILog(solutionName_for_folder_path, messageArr)
                 return solutionId
             else:
                 if responseCreateSolutionApi.status_code in [400, 401, 403, 404, 422]:
@@ -652,12 +694,12 @@ class CreateObservation:
                 else:
                     self.errorVar.append(f"CreateSolutionApi-Unexpected Error {responseCreateSolutionApi.status_code}: {responseCreateSolutionApi.text}")
                 messageArr.append("Solution from framework api failed.")
-                # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
-                # errorVar = str(responseCreateSolutionApi.text)
+                self.createAPILog(solutionName_for_folder_path, messageArr)
                 print("Solution from framework api failed.")
                 return False
-                # sys.exit()
         except Exception as e:
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
         
@@ -947,6 +989,12 @@ class CreateObservation:
             }
             responseQuestionUploadApi = requests.post(url=urlQuestionsUploadApi, headers=headerQuestionUploadApi,
                                                     files=filesQuestion)
+            messageArr = ["Solution Created from Framework.",
+                        "URL : " + str(urlQuestionsUploadApi),
+                        "Status Code : " + str(responseQuestionUploadApi.status_code),
+                        "Response : " + str(responseQuestionUploadApi.text)]
+            self.createAPILog(parentFolder, messageArr)
+            messageArr = []
             if responseQuestionUploadApi.status_code == 200:
                 print('QuestionUploadApi Success')
                 with open(parentFolder + '/questionUpload/uploadInternalIdsSheet.csv','w+',
@@ -957,6 +1005,8 @@ class CreateObservation:
                 self.errorVar.append(f"QuestionUploadApi Error {responseQuestionUploadApi.status_code}: {responseQuestionUploadApi.text}")
                 return False
         except Exception as e:
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(parentFolder, messageArr)
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
 
@@ -974,8 +1024,12 @@ class CreateObservation:
             }
 
             response = requests.request("POST", url, headers=headers)
-            messageArr = ["Criteria solution fetch API called.", "Status Code  : " + str(response.status_code), "URL : " + url]
-            # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+            messageArr = ["Solution Created from Framework.",
+                        "URL : " + str(url),
+                        "Headers: "+ str(headers),
+                        "Status Code : " + str(response.status_code),
+                        "Response : " + str(response.text)]
+            self.createAPILog(solutionName_for_folder_path, messageArr)
 
             os.mkdir(solutionName_for_folder_path + "/solutionCriteriaFetch/")
             if response.status_code == 200:
@@ -991,12 +1045,15 @@ class CreateObservation:
                     self.errorVar.append(f"QuestionUploadApi-Server Error {response.status_code}: {response.text}")
                 else:
                     self.errorVar.append(f"QuestionUploadApi-Unexpected Error {response.status_code}: {response.text}")
+                messageArr = []
                 messageArr = ["Criteria solution fetch API failed.", "Response  : " + str(response.text)]
-                # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
-                # errorVar = str(response.text)
+                self.createAPILog(solutionName_for_folder_path, messageArr)
                 self.errorVar.append("Solution criteria fetch failed. Status Code : " + str(response.status_code))
                 return False
         except Exception as e:
+            messageArr = []
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
 
@@ -1133,6 +1190,13 @@ class CreateObservation:
                     headers=headerCriteriaRubricUploadApi,
                     files=filesCriteriaRubric
                 )
+            messageArr = []
+            messageArr = ["Solution Created from Framework.",
+                        "URL : " + str(urlCriteriaRubricUploadApi),
+                        "Headers: "+ str(headerCriteriaRubricUploadApi),
+                        "Status Code : " + str(response.status_code),
+                        "Response : " + str(response.text)]
+            self.createAPILog(parentFolder, messageArr)
 
             # --- Handle response ---
             if response.status_code == 200:
@@ -1148,6 +1212,9 @@ class CreateObservation:
                 return False
 
         except Exception as e:
+            messageArr = []
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(parentFolder, messageArr)
             print("❌ Exception:", e)
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
@@ -1239,18 +1306,27 @@ class CreateObservation:
             }
 
             response = requests.post(url=urlThemeRubricUploadApi, headers=headerThemeRubricUploadApi, files=filesThemeRubric)
+            messageArr = []
+            messageArr = ["Solution Created from Framework.",
+                        "URL : " + str(urlThemeRubricUploadApi),
+                        "Headers: "+ str(headerThemeRubricUploadApi),
+                        "Status Code : " + str(response.status_code),
+                        "Response : " + str(response.text)]
+            self.createAPILog(parentFolder, messageArr)
+
             if response.status_code == 200:
                 print('ThemeRubricUploadApi Success')
                 with open(os.path.join(themeRubricsFilePath, 'uploadInternalIdsSheet.csv'), 'w+', encoding='utf-8') as themeRubricRes:
                     themeRubricRes.write(response.text)
                 return True
             else:
-                error_message = f"ThemeRubricUploadApi Error {response.status_code}: {response.text}"
-                self.errorVar.append(error_message)
-                print(error_message)
+                self.errorVar.append(f"ThemeRubricUploadApi Error {response.status_code}: {response.text}")
                 return False
 
         except Exception as e:
+            messageArr = []
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(parentFolder, messageArr)
             self.errorVar.append(f"Error occurred: {str(e)}")
             print(f"Error occurred: {str(e)}")
             return False
@@ -1269,8 +1345,14 @@ class CreateObservation:
                 adminTokenHeaderName: adminAccessToken
                 }
             responseUpdateSolutionApi = requests.post(url=solutionUpdateApi, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
-            messageArr = ["Solution Update API called.", "URL : " + str(solutionUpdateApi), "Body : " + str(bodySolutionUpdate),"Response : " + str(responseUpdateSolutionApi.text),"Status Code : " + str(responseUpdateSolutionApi.status_code)]
-            # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+            messageArr = []
+            messageArr = ["Solution Created from Framework.",
+                        "URL : " + str(solutionUpdateApi),
+                        "Headers: "+ str(headerUpdateSolutionApi),
+                        "bodySolutionUpdate: "+str(bodySolutionUpdate),
+                        "Status Code : " + str(responseUpdateSolutionApi.status_code),
+                        "Response : " + str(responseUpdateSolutionApi.text)]
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             if responseUpdateSolutionApi.status_code == 200:
                 print("Solution Update Success.")
                 return True
@@ -1285,6 +1367,9 @@ class CreateObservation:
                 return False
             
         except Exception as e:
+            messageArr = []
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
 
@@ -1314,9 +1399,12 @@ class CreateObservation:
                                     }
             responseSol_prog_mapping = requests.request("POST", urlSol_prog_mapping, headers=headersSol_prog_mapping,
                                                         data=json.dumps(payloadSol_prog_mapping))
+            messageArr = []
             messageArr = ["Create child API called.", "URL : " + urlSol_prog_mapping,
                         "Status code : " + str(responseSol_prog_mapping.status_code),
                         "Response : " + responseSol_prog_mapping.text, "body : " + str(payloadSol_prog_mapping)]
+            self.createAPILog(parentFolder, messageArr)
+
             if responseSol_prog_mapping.status_code == 200:
                 if programdetails.get('TitleoftheProgram') :
                     print("Solution mapped to program : " + programdetails.get('TitleoftheProgram'))
@@ -1337,12 +1425,11 @@ class CreateObservation:
                 else:
                     self.errorVar.append(f"Sol_prog_mapping-Unexpected Error {responseSol_prog_mapping.status_code}: {responseSol_prog_mapping.text}")
                 print("Unable to create child solution")
-                # errorVar = str(responseSol_prog_mapping.text)
-                messageArr.append("Unable to create child solution")
-                # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
                 return False
-                # return False
         except Exception as e:
+            messageArr = []
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(parentFolder, messageArr)
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
             
@@ -1363,17 +1450,16 @@ class CreateObservation:
             responseFetchSolutionApiUrl = requests.post(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
                                                     data=payloadFetchSolutionApi)
             responseFetchSolutionJson = responseFetchSolutionApiUrl.json()
+            messageArr = []
             messageArr = ["Solution Fetch Link.",
                         "solution name : " + responseFetchSolutionJson["result"]["name"],
-                        "solution ExternalId : " + responseFetchSolutionJson["result"]["externalId"]]
-            messageArr.append("Upload status code : " + str(responseFetchSolutionApiUrl.status_code))
-            # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                        "solution ExternalId : " + responseFetchSolutionJson["result"]["externalId"],
+                        "Upload status code : " + str(responseFetchSolutionApiUrl.status_code),
+                        "Response : " + str(responseFetchSolutionApiUrl.text)]
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             if responseFetchSolutionApiUrl.status_code == 200:
                 solutionName = responseFetchSolutionJson["result"]["name"]
                 print(solutionName,"solutionName")
-                # xfile = openpyxl.load_workbook(programdetails)
-                # sheet_name = 'Resource Details'.strip()
-                # resourceDetailsSheet = xfile[sheet_name]
                 resourceDetailsSheet = ProgramGlobalDict.get('Program Resources')
                 for solutions in resourceDetailsSheet:
                     if solutionName == solutions.get('Nameofresourcesinprogram'):
@@ -1391,6 +1477,9 @@ class CreateObservation:
                     self.errorVar.append(f"FetchSolutionApiUrl-Unexpected Error {responseFetchSolutionApiUrl.status_code}: {responseFetchSolutionApiUrl.text}")
                 return False
         except Exception as e:
+            messageArr = []
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
 
@@ -1404,14 +1493,15 @@ class CreateObservation:
         payload = {}
 
         response = requests.request("GET", urlFetchRoleList, headers=headers, data=payload)
-        # response = requests.get(urlFetchRoleList, headers=headers, data=json.dumps({}))
-
         messageArr = []
-        messageArr.append("Fetched professional roles from: " + urlFetchRoleList)
-        messageArr.append("Status Code: " + str(response.status_code))
+        messageArr = ["Solution Fetch Link.",
+                        "solution name : " + str(urlFetchRoleList),
+                        "headers: " + str(headers),
+                        "Upload status code : " + str(response.status_code),
+                        "Response : " + str(response.text)]
+        self.createAPILog(parentFolder, messageArr)
 
         if response.status_code != 200:
-            messageArr.append("Error fetching roles.")
             print("Error fetching roles.")
             return [], []
 
@@ -1479,11 +1569,12 @@ class CreateObservation:
             responseFetchSolutionApi = requests.post(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
                                                     data=payloadFetchSolutionApi)
             responseFetchSolutionJson = responseFetchSolutionApi.json()
+            messageArr = []
             messageArr = ["Solution Fetch Link.",
                         "solution name : " + responseFetchSolutionJson["result"]["name"],
-                        "solution ExternalId : " + responseFetchSolutionJson["result"]["externalId"]]
-            messageArr.append("Upload status code : " + str(responseFetchSolutionApi.status_code))
-            # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                        "solution ExternalId : " + responseFetchSolutionJson["result"]["externalId"],
+                        "Response : " + responseFetchSolutionApi.text]
+            self.createAPILog(solutionName_for_folder_path, messageArr)
 
             if responseFetchSolutionApi.status_code == 200:
                 print('Fetch solution Api Success')
@@ -1588,10 +1679,13 @@ class CreateObservation:
                 # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
                 return False
         except Exception as e:
+            messageArr = []
+            messageArr.append("Exception caught : " + str(e))
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
         
-    def ObservationSolutionCreate(self, resource, PRName, parentFolder, accessToken, ProgramGlobalDict,programdetails, MainFilePath, programFile):
+    def ObservationSolutionCreate(self, resource, parentFolder, accessToken, ProgramGlobalDict,programdetails, MainFilePath, programFile):
         finalObsRubricSolutionLink = ""
         if resource.get('typeofSolution') == 5:
             impLedObsFlag = True

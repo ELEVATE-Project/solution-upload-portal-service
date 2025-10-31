@@ -29,8 +29,9 @@ sys.path.append('../../..')
 sys.path.append('../../../backend/src/main/modules/')
 from backend.src.main.modules.xlsxObject import xlsxObject
 from backend.src.main.modules.survey import SurveyCreate
+from backend.src.main.modules.GlobalVar import GlobalVariables
 # from backend.src.main.modules.helper import Helpers
-from backend.src.main.modules.project import Elevateproject
+# from backend.src.main.modules.project import Elevateproject
 # from backend.src.main.modules.commom_config import config.ini
 # from backend.src.main.modules import main
 
@@ -928,9 +929,9 @@ def fetchSurveySolutions_Csv():
 @app.route('/template/api/v1/survey/create', methods=['POST'])
 def create():
     req = request.get_json()
-    projectInstance = Elevateproject
+    ResourceInstance = GlobalVariables()
     print(req['file'],"req['file']")
-    programFile=projectInstance.loadSurveyFile(req['file'])
+    programFile=ResourceInstance.ReadProgramTemplate(req['file'])
     if isinstance(programFile, str):
         try:
             programFile = json.loads(programFile)

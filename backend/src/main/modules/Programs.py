@@ -1,6 +1,7 @@
 from backend.src.main.modules.common_config import *
 from backend.src.main.modules.Observation import *
 from backend.src.main.modules.Survey import *
+from backend.src.main.modules.Project import *
 from dotenv import load_dotenv
 from pathlib import Path
 import os, json, requests, sys, csv, shutil, wget
@@ -35,37 +36,44 @@ class Programs:
         self.errorVar = []
 
     def createAPILog(solutionName_for_folder_path, messageArr):
-        file_exists = solutionName_for_folder_path + '/apiHitLogs/apiLogs.txt'
-        # check if the file existis or not and create a file 
-        if not os.path.exists(file_exists):
-            API_log = open(file_exists, "w", encoding='utf-8')
-            API_log.write("===============================================================================")
-            API_log.write("\n")
-            API_log.write("ENVIRONMENT LOGS")
-            API_log.write("\n")
-            API_log.write("===============================================================================")
-            API_log.write("\n")
-            API_log.close()
+        print(solutionName_for_folder_path, "solutionName_for_folder_path")
+        file_exists = os.path.join(solutionName_for_folder_path, 'apiHitLogs', 'apiLogs.txt')
 
-        API_log = open(file_exists, "a", encoding='utf-8')
-        API_log.write("\n")
-        for msg in messageArr:
-            API_log.write(msg)
+        # ✅ Ensure folder structure exists
+        os.makedirs(os.path.dirname(file_exists), exist_ok=True)
+
+        # Create file with header if it doesn't exist
+        if not os.path.exists(file_exists):
+            with open(file_exists, "w", encoding='utf-8') as API_log:
+                API_log.write("===============================================================================\n")
+                API_log.write("ENVIRONMENT LOGS\n")
+                API_log.write("===============================================================================\n")
+
+        # Append logs
+        with open(file_exists, "a", encoding='utf-8') as API_log:
             API_log.write("\n")
-        API_log.close()
+            for msg in messageArr:
+                API_log.write(str(msg))
+                API_log.write("\n")
 
     def apicheckslog(solutionName_for_folder_path, messageArr):
-        file_exists = solutionName_for_folder_path + '/apiHitLogs/apiLogs.csv'
-        # global fileheader
-        fileheader = ["Resource","Process","Status","Remark"]
+        file_exists = os.path.join(solutionName_for_folder_path, 'apiHitLogs', 'apiLogs.csv')
+        fileheader = ["Resource", "Process", "Status", "Remark"]
 
+        # ✅ Ensure folder exists
+        os.makedirs(os.path.dirname(file_exists), exist_ok=True)
+
+        # ✅ Create file with header if it doesn't exist
         if not os.path.exists(file_exists):
-            with open(file_exists, 'w', newline='',encoding='utf-8') as file:
-                writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
-                writer.writerows([fileheader])
-        with open(file_exists, 'a', newline='',encoding='utf-8') as file:
-            writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
-            writer.writerows([messageArr])
+            with open(file_exists, 'w', newline='', encoding='utf-8') as file:
+                writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
+                writer.writerow(fileheader)  # <-- use writerow, not writerows for a single header row
+
+        # ✅ Append a new log entry
+        with open(file_exists, 'a', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
+            writer.writerow(messageArr)  # <-- use writerow for a single record
+
         
     def generateAccessToken(self, parentFolder):
         try:
@@ -452,6 +460,7 @@ class Programs:
         entitiesType = self.fetchEntityType(programdetails, entitiesPGM.lstrip().rstrip().split(","), scopeEntityType,schoolEntitiesPGM,clusterEntitiesPGM,blockEntitiesPGM,districtEntitiesPGM,stateEntitiesPGM)
 
         programdetails['entitiesType'] = entitiesType
+        programdetails['TargetedEntity'] = entitiesType[0]
         if entitiesPGM:
             entitiesPGM = entitiesPGM
             scopeEntityType = entitiesType[0]
@@ -672,14 +681,13 @@ class Programs:
             file_url = f"https://docs.google.com/spreadsheets/d/{file_id}/export?format=xlsx"
             download_file = wget.download(file_url, out=dest_dir)
             solParentFolder = self.createFileStruct(parentFolder, download_file)
-
             if resource.get('typeofSolution') == 1 or resource.get('typeofSolution') == 5:
 
                 print('Observation with rubrics File detected...')
                 SolutionName = resource.get("Nameofresourcesinprogram")
 
                 ObservationInstance = CreateObservation()
-                ObservationCreation = ObservationInstance.ObservationSolutionCreate(resource,PRName, solParentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile)
+                ObservationCreation = ObservationInstance.ObservationSolutionCreate(resource, solParentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile)
                 if not ObservationCreation:
                     self.errorVar.append("Solution creation failed.")
                 if ObservationCreation[1] == []:
@@ -691,7 +699,7 @@ class Programs:
                 SolutionName = resource.get("Nameofresourcesinprogram")
 
                 ObservationInstance = CreateObservation()
-                ObservationCreation = ObservationInstance.ObservationSolutionCreate(resource,PRName, solParentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile)
+                ObservationCreation = ObservationInstance.ObservationSolutionCreate(resource, solParentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile)
                 if not ObservationCreation:
                     self.errorVar.append("Solution creation failed.")
                 if ObservationCreation[1] == []:
@@ -710,6 +718,18 @@ class Programs:
                     SolutionResults[SolutionName] = SurveyCreation[0]
                 else:
                     SolutionResults[SolutionName] = SurveyCreation[1]
+            elif resource.get('typeofSolution') == 4:
+                print('Project File detected...')
+                SolutionName = resource.get("Nameofresourcesinprogram")
+                ProjectInstance = CreateProject()
+                ProjectCreation = ProjectInstance.CreateProject(resource,PRName, solParentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile)
+                if not ProjectCreation:
+                    self.errorVar.append("Solution creation failed.")
+                # self.errorVar.append(SurveyCreation[1])
+                if ProjectCreation[1] == []:
+                    SolutionResults[SolutionName] = ProjectCreation[0]
+                else:
+                    SolutionResults[SolutionName] = ProjectCreation[1]
         print(SolutionResults,"SolutionResults")
         return SolutionResults
 

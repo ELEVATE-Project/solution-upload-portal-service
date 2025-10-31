@@ -62,28 +62,12 @@ class GlobalVariables:
         return returnPathStr
     
     def createFileStructre(self, MainFilePath):
-        if not os.path.isdir(MainFilePath + '/SolutionFiles'):
-            os.mkdir(MainFilePath + '/SolutionFiles')
-        
-        # Extract the file name regardless of the path format
-        # fileNameSplit = os.path.basename(str(addResourceSolution))
-        
-        # if ".xlsx" in fileNameSplit:
-            # ts = str(time.time()).replace(".", "_")
-            # folderName = fileNameSplit.replace(".xlsx", "-" + str(ts))
-            # os.mkdir(MainFilePath + '/SolutionFiles/' + str(folderName))
-        path = MainFilePath + '/SolutionFiles'
-        path = os.path.join(path, str('apiHitLogs'))
-        os.mkdir(path)
-        # else:
-        #     self.errorVar = "File Error.offff"        
-        returnPathStr = os.path.join(MainFilePath + '/SolutionFiles')
+        print(MainFilePath, "MainFilePath")
 
-        # if not os.path.isdir(returnPathStr + "/user_input_file"):
-        #     os.mkdir(returnPathStr + "/user_input_file")
+        # Create main directory (and parents if missing)
+        os.makedirs(MainFilePath, exist_ok=True)
 
-        # shutil.copy(addResourceSolution, os.path.join(returnPathStr, "user_input_file"))
-        return returnPathStr
+        return MainFilePath
     
     def typeofresource(self, addResourceSolution):
         wbObservation1 = xlrd.open_workbook(addResourceSolution, on_demand=True)
@@ -825,7 +809,7 @@ class GlobalVariables:
             print(f"{field_name} '{identifier}' is valid.")
             return True
 
-    def projectValidate(self, addResourceSolution,PRName):
+    def projectValidate(self, addResourceSolution,PRName, tenantid):
         print("Validating project temp....")
         hasCertificateFlag = False
         ProjectDict = {
@@ -850,7 +834,7 @@ class GlobalVariables:
                 # Expected columns
                 projectDetailsCols = [
                     "title", "projectId", "Username/user id/email id/phone no. of content creator",
-                    "categories", "objective", "duration", "recommendedFor", "keywords"
+                    "categories", "objective", "duration", "recommendedFor", "keywords", "entityType"
                 ]
 
                 # Handle dynamic learningResources
@@ -911,11 +895,11 @@ class GlobalVariables:
 
                 if not hasCertificateFlag:
                     mandatory_cols = [
-                        "TaskId", "TaskTitle", "Mandatory task(Yes or No)", "isAnExternalTask"
+                        "TaskId", "TaskTitle", "Mandatory task(Yes or No)"
                     ]
                 else:
                     mandatory_cols = [
-                        "TaskId", "TaskTitle", "Mandatory task(Yes or No)", "isAnExternalTask",
+                        "TaskId", "TaskTitle", "Mandatory task(Yes or No)",
                         "Evidence required for any task for certificate criteria"
                     ]
 
@@ -958,6 +942,13 @@ class GlobalVariables:
                             else:
                                 self.errorVar.append(f"Solution Name - cannot be empty in row {r+1}")
 
+                    if tenantid == 'shikshalokam':
+                        if row_data.get('Mitra_Link'):
+                            self.errorVar.append('Mitra_Link is not avaialble for Shikshalokam tenant.')
+                    else:
+                        if not row_data.get('Mitra_Link'):
+                            self.errorVar.append('Mitra_Link column is required for Shikshagraha tenant.')
+                    
                     # --- Check conflicts between fields ---
                     lr_links = [row_data.get(f"learningResources{i}-link") for i in range(1, 5)]
                     conflicts = [
@@ -1343,7 +1334,10 @@ class GlobalVariables:
                                 resource["ResourceCre"] = SurveyDict
                 
                 elif typeofSolution == 4:
-                    ProjectDict = self.projectValidate(addResourceSolution,PRName)
+                    programDetails = ProgramGlobalDict['Program Details']                   
+                    programDetails = programDetails[0]
+                    tenantid = programDetails.get('TenantID') 
+                    ProjectDict = self.projectValidate(addResourceSolution,PRName,tenantid)
                     if not ProjectDict:
                         print(self.errorVar)
                     else:
@@ -1353,7 +1347,6 @@ class GlobalVariables:
                             if resource.get('Nameofresourcesinprogram') == solutionName:
                                 # resource.pop('ResourceLink', None)
                                 resource["ResourceCre"] = ProjectDict
-
             ProgramsInstance = Programs()
             programcreation = ProgramsInstance.programCheckCreate(programFile, MainFilePath, parentFolder, ProgramGlobalDict, PRName)
                 
