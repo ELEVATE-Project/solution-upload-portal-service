@@ -37,7 +37,36 @@ import threading
 import wget
 import gdown
 import jwt
+from dotenv import load_dotenv
+from pathlib import Path
 from backend.src.main.modules.ElevateObs import ElevateObservation
+from backend.src.main.modules import ElevateObs
+from dateutil import parser
+
+env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" / ".env"
+
+# Load the .env file
+load_dotenv(dotenv_path=env_path)
+
+# SECRET_KEY = os.getenv("SECRET_KEY")
+# ADMIN_TOKEN = os.getenv("admin-token")
+internal_access_token = os.getenv("internal_access_token")
+adminTokenHeaderName = os.getenv("adminTokenHeaderName")
+jwtTokenSecret = os.getenv("jwtTokenSecret")
+projAdminAccessToken = os.getenv("projAdminAccessToken")
+adminAccessToken = os.getenv("adminAccessToken")
+authorization = os.getenv("authorization")
+authorizationforhost = os.getenv("authorizationforhost")
+appname = os.getenv("appname")
+x_channel_id = os.getenv("x_channel_id")
+host = os.getenv("host")
+userLoginHost = os.getenv("userLoginHost")
+internal_kong_ip = os.getenv("internal_kong_ip")
+elevateprojecthost = os.getenv("elevateprojecthost")
+elevateentityhost = os.getenv("elevateentityhost")
+identifier = os.getenv("identifier")
+password = os.getenv("password")
+origin = os.getenv("origin")
 
 # Global variable declaration
 criteriaLookUp = dict()
@@ -445,7 +474,7 @@ class Elevateproject:
         # Return all found entity types
         return entityTypes,entitiesScope
     
-    def getProgramInfo(accessTokenUser, solutionName_for_folder_path, programNameInp):
+    def getProgramInfo(accessToken, solutionName_for_folder_path, programNameInp):
         try:
             global programID, programExternalId, programDescription, isProgramnamePresent, programName, errorVar,tenantIDFromTemplate,orgIdForScope
             programName = programNameInp
@@ -462,7 +491,7 @@ class Elevateproject:
                         })
             print(payload,"payload")
             headersProgramSearch = {'Content-Type': content_type,
-                                    'X-auth-token': accessTokenUser
+                                    'X-auth-token': accessToken
                                     # 'internal-access-token': internal_access_token
                                     }
             print(headersProgramSearch,"headersProgramSearch")
@@ -1262,7 +1291,7 @@ class Elevateproject:
             print(responseKeyClockUser.text,"1248")
             messageArr = []
             messageArr.append("URL : " + str(keyclockapiurl))
-            messageArr.append("Body : " + str(keyclockapibody))
+            # messageArr.append("Body : " + str(keyclockapibody))
             messageArr.append("Status Code : " + str(responseKeyClockUser.status_code))
             if responseKeyClockUser.status_code == 200:
                 responseKeyClockUser = responseKeyClockUser.json()

@@ -39,12 +39,40 @@ import jwt
 import threading
 import wget
 import gdown
+from dotenv import load_dotenv
+from pathlib import Path
+
 # get current working directory
 currentDirectory = os.getcwd()
 
 # Read config file 
 config = ConfigParser()
 config.read('common_config/config.ini')
+
+env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" / ".env"
+
+# Load the .env file
+load_dotenv(dotenv_path=env_path)
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+ADMIN_TOKEN = os.getenv("admin-token")
+internal_access_token = os.getenv("internal_access_token")
+adminTokenHeaderName = os.getenv("adminTokenHeaderName")
+jwtTokenSecret = os.getenv("jwtTokenSecret")
+projAdminAccessToken = os.getenv("projAdminAccessToken")
+adminAccessToken = os.getenv("adminAccessToken")
+authorization = os.getenv("authorization")
+authorizationforhost = os.getenv("authorizationforhost")
+appname = os.getenv("appname")
+x_channel_id = os.getenv("x_channel_id")
+host = os.getenv("host")
+userLoginHost = os.getenv("userLoginHost")
+internal_kong_ip = os.getenv("internal_kong_ip")
+elevateprojecthost = os.getenv("elevateprojecthost")
+elevateentityhost = os.getenv("elevateentityhost")
+identifier = os.getenv("identifier")
+password = os.getenv("password")
+origin = os.getenv("origin")
 
 
 # email regex
