@@ -18,7 +18,7 @@ env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" 
 load_dotenv(dotenv_path=env_path)
 
 SECRET_KEY = os.getenv("SECRET_KEY")
-ADMIN_TOKEN = os.getenv("admin-token")
+ADMIN_TOKEN = os.getenv("admin_token")
 internal_access_token = os.getenv("internal_access_token")
 adminTokenHeaderName = os.getenv("adminTokenHeaderName")
 jwtTokenSecret = os.getenv("jwtTokenSecret")
