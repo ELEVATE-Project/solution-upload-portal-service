@@ -6,7 +6,7 @@ keyclockapiurl ="user/v1/admin/login"
 origin= "app.shikshagraha.org"
 
 # Endpoint for user login API
-keyclockapiurl ="user/v1/admin/login"
+keyclockapiurl ="user/v1/account/login"
 
 
 
