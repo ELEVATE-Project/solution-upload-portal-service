@@ -97,7 +97,7 @@ class CreateObservation:
                 return False
 
             ProjectTempExternalID = resultsPT[0].get("externalId")
-
+            print(ProjectTempExternalID,"ProjectTempExternalID")
             urldbFind = elevateprojecthost + dbfindapi_url
             headers = {
                 'X-auth-token': accessToken,
@@ -176,8 +176,29 @@ class CreateObservation:
 
             # --- Handle Improvement Mapping (normalize both possible shapes) ---
             criteriaImpDict = {}
+            TcountImps = []
             if impLedObsFlag:
-                impsToCriteria = wbObservation.get("Imp mapping")
+                impsToCriteria = wbObservation.get("imp mapping")  # expected: list of dicts
+
+                if impsToCriteria:
+                    # take first sample row (fall back to empty dict)
+                    sample_row = next(iter(impsToCriteria), {})
+
+                    # regex to match keys like "L1-improvement-projects" and capture the number
+                    pattern = re.compile(r'^\s*L(\d+)-improvement-projects\s*$', re.IGNORECASE)
+
+                    levels = set()  # use a set to avoid duplicates
+                    for key in sample_row.keys():
+                        if not isinstance(key, str):
+                            continue
+                        m = pattern.match(key)
+                        if m:
+                            level_num = int(m.group(1))
+                            levels.add(level_num)
+
+                    TcountImps = sorted(levels)
+
+                countImps = len(TcountImps)
                 if not impsToCriteria:
                     self.errorVar.append("Imp mapping expected but missing.")
                     return False
@@ -185,14 +206,19 @@ class CreateObservation:
                 # Handle both dict and list formats
                 if isinstance(impsToCriteria[0], dict):
                     # Dict format
+                    print(impsToCriteria,"impsToCriteria")
                     for dictImp in impsToCriteria:
+                        print(dictImp,"dictImp")
                         crit_key = str(dictImp.get('criteriaId', '')).strip()
+                        print(crit_key,"crit_key")  
                         if not crit_key:
                             continue
                         criteriaImpDict[crit_key] = {}
                         for levls in range(1, countImps + 1):
                             colname = f"L{levls}-improvement-projects"
+                            print(colname,"colname")
                             solutionName = str(dictImp.get(colname, "") or "").strip()
+                            print(solutionName,"solutionName")
                             ProjectTempExternalID = self.FetchTempExternalID(parentFolder, accessToken, solutionName, programdetails)
                             if not ProjectTempExternalID:
                                 return False
@@ -289,7 +315,6 @@ class CreateObservation:
                         writerCriteriaUpload.writeheader()
                         file_exists = True
                     writerCriteriaUpload.writerow(dictCriteriaToCsv)
-
         # === CASE 2: CRITERIA TAB ===
         elif tabName == "criteria":
             print(wbObservation,"wbObservation")

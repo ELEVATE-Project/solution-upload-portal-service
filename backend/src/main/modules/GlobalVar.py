@@ -943,11 +943,11 @@ class GlobalVariables:
                                 self.errorVar.append(f"Solution Name - cannot be empty in row {r+1}")
 
                     if tenantid == 'shikshalokam':
-                        if row_data.get('Mitra_Link'):
-                            self.errorVar.append('Mitra_Link is not avaialble for Shikshalokam tenant.')
+                        if 'Mitra_Link' in row_data:
+                            self.errorVar.append('Mitra_Link is not available for Shikshalokam tenant.')
                     else:
-                        if not row_data.get('Mitra_Link'):
-                            self.errorVar.append('Mitra_Link column is required for Shikshagraha tenant.')
+                        if 'Mitra_Link' not in row_data:
+                            self.errorVar.append("Mitra_Link column is required for "+ tenantid +" tenant.")
                     
                     # --- Check conflicts between fields ---
                     lr_links = [row_data.get(f"learningResources{i}-link") for i in range(1, 5)]
@@ -1150,7 +1150,7 @@ class GlobalVariables:
                             else:
                                 program_dict["OrgID"] = []
 
-                        elif tenant_id == "shikshagraha":
+                        elif tenant_id == "shikshagrahanew":
                             # Use Targeted state as Org ID
                             derived_org = program_dict.get("Targetedstateatprogramlevel", "")
                             if isinstance(derived_org, str):

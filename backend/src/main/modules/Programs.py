@@ -675,7 +675,7 @@ class Programs:
             os.makedirs(dest_dir, exist_ok=True)
             match = re.search(r"/d/([a-zA-Z0-9-_]+)", resource['ResourceLink'])
             if not match:
-                self.errorVar.append(f"Invalid Resource Link format for '{resource['Nameofresourcesinprogram']}' at row {row_index_env + 1}.")
+                self.errorVar.append(f"Invalid Resource Link format for '{resource['Nameofresourcesinprogram']}'")
                 continue
             file_id = match.group(1)
             file_url = f"https://docs.google.com/spreadsheets/d/{file_id}/export?format=xlsx"
@@ -722,7 +722,7 @@ class Programs:
                 print('Project File detected...')
                 SolutionName = resource.get("Nameofresourcesinprogram")
                 ProjectInstance = CreateProject()
-                ProjectCreation = ProjectInstance.CreateProject(resource,PRName, solParentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile)
+                ProjectCreation = ProjectInstance.CreateProject(resource, solParentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile)
                 if not ProjectCreation:
                     self.errorVar.append("Solution creation failed.")
                 # self.errorVar.append(SurveyCreation[1])

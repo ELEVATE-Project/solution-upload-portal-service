@@ -65,7 +65,93 @@ class CreateProject():
             writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
             writer.writerow(messageArr)
 
-    def prepareProjectAndTasksSheets(self, wbObservation, parentFolder, accessToken):
+    def checkEntityOfSolution(self, projectName_for_folder_path, solutionNameOrId, accessToken, programdetails):
+        urldbFind = internal_kong_ip + dbfindapi_url
+        searchSolutionpayload = {}
+        headerdbFindApi = {
+                'Authorization': authorization,
+                'X-auth-token': accessToken,
+                'X-Channel-id': x_channel_id,
+                'internal-access-token': internal_access_token,
+                'Content-Type': content_type,
+                'tenantId': programdetails.get('TenantID'),
+                'orgId' : programdetails.get('Org ID'),
+                adminTokenHeaderName: projAdminAccessToken
+            }
+        searchSolutionpayload = json.dumps({
+            "query": {
+                "name": solutionNameOrId
+            },
+            "mongoIdKeys": [
+                "_id",
+                "solutionId",
+                "metaInformation.solutionId"
+            ],
+            "limit": 10000
+        })
+        print(searchSolutionpayload,"searchSolutionpayload")
+        print(urldbFind,"2163")
+        searchSolutionresponse = requests.request("POST", url=urldbFind, headers=headerdbFindApi,
+                                                data=searchSolutionpayload)
+        print(searchSolutionresponse.text,"searchSolutionresponse")
+        if searchSolutionresponse.status_code == 200:
+            searchSolutionjson = searchSolutionresponse.json()
+            results = searchSolutionjson.get("result", [])
+            print(len(results), "1607")
+
+            for solution in results:
+                solution_id = solution["_id"]
+                print(solution.get("isReusable"))
+
+                if solution.get("isReusable") is True:
+                    messageArr = [f"Solution found : {solution_id}"]
+                    self.createAPILog(projectName_for_folder_path, messageArr)
+                    print("searchSolutionApi Success")
+
+                    solutionEntityType = solution.get("entityType")
+                    solutionExternalId = solution.get("externalId")
+
+                    messageArr = [f"Task solution Entity Type found : {solutionEntityType}"]
+                    self.createAPILog(projectName_for_folder_path, messageArr)
+                    print("FetchSolutionDocApi Success")
+
+                    return [solutionEntityType, solutionExternalId]
+                else:
+                    print("No solution Found..")
+                    messageArr = ["No Solution found"]
+                    self.createAPILog(projectName_for_folder_path, messageArr)
+
+        else:
+            messageArr = [
+                "Solution fetch failed",
+                f"URL : {urldbFind}",
+                f"Status Code : {searchSolutionresponse.status_code}",
+                f"Response : {searchSolutionresponse.text}"
+            ]
+            self.createAPILog(projectName_for_folder_path, messageArr)
+
+    def ObservationsolutionUpdate(self, solutionName_for_folder_path, accessToken, solutionId, bodySolutionUpdate, programdetails):
+        solutionUpdateApiurl = internal_kong_ip + solutionupdateapi + str(solutionId)
+        headerUpdateSolutionApi = {
+            'Content-Type': content_type,
+            'X-auth-token': accessToken,
+            'X-Channel-id': x_channel_id,
+            "internal-access-token": internal_access_token,
+            'tenantId': programdetails.get('TenantID'),
+            'orgId' : programdetails.get('Org ID'),
+            adminTokenHeaderName: projAdminAccessToken
+            }
+        responseUpdateSolutionApi = requests.post(url=solutionUpdateApiurl, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
+        messageArr = ["Solution Update API called.", "URL : " + str(solutionUpdateApiurl), "Body : " + str(bodySolutionUpdate),"Response : " + str(responseUpdateSolutionApi.text),"Status Code : " + str(responseUpdateSolutionApi.status_code)]
+        self.createAPILog(solutionName_for_folder_path, messageArr)
+        if responseUpdateSolutionApi.status_code == 200:
+            print("Solution Update Success.")
+            return True
+        else:
+            print("Solution Update Failed.")
+            return False
+
+    def prepareProjectAndTasksSheets(self, wbObservation, parentFolder, accessToken, programdetails):
         print("prepareProjectAndTasksSheets")
 
         millisecond = int(time.time() * 1000)
@@ -203,14 +289,68 @@ class CreateProject():
                 taskId = f"{dictTasksDetails.get('TaskId', '')}-{millisecond}"
                 sequenceNumber += 1
                 taskDescription = str(dictTasksDetails.get("description", "")).strip()
-                taskSolutionType = dictTasksDetails.get("solutionType", "")
-                taskType = taskSolutionType or "simple"
+                if programdetails.get('TenantID') != 'shikshalokam':
+                    Mitra_Link = str(dictTasksDetails["Mitra_Link"]).strip()
+                    if Mitra_Link == "":
+                        Mitra_Link = Mitra_Link
+                if dictTasksDetails.get("solutionType"):
+                    taskSolutionType = dictTasksDetails.get("solutionType", "")
+                elif dictTasksDetails.get("learningResources1-name") != "" and dictTasksDetails.get("learningResources1-link") != "":
+                    taskSolutionType = "content"
+                elif programdetails.get('TenantID') != 'shikshalokam':
+                    if dictTasksDetails["Mitra_Link"] != "":
+                        taskSolutionType = "reflection"
+                    else:
+                        taskSolutionType = "simple"
+                else:
+                        taskSolutionType = "simple"
+
+                taskType = taskSolutionType
+
                 hasAParentTask = "YES" if dictTasksDetails.get("parentTaskId", "") else "NO"
                 parentTaskId = f"{dictTasksDetails.get('parentTaskId', '')}-{millisecond}" if hasAParentTask == "YES" else ""
                 parentTaskOperator = "EQUALS" if hasAParentTask == "YES" else ""
                 parentTaskValue = "started" if hasAParentTask == "YES" else ""
                 solutionSubType = dictTasksDetails.get("SolutionSubType", "")
-                solutionId = dictTasksDetails.get("SolutionId", "")
+
+                # solutionId = dictTasksDetails.get("SolutionId", "")
+                if dictTasksDetails.get("Solution Name"):
+                    solutionNameOrId = dictTasksDetails["Solution Name"]
+                    print(solutionNameOrId, "solutionNameOrId----")
+
+                    taskSolutionType = taskType
+                    solutionDetailsInTask = self.checkEntityOfSolution(
+                        parentFolder, solutionNameOrId, accessToken, programdetails
+                    )
+
+                    observationSolutionChildId = None
+                    ObservationChildfrom = None
+
+                    ObservationChildfrom = solutionDetailsInTask[2] if len(solutionDetailsInTask) > 2 else None
+                    print(ObservationChildfrom, "ObservationChild")
+
+                    # Prepare body for update
+                    bodysolutionUpdate = {
+                        "status": "inactive",
+                        "isDeleted": True
+                    }
+
+                    # Use whichever ID exists
+                    child_id_to_update = observationSolutionChildId or ObservationChildfrom
+                    if child_id_to_update:
+                        self.ObservationsolutionUpdate(
+                            parentFolder,
+                            accessToken,
+                            child_id_to_update,
+                            bodysolutionUpdate,
+                            programdetails
+                        )
+                    print("observation child solution deactivated")
+                    solutionSubType = solutionDetailsInTask[0]
+                    solutionId = solutionDetailsInTask[1]
+
+                    taskSolutionType = dictTasksDetails["solutionType"]
+
                 AnExternalTask = "True" if str(dictTasksDetails.get("isAnExternalTask", "")).lower() == "yes" else "False"
                 isDeletable = "TRUE" if str(dictTasksDetails.get("Mandatory task(Yes or No)", "")).lower() == "no" else "FALSE"
                 taskminNoOfSubmissionsRequired = str(dictTasksDetails.get("Number of submissions for observation", "")).strip()
@@ -231,8 +371,15 @@ class CreateProject():
                     else:
                         lr_link_id = lr_link.split("/")[-1] if lr_link else ""
                         task_values += [lr_name, lr_link, "projectService", lr_link_id]
-
-                task_values += [taskminNoOfSubmissionsRequired, sequenceNumber, "", ""]
+                
+                redirectLink = []
+                if programdetails.get('TenantID') != 'shikshalokam':
+                    redirectLink.append(Mitra_Link)
+                    if Mitra_Link.strip() != "":
+                        redirectLink.append("Start Reflection")
+                    else:
+                        redirectLink.append("")
+                task_values += [taskminNoOfSubmissionsRequired, sequenceNumber, redirectLink, ""]
                 writer.writerow(task_values)
         if self.errorVar == []:
             print("Task CSV prepared successfully")
@@ -1508,7 +1655,7 @@ class CreateProject():
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
 
-    def CreateProject(self, resource, PRName, parentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile):
+    def CreateProject(self, resource, parentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile):
         if resource.get('typeofSolution') == 4:
             print("Creating Project Solution...")
             print(resource)
@@ -1517,7 +1664,7 @@ class CreateProject():
             print(wbObservation)
             projectUpload = wbObservation.get('Project upload')
             if (projectUpload.get('has certificate')).lower() == 'no':
-                if not self.prepareProjectAndTasksSheets(wbObservation, parentFolder, accessToken):
+                if not self.prepareProjectAndTasksSheets(wbObservation, parentFolder, accessToken, programdetails):
                     self.errorVar.append('Unable to prepare Project And Tasks Upload Sheets')
                     return projectSolutionlink, self.errorVar
                 print("Prepared project and task upload sheet success...")
@@ -1559,7 +1706,7 @@ class CreateProject():
                     self.errorVar.append('Unable to edit svg...')
                     return projectSolutionlink, self.errorVar
                 print("Successfully Edited SVGs...")
-                if not self.prepareProjectAndTasksSheets(wbObservation, parentFolder, accessToken):
+                if not self.prepareProjectAndTasksSheets(wbObservation, parentFolder, accessToken, programdetails):
                     self.errorVar.append('Unable to prepare Project And Tasks Upload Sheets')
                     return projectSolutionlink, self.errorVar
                 print("Prepared project and task upload sheet success...")
