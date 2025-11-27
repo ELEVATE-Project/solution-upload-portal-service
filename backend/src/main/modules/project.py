@@ -1312,7 +1312,7 @@ class Elevateproject:
         messageArr.append("Upload status code : " + str(responseFetchSolutionApiUrl.status_code))
         Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
         print(responseFetchSolutionApiUrl.text,"responseFetchSolutionApiUrl")
-        # print(responseFetchSolutionJson)
+        zz# print(responseFetchSolutionJson)
         if responseFetchSolutionApiUrl.status_code == 200:
             print('Fetch solution Api Success')
             solutionName = responseFetchSolutionJson["result"]["name"]

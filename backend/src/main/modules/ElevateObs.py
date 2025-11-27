@@ -1259,7 +1259,7 @@ class ElevateObservation:
                 return False
 
             ProjectTempExternalID = resultsPT[0].get("externalId")
-
+            print(ProjectTempExternalID,"ProjectTempExternalID")
             urldbFind = elevateprojecthost + dbfindapi_url
             headers = {
                 'X-auth-token': accessToken,
@@ -1318,7 +1318,109 @@ class ElevateObservation:
             errorVar = f"Exception in FetchTempExternalID: {str(e)}"
             print(errorVar, "---> API-Error")
             return False
-        
+
+    def UpdateCertForSolution(solutionName_for_folder_path, childTemplateId, childSolutionId, accessToken):
+        global errorVar
+        try:
+            urldbFind = elevateprojecthost + dbfindapi_url
+            headers = {
+                'X-auth-token': accessToken,
+                'Content-Type': content_type
+            }
+            searchSolutionpayload = {
+                "query": {"_id": childSolutionId},
+                "projection": ["status", "name"],
+                "mongoIdKeys": ["_id"],
+                "limit": 10000
+            }
+            response = requests.post(urldbFind, headers=headers, json=searchSolutionpayload)
+            results = response.json().get("result", [])
+            if not results:
+                errorVar = "No solutions found for name: " + solutionName
+                print(errorVar)
+                return False
+
+            projectSolutionName = results[0].get("name")
+            if response.status_code != 200:
+                errorVar = f"DBFind-Error {response.status_code}: {response.text}"
+                ElevateObservation.createAPILog(solutionName_for_folder_path, response.text)
+                print("Unable to fetch Solution...")
+                return False
+            
+            urldbFind = elevateprojecthost + dbfindapi_url
+            headers = {
+                'X-auth-token': accessToken,
+                'Content-Type': content_type
+            }
+            searchSolutionpayload = {
+                "query": {"name": projectSolutionName,
+                          "status": "inactive"},
+                "projection": ["status", "name", "certificateTemplateId"],
+                "mongoIdKeys": ["_id"],
+                "limit": 10000
+            }
+            response = requests.post(urldbFind, headers=headers, json=searchSolutionpayload)
+            results = response.json().get("result", [])
+            if not results:
+                errorVar = "No solutions found for name: " + solutionName
+                print(errorVar)
+                return False
+            if results[0].get("certificateTemplateId"):
+                certificateTemplateId = results[0].get("certificateTemplateId") 
+                print(certificateTemplateId,"certificateTemplateId")
+                urldbFindPT = elevateprojecthost + solutionupdateapi + childSolutionId
+                headerUpdateSolutionApi = {
+                    'Content-Type': content_type,
+                    'X-auth-token': accessToken,
+                    'X-Channel-id': x_channel_id,
+                    "internal-access-token": internal_access_token,
+                    'tenantId': tenantID ,
+                    'orgid': orgIDFromTemplate,
+                    adminTokenHeaderName: projAdminAccessToken
+                } 
+                searchSolutionpayloadPT = {
+                    "certificateTemplateId": certificateTemplateId
+                }
+                responseSolutionUpdate = requests.post(urldbFindPT, headers=headerUpdateSolutionApi, json=searchSolutionpayloadPT)
+
+                if responseSolutionUpdate.status_code == 200:
+                    print("Child Solution Update Success.")
+                else:
+                    print("Child Solution Update Failed.")
+                    return False
+
+                urldbFindCPT = elevateprojecthost + projectTemplateupdateapi + childTemplateId
+                headerUpdateSolutionApi = {
+                    'Content-Type': content_type,
+                    'X-auth-token': accessToken,
+                    'X-Channel-id': x_channel_id,
+                    "internal-access-token": internal_access_token,
+                    'tenantId': tenantID ,
+                    'orgid': orgIDFromTemplate,
+                    adminTokenHeaderName: projAdminAccessToken
+                } 
+                searchSolutionpayloadPT = {
+                    "certificateTemplateId": certificateTemplateId
+                }
+                responseSolutionUpdate = requests.post(urldbFindCPT, headers=headerUpdateSolutionApi, json=searchSolutionpayloadPT)
+
+                if responseSolutionUpdate.status_code == 200:
+                    print("Child Solution Update Success.")
+                else:
+                    print("Child Solution Update Failed.")
+                    return False
+            if response.status_code != 200:
+                errorVar = f"DBFind-Error {response.status_code}: {response.text}"
+                ElevateObservation.createAPILog(solutionName_for_folder_path, response.text)
+                print("Unable to fetch Solution...")
+                return False
+            return True
+        except Exception as e:
+            errorVar = f"Exception in UpdateCertForSolution: {str(e)}"
+            print(errorVar, "---> API-Error")
+            return False
+
+
     def criteriaUpload(solutionName_for_folder_path, wbObservation, millisAddObs, accessToken, tabName, projectDrivenFlag):
         global errorVar,criteriaName
         error_message = ""
@@ -1340,9 +1442,13 @@ class ElevateObservation:
                     criteriaImpDict[dictImp['criteriaId'].strip()] = {}
                     for levls in range(1, countImps + 1):
                         solutionName = dictImp['L' + str(levls) + '-improvement-projects'].strip()
-                        ProjectTempExternalID = ElevateObservation.FetchTempExternalID(solutionName_for_folder_path, accessToken, solutionName)
-                        if not ProjectTempExternalID:
-                            return False
+                        print(solutionName,"solutionName" )
+                        if solutionName != "":
+                            ProjectTempExternalID = ElevateObservation.FetchTempExternalID(solutionName_for_folder_path, accessToken, solutionName)
+                            if not ProjectTempExternalID:
+                                return False
+                        else:
+                            ProjectTempExternalID = ""
                         criteriaImpDict[dictImp['criteriaId'].strip()].update({'L' + str(levls) + '-improvement-projects': ProjectTempExternalID})
 
             keysFromFrameWork = [fetchLevelsFromFramework.cell(1, col_index).value for col_index in
@@ -2995,7 +3101,6 @@ class ElevateObservation:
                     "description": solutionDescription.lstrip().rstrip(),
                     "programExternalId": programExternalId
                 }
-            print(payloadSol_prog_mapping,"payloadSol_prog_mapping")
             headersSol_prog_mapping = {'Authorization': authorization,
                                     'X-auth-token': accessToken,
                                     'Content-Type': content_type,
@@ -3013,11 +3118,15 @@ class ElevateObservation:
                 if programName :
                     print("Solution mapped to program : " + programName)
                 print("Child solution : " + childObservationExternalId)
-
                 responseSol_prog_mapping = responseSol_prog_mapping.json()
-                child_id = responseSol_prog_mapping['result']['_id']
+                child_id = responseSol_prog_mapping['result']['_id']                
                 ElevateObservation.observationChildId = child_id
-
+                
+                solutionDetails = responseSol_prog_mapping['result']['projectTemplateDetails']
+                for sol in solutionDetails:
+                    childTemplateId = sol.get('childProjectTemplateId')
+                    childSolutionId = sol.get('solutionId')
+                    ElevateObservation.UpdateCertForSolution(solutionName_for_folder_path, childTemplateId, childSolutionId, accessToken)
                 ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
                 print("child solutionId: " + child_id)
                 return [child_id, childObservationExternalId]
