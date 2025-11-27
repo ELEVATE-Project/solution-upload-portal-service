@@ -1328,6 +1328,8 @@ class ElevateObservation:
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: adminAccessToken
             }
+            print(urlCriteriaUploadApi,"urlCriteriaUploadApi")
+            print(headerCriteriaUploadApi,"headerCriteriaUploadApi")
             filesCriteria = {
                 'criteria': open(solutionName_for_folder_path + '/criteriaUpload/uploadSheet.csv', 'rb')
             }
