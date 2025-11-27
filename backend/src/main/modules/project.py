@@ -1217,7 +1217,7 @@ class Elevateproject:
         responseFetchSolutionApiUrl = requests.get(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
                                                 data=payloadFetchSolutionApi)
         responseFetchSolutionJson = responseFetchSolutionApiUrl.json()
-        print("solution name : " + responseFetchSolutionJson["result"]["name"])
+        print(" : " + responseFetchSolutionJson["result"]["name"])
         messageArr = ["Solution Fetch Link.",
                     "solution name : " + responseFetchSolutionJson["result"]["name"],
                     "solution ExternalId : " + responseFetchSolutionJson["result"]["externalId"]]
@@ -1355,7 +1355,7 @@ class Elevateproject:
             # sys.exit()
             
             taskUploadCols = ["TaskId", "TaskTitle", "parentTaskId",
-                            "Mandatory task(Yes or No)","Solution Name","solutionType","isAnExternalTask","Number of submissions for observation","Mitra_Link","startDate","endDate"]
+                            "Mandatory task(Yes or No)","observation Name","solutionType","isAnExternalTask","Number of submissions for observation","Mitra_Link","startDate","endDate"]
             detailsColCheck = wbObservation1.sheet_by_name('Tasks upload')
             keysColCheckDetai = [detailsColCheck.cell(0, col_index_check).value for col_index_check in
                                         range(detailsColCheck.ncols)]
@@ -1859,8 +1859,8 @@ class Elevateproject:
             
             # solutionSubTypeForTask = dictTasksDetails["SolutionSubType"]
             # solutionIdForTask = dictTasksDetails["SolutionId"]
-            if dictTasksDetails["Solution Name"]:
-                solutionNameOrId = dictTasksDetails["Solution Name"]
+            if dictTasksDetails["observation Name"]:
+                solutionNameOrId = dictTasksDetails["observation Name"]
                 print(solutionNameOrId,"solutionNameOrId")
                 taskSolutionType = taskType
                 solutionDetailsInTask = Elevateproject.checkEntityOfSolution(projectName_for_folder_path, solutionNameOrId, accessToken)
