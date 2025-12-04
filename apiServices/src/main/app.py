@@ -28,7 +28,7 @@ import subprocess
 sys.path.append('../../..')
 sys.path.append('../../../backend/src/main/modules/')
 from backend.src.main.modules.xlsxObject import xlsxObject
-from backend.src.main.modules.survey import SurveyCreate
+from backend.src.main.modules.viewSolutions import SurveyCreate
 from backend.src.main.modules.GlobalVar import GlobalVariables
 # from backend.src.main.modules.helper import Helpers
 # from backend.src.main.modules.project import Elevateproject
@@ -64,6 +64,11 @@ if os.path.exists(dotenv_path):
 else:
     print('".env" is missing.')
     sys.exit(1)
+
+APPLICATION_BASE_URL = os.environ.get("APPLICATION_BASE_URL")
+print(APPLICATION_BASE_URL)
+
+
 # connect to mongo db and collection instance function 
 def connectDb(url,db,collection):
     client = pymongo.MongoClient(url)
@@ -153,7 +158,7 @@ def addComments(templatePath, errResponse):
     return errResponse
 
 # Login user API 
-@app.route("/template/api/v1/authenticate", methods = ['POST'])
+@app.route(APPLICATION_BASE_URL+"/api/v1/authenticate", methods = ['POST'])
 def login():
     req_body = request.get_json()
     try:
@@ -199,7 +204,7 @@ def login():
                 "accessToken" : "" }}
 
 # sign up API
-@app.route("/template/api/v1/signup", methods = ['POST'])
+@app.route(APPLICATION_BASE_URL+"/api/v1/signup", methods = ['POST'])
 def signup():
     req_body = request.get_json()
     # get the 'admin_token' from the request header 
@@ -257,7 +262,7 @@ def validate_password(password: str) -> bool:
         return False
     return True
 
-@app.route("/template/api/v1/forgot-password", methods=['POST'])
+@app.route(APPLICATION_BASE_URL+"/api/v1/forgot-password", methods=['POST'])
 def forgot_password():
     req_body = request.get_json()
     try:
@@ -294,7 +299,7 @@ def forgot_password():
         return {"status": 500, "code": str(e), "errorFlag": True, "error": ["Error in reaching server"], "response": "" }
 
 # sample template downloader api
-@app.route("/template/api/v1/download/sampleTemplate", methods = ['GET'])
+@app.route(APPLICATION_BASE_URL+"/api/v1/download/sampleTemplate", methods = ['GET'])
 def sample():
     errors = []
 
@@ -312,7 +317,7 @@ def sample():
     return {"status" : 200,"code" : "OK" , "result" : {"templateLinks" : templateListResp}}
 
 
-@app.route("/template/api/v1/add/sampleTemplate", methods = ['POST'])
+@app.route(APPLICATION_BASE_URL+"/api/v1/add/sampleTemplate", methods = ['POST'])
 def sampleAdd():
     errors = []
     # get body from the request 
@@ -371,7 +376,7 @@ def sampleAdd():
     else:
         return {"status" : 200,"code" : "NOTOK" ,"message" : "Template adding failed", "result" : {}}
 
-@app.route("/template/api/v1/update/sampleTemplate/<code>", methods = ['POST'])
+@app.route(APPLICATION_BASE_URL+"/api/v1/update/sampleTemplate/<code>", methods = ['POST'])
 def sampleUpdate(code):
     errors = []
     # get body from the request 
@@ -441,7 +446,7 @@ def sampleUpdate(code):
 
 
 # API to upload excel file to server 
-@app.route("/template/api/v1/upload", methods = ['POST'])
+@app.route(APPLICATION_BASE_URL+"/api/v1/upload", methods = ['POST'])
 def upload():
 
     # get auth Token for validation
@@ -501,7 +506,7 @@ def upload():
         
         return {"status" : 404,"code" : "File Error." , "result" : {"templateLinks" : ""}}
         
-@app.route("/template/api/v1/validate", methods = ['POST'])
+@app.route(APPLICATION_BASE_URL+"/api/v1/validate", methods = ['POST'])
 def validate():
     req_body = request.get_json()
     templateFolderPath = req_body["request"]["templatePath"]
@@ -532,13 +537,13 @@ def validate():
         return {"status" : 404,"code" : "ERROR" , "result" :{},"message":"Please check template id"}
 
 
-@app.route("/template/api/v1/errDownload", methods = ['GET'])
+@app.route(APPLICATION_BASE_URL+"/api/v1/errDownload", methods = ['GET'])
 def errDownload():
     templateFolderPath = request.args.get("templatePath")
     return send_from_directory(os.path.dirname(templateFolderPath), os.path.basename(templateFolderPath), as_attachment=True)
 
 # show the user roles list 
-@app.route("/template/api/v1/userRoles/list", methods = ['GET'])
+@app.route(APPLICATION_BASE_URL+"/api/v1/userRoles/list", methods = ['GET'])
 def userRoles():
     returnResponse = {}
     # connect to conditions Collection
@@ -555,7 +560,7 @@ def userRoles():
 
 
 # Update and add new subroles using this API
-@app.route("/template/api/v1/userRoles/update", methods = ['POST'])
+@app.route(APPLICATION_BASE_URL+"/api/v1/userRoles/update", methods = ['POST'])
 def update():
 
     error = []
@@ -633,7 +638,7 @@ def update():
     return {"status" : 200,"code" : "OK", "result" : result,"error" : error}
 
 # list the validation rules 
-@app.route("/template/api/v1/validations/list", methods = ['GET'])
+@app.route(APPLICATION_BASE_URL+"/api/v1/validations/list", methods = ['GET'])
 def listValidations():
     client = pymongo.MongoClient(os.environ.get('mongoURL'))
     args = request.args
@@ -683,7 +688,7 @@ def listValidations():
     return {"status" : 200,"code" : "OK","count" : validationsCount, "result" : json.loads(json_util.dumps(result)),"error" : errors}
 
 # update validation using id 
-@app.route("/template/api/v1/validations/update/<_id>", methods = ['POST'])
+@app.route(APPLICATION_BASE_URL+"/api/v1/validations/update/<_id>", methods = ['POST'])
 def updateValidations(_id):
     errors = []
     req_body = request.get_json()
@@ -772,7 +777,7 @@ def updateValidations(_id):
 
 
 # list of condition rules
-@app.route("/template/api/v1/conditions/list", methods = ['GET'])
+@app.route(APPLICATION_BASE_URL+"/api/v1/conditions/list", methods = ['GET'])
 def listConditions():
     client = pymongo.MongoClient(os.environ.get('mongoURL'))
     args = request.args
@@ -824,7 +829,7 @@ def listConditions():
 
 
 
-@app.route("/template/api/v1/conditions/update/<_id>", methods=['POST'])
+@app.route(APPLICATION_BASE_URL+"/api/v1/conditions/update/<_id>", methods=['POST'])
 def update_conditions(_id):
     try:
         errors = []
@@ -884,7 +889,7 @@ def update_conditions(_id):
         return jsonify({"status": 500, "code": "Internal Server Error", "result": [{"message": "An error occurred"}]})
     
 
-@app.route('/template/api/v1/survey/getSolutions', methods=['POST'])
+@app.route(APPLICATION_BASE_URL+'/api/v1/survey/getSolutions', methods=['POST'])
 def fetchSurveySolutions():
     resourceType = request.get_json()
     # Token validation
@@ -912,7 +917,7 @@ def fetchSurveySolutions():
     else:
         return jsonify({"status": 500, "code": "NOTOK","csvPath":"Could not get csv path"})
 
-@app.route('/template/api/v1/survey/downloadSolutions', methods=['POST'])
+@app.route(APPLICATION_BASE_URL+'/api/v1/survey/downloadSolutions', methods=['POST'])
 def fetchSurveySolutions_Csv():
     resurceType = request.get_json()
     survey = SurveyCreate()
@@ -926,7 +931,7 @@ def fetchSurveySolutions_Csv():
     else:
         return jsonify({"status": 400, "code": "NOTOK","SolutionList":"Error in getting the list of solutions"})
 
-@app.route('/template/api/v1/survey/create', methods=['POST'])
+@app.route(APPLICATION_BASE_URL+'/api/v1/survey/create', methods=['POST'])
 def create():
     req = request.get_json()
     ResourceInstance = GlobalVariables()
