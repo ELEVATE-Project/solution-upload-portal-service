@@ -219,9 +219,12 @@ class CreateObservation:
                             print(colname,"colname")
                             solutionName = str(dictImp.get(colname, "") or "").strip()
                             print(solutionName,"solutionName")
-                            ProjectTempExternalID = self.FetchTempExternalID(parentFolder, accessToken, solutionName, programdetails)
-                            if not ProjectTempExternalID:
-                                return False
+                            if solutionName!= "":
+                                ProjectTempExternalID = self.FetchTempExternalID(parentFolder, accessToken, solutionName, programdetails)
+                                if not ProjectTempExternalID:
+                                    return False
+                            else:
+                                ProjectTempExternalID = ""
                             criteriaImpDict[crit_key][colname] = ProjectTempExternalID
                 else:
                     # List format
@@ -1825,6 +1828,7 @@ class CreateObservation:
                 scope = {}
                 entityHierarchy = programdetails.get('entityHierarchy')
                 scope.update(entityHierarchy)
+                scope["organizations"] = programdetails.get('OrgID', '')
                 scope["professional_subroles"] = rolesPGMID
                 scope["professional_role"] = mainRoleproff
                 bodySolutionUpdate = {
@@ -1958,6 +1962,7 @@ class CreateObservation:
                 scope = {}
                 entityHierarchy = programdetails.get('entityHierarchy')
                 scope.update(entityHierarchy)
+                scope["organizations"] = programdetails.get('OrgID', '')
                 scope["professional_subroles"] = rolesPGMID
                 scope["professional_role"] = mainRoleproff
                 bodySolutionUpdate = {

@@ -10,7 +10,7 @@ from flask_cors import CORS
 import numpy as np
 import pymongo
 import pandas as pd
-import shutil
+import shutil, requests
 import openpyxl
 from openpyxl import load_workbook
 from openpyxl.comments import Comment
@@ -30,6 +30,7 @@ sys.path.append('../../../backend/src/main/modules/')
 from backend.src.main.modules.xlsxObject import xlsxObject
 from backend.src.main.modules.viewSolutions import SurveyCreate
 from backend.src.main.modules.GlobalVar import GlobalVariables
+from backend.src.main.modules.common_config import *
 # from backend.src.main.modules.helper import Helpers
 # from backend.src.main.modules.project import Elevateproject
 # from backend.src.main.modules.commom_config import config.ini
@@ -450,22 +451,22 @@ def sampleUpdate(code):
 def upload():
 
     # get auth Token for validation
-    auth = request.headers.get('Authorization')
-    # get SECRET_KEY for validation
-    signing_key = os.environ.get("SECRET_KEY")
+    # auth = request.headers.get('Authorization')
+    # # get SECRET_KEY for validation
+    # signing_key = os.environ.get("SECRET_KEY")
 
-    payload = False
-    # check if auth token is present in the header 
-    if(not auth):
-        return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : ""}}
-    else:
+    # payload = False
+    # # check if auth token is present in the header 
+    # if(not auth):
+    #     return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : ""}}
+    # else:
 
-        # decode the payload with signing_key to check if the user is authentic 
-        # print("=-=-=-==-=-> ",auth)
-        payload = jwt.decode(auth, signing_key, algorithms=['HS256'])
+    #     # decode the payload with signing_key to check if the user is authentic 
+    #     # print("=-=-=-==-=-> ",auth)
+    #     payload = jwt.decode(auth, signing_key, algorithms=['HS256'])
 
-    if(not payload):
-        return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : "True"}}
+    # if(not payload):
+    #     return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : "True"}}
     
     # set the allowed extensions to upload 
     ALLOWED_EXTENSIONS = set(['xlsx'])
@@ -512,19 +513,19 @@ def validate():
     templateFolderPath = req_body["request"]["templatePath"]
     templateCode = req_body["request"]["templateCode"]
     # Token validation
-    auth = request.headers.get("Authorization")
-    signing_key = os.environ.get("SECRET_KEY")
-    payload = False
-    if(not auth):
-        return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : ""}}
-    else:
-        try:
-            payload = jwt.decode(auth, signing_key, algorithms=['HS256'])
-        except Exception as e:
-            print(e)
+    # auth = request.headers.get("Authorization")
+    # signing_key = os.environ.get("SECRET_KEY")
+    # payload = False
+    # if(not auth):
+    #     return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : ""}}
+    # else:
+    #     try:
+    #         payload = jwt.decode(auth, signing_key, algorithms=['HS256'])
+    #     except Exception as e:
+    #         print(e)
 
-    if(not payload):
-        return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : "True"}}
+    # if(not payload):
+    #     return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : "True"}}
     
 
     basicErrors = xlsxObject(templateCode, templateFolderPath)
@@ -936,7 +937,9 @@ def create():
     req = request.get_json()
     ResourceInstance = GlobalVariables()
     print(req['file'],"req['file']")
-    programFile=ResourceInstance.ReadProgramTemplate(req['file'])
+    print(req['tenantId'],"req['tenantId']")
+    print(req['orgId'],"req['orgId']")
+    programFile=ResourceInstance.ReadProgramTemplate(req['file'],req['tenantId'],req['orgId'])
     if isinstance(programFile, str):
         try:
             programFile = json.loads(programFile)
@@ -950,7 +953,126 @@ def create():
         return jsonify({"status": 200, "code": "Success", "result": {"solutionId":programFile}})
     else :
         return jsonify({"status": 500, "code": "NOTOK","massege":"Could not create survey solution"})
-    
+
+def decode_access_token(auth_header: str):
+
+    signing_key = os.environ.get("jwtTokenSecret")
+    # parts = auth_header.split()
+    # if len(parts) != 2 or parts[0].lower() != "bearer":
+        # raise ValueError("Invalid Authorization header")
+
+    # token = parts[1]
+    payload = False
+    if(not auth_header):
+        return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : ""}}
+    else:
+        try:
+            payload = jwt.decode(auth_header, signing_key, algorithms=['HS256'])
+            return payload
+        except Exception as e:
+            print(e)
+
+def generateAccessToken():
+        try:
+            headerKeyClockUser = {'Content-Type': os.environ.get("superContentType"),'origin': os.environ.get("superOrigin")}
+            loginBody = {
+                'identifier' : os.environ.get("identifier"),
+                'password' : os.environ.get("password")
+            }
+            responseKeyClockUser = requests.post(os.environ.get("userLoginHost") + keyclockapiurl , headers=headerKeyClockUser, data=loginBody)
+            if responseKeyClockUser.status_code == 200:
+                responseKeyClockUser = responseKeyClockUser.json()
+                accessTokenUser = responseKeyClockUser['result']['access_token']
+                print("--->Access Token Generated!")
+                return accessTokenUser
+            
+            else:
+                print("Error in generating Access token")
+                return False
+        except Exception as e:
+            print(f"Error occurred: {str(e)}")
+
+def fetch_orgs_for_tenant(tenant_code: str,auth_header: str):
+    TENANT_READ_API_URL = os.environ.get("host") + "user/v1/tenant/read/" + tenant_code
+    superauth_header = generateAccessToken()
+
+    headers = {
+        'Content-Type': 'application/json',
+        'X-auth-token': superauth_header
+    }
+    print(TENANT_READ_API_URL,"TENANT_READ_API_URL")
+    print(headers,"headers")
+
+    payload = {}
+    response = requests.request("GET", TENANT_READ_API_URL, headers=headers, data=payload)
+    print(response.text,"response.text")
+    response.raise_for_status()
+    data = response.json()
+    orgs = data["result"]["organizations"]
+    orgs_list = []
+    for org in orgs:
+        orgs_list.append(str(org.get("code")))
+    return orgs_list
+
+
+@app.route(APPLICATION_BASE_URL+"/api/v1/user/tenant-org-context", methods=["GET", "OPTIONS"])
+def tenant_org_context():
+    try:
+        auth_header = request.headers.get("Authorization")
+        decoded = decode_access_token(auth_header)
+
+        data = decoded.get("data", {})
+
+        tenant_code = data.get("tenant_code")
+        organizations = data.get("organizations", [])   
+        roles = []
+        if organizations:
+            roles = organizations[0].get("roles", [])
+
+        # Decide userRole
+        titles = [r.get("title") for r in roles]
+        if "tenant_admin" in titles:
+            user_role = "tenant_admin"
+        else:
+            user_role = "org_admin"
+
+        # Tenant
+        tenant_id = tenant_code
+
+        # Org from token (for org_admin flow)
+        orgs_from_token = []
+        selected_org_id = None
+
+        if organizations:
+            org_obj = organizations[0]
+            orgs_from_token = [str(org_obj.get("code"))]
+            selected_org_id = str(org_obj.get("code"))
+
+        # Now derive final org list based on user role
+        if user_role == "tenant_admin":
+            # Tenant admin → get orgs from tenant-read API using tenant_code
+            orgs = fetch_orgs_for_tenant(tenant_code, auth_header)
+            # selected_org_id = None  # user must select in UI
+        else:
+            # Org admin → use orgs from token
+            orgs = orgs_from_token
+
+        result = {
+            "userRole": user_role,
+            "tenants": [tenant_id],
+            "orgs": orgs,
+            "selectedTenantId": tenant_id,
+            "selectedOrgId": selected_org_id
+        }
+        
+        print(result)
+        return jsonify({"result": result}), 200
+
+    except Exception as e:
+        print("Error in /user/tenant-org-context:", e)
+        return jsonify({"error": "Failed to resolve tenant/org context"}), 500
+
+
 if (__name__ == '__main__'):
     app.run(host=os.environ.get("HOSTIP")  , port=os.environ.get("FLASK_RUN_PORT") , debug=True)
     

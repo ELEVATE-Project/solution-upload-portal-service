@@ -1053,7 +1053,7 @@ class GlobalVariables:
 
 
 
-    def ReadProgramTemplate(self, programFile):
+    def ReadProgramTemplate(self, programFile, tenantId, OrgId):
         MainFilePath = GlobalVariables.createFileStructForProgram(programFile)
         wbPgm = xlrd.open_workbook(programFile, on_demand=True)
         sheetNames = wbPgm.sheet_names()
@@ -1087,9 +1087,7 @@ class GlobalVariables:
                     mandatory_cols = [
                         "Program ID",
                         "Username/user id/email id/phone no. of Program Designer",
-                        "Tenant ID",
                         "Targeted state at program level",
-                        "Targeted District at program level",
                         "Title of the Program",
                         "Description of the Program",
                         "Targeted role at program level",
@@ -1099,11 +1097,11 @@ class GlobalVariables:
                     ]
 
                     optional_cols = [
+                        "Targeted District at program level",
                         "Targeted Block at program level",
                         "Targeted Cluster at program level",
                         "Targeted School at program level",
-                        "Keywords",
-                        "Org ID"  # Include as optional — since not all tenants have it
+                        "Keywords"
                     ]
 
                     if "Program Details" not in ProgramGlobalDict:
@@ -1134,50 +1132,19 @@ class GlobalVariables:
                             )
 
                         # --- Tenant-specific OrgID handling ---
-                        tenant_id = str(program_dict.get("TenantID", "")).strip().lower()
-
-                        if tenant_id == "shikshalokam":
-                            # Org ID must exist and not be empty
-                            derived_org = program_dict.get("OrgID", "")
-                            if not derived_org:
-                                self.errorVar.append("For tenant 'shikshalokam', 'Org ID' is mandatory but missing.")
-
-                            # Ensure OrgID is always a list
-                            if isinstance(derived_org, str):
-                                program_dict["OrgID"] = [v.strip() for v in derived_org.split(",") if v.strip()]
-                            elif isinstance(derived_org, list):
-                                program_dict["OrgID"] = [v.strip() for v in derived_org if v.strip()]
-                            else:
-                                program_dict["OrgID"] = []
-
-                        elif tenant_id == "shikshagrahanew":
-                            # Use Targeted state as Org ID
-                            derived_org = program_dict.get("Targetedstateatprogramlevel", "")
-                            if isinstance(derived_org, str):
-                                program_dict["OrgID"] = [v.strip() for v in derived_org.split(",") if v.strip()]
-                            elif isinstance(derived_org, list):
-                                program_dict["OrgID"] = [v.strip() for v in derived_org if v.strip()]
-                            else:
-                                program_dict["OrgID"] = []
-
-                            if not program_dict["OrgID"]:
-                                self.errorVar.append(
-                                    "For tenant 'shikshagraha', 'Targeted state at program level' is required to derive Org ID."
-                                )
-
+                        program_dict["TenantID"] = tenantId
+                        if OrgId is None:
+                            org_list = []
+                        elif isinstance(OrgId, list):
+                            org_list = OrgId
+                        elif isinstance(OrgId, str):
+                            # Convert comma-separated string into list
+                            org_list = [x.strip() for x in OrgId.split(",") if x.strip()]
                         else:
-                            # Optional fallback if unknown tenant
-                            derived_org = program_dict.get("Targetedstateatprogramlevel", "")
-                            if isinstance(derived_org, str):
-                                program_dict["OrgID"] = [v.strip() for v in derived_org.split(",") if v.strip()]
-                            elif isinstance(derived_org, list):
-                                program_dict["OrgID"] = [v.strip() for v in derived_org if v.strip()]
-                            else:
-                                program_dict["OrgID"] = []
+                            # Unknown type → treat as empty
+                            org_list = []
 
-                            self.errorVar.append(
-                                f"Unknown tenant '{tenant_id}'."
-                            )
+                        program_dict["OrgID"] = org_list
 
                         # --- Add OrgForAPIs (always a single value) ---
                         if isinstance(program_dict.get("OrgID"), list) and program_dict["OrgID"]:
