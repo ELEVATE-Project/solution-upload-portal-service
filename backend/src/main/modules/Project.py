@@ -276,7 +276,6 @@ class CreateProject():
 
         taskCsvPath = os.path.join(taskFilePath, 'taskUpload.csv')
         write_header_task = not os.path.exists(taskCsvPath)
-
         with open(taskCsvPath, 'a', encoding='utf-8', newline='') as file:
             writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
             if write_header_task:
@@ -306,7 +305,6 @@ class CreateProject():
                         taskSolutionType = "simple"
 
                 taskType = taskSolutionType
-
                 hasAParentTask = "YES" if dictTasksDetails.get("parentTaskId", "") else "NO"
                 parentTaskId = f"{dictTasksDetails.get('parentTaskId', '')}-{millisecond}" if hasAParentTask == "YES" else ""
                 parentTaskOperator = "EQUALS" if hasAParentTask == "YES" else ""
@@ -350,7 +348,8 @@ class CreateProject():
                     solutionId = solutionDetailsInTask[1]
 
                     taskSolutionType = dictTasksDetails["solutionType"]
-
+                else:
+                    solutionId = ""
                 AnExternalTask = "True" if str(dictTasksDetails.get("isAnExternalTask", "")).lower() == "yes" else "False"
                 isDeletable = "TRUE" if str(dictTasksDetails.get("Mandatory task(Yes or No)", "")).lower() == "no" else "FALSE"
                 taskminNoOfSubmissionsRequired = str(dictTasksDetails.get("Number of submissions for observation", "")).strip()

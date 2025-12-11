@@ -457,8 +457,7 @@ class Programs:
             entitiesPGM = stateEntitiesPGM
             EntityType = "state"
         scopeEntityType = [EntityType] if isinstance(EntityType, str) else EntityType
-        entitiesType = self.fetchEntityType(programdetails, entitiesPGM.lstrip().rstrip().split(","), scopeEntityType,schoolEntitiesPGM,clusterEntitiesPGM,blockEntitiesPGM,districtEntitiesPGM,stateEntitiesPGM)
-
+        entitiesType = self.fetchEntityType(programdetails, entitiesPGM, scopeEntityType,schoolEntitiesPGM,clusterEntitiesPGM,blockEntitiesPGM,districtEntitiesPGM,stateEntitiesPGM)
         programdetails['entitiesType'] = entitiesType
         programdetails['TargetedEntity'] = entitiesType[0]
         if entitiesPGM:
