@@ -1315,26 +1315,22 @@ class GlobalVariables:
                                 # resource.pop('ResourceLink', None)
                                 resource["ResourceCre"] = ProjectDict
             ProgramsInstance = Programs()
-            programcreation = ProgramsInstance.programCheckCreate(programFile, MainFilePath, parentFolder, ProgramGlobalDict, PRName)
-                
-            finalObsRubricSolutionLink = programcreation
-            result = {
+            if self.errorVar:
+                finalObsRubricSolutionLink = {"NA": self.errorVar}
+                result = {
                 "solutionDict": finalObsRubricSolutionLink,
                 "programName": program_dict.get('TitleoftheProgram') 
-            }
-            print(result)
-            return result
-            # sys.exit()
-
-            #     # CurrentResourceName = PRName
-            #     solutionSL = Elevateproject.mainFunc(MainFilePath, programFile, addObservationSolution,resourceName, millisecond, isProgramnamePresent, isCourse,
-            #  scopeEntityType=scopeEntityType)
-            #     print(solutionSL)
-            #     print(solutionSL.items(),"3400")
-            #     for resourceName, solutionLink in solutionSL.items():
-            #         solutionDict[resourceName] = solutionLink
-            #         print()
-            # downloaded_file = {}
-            # print()
+                }
+                return result
+            else:
+                programcreation = ProgramsInstance.programCheckCreate(programFile, MainFilePath, parentFolder, ProgramGlobalDict, PRName)
+                    
+                finalObsRubricSolutionLink = programcreation
+                result = {
+                    "solutionDict": finalObsRubricSolutionLink,
+                    "programName": program_dict.get('TitleoftheProgram') 
+                }
+                print(result)
+                return result
         else:
             print("The provided Template is not a Program Template...")
