@@ -1547,6 +1547,7 @@ class ElevateObservation:
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: adminAccessToken
             }
+            print(headerCriteriaUploadApi,"--headerCriteriaUploadApi")
             filesCriteria = {
                 'criteria': open(solutionName_for_folder_path + '/criteriaUpload/uploadSheet.csv', 'rb')
             }
@@ -1856,6 +1857,7 @@ class ElevateObservation:
         error_message = ""
         try:
             urlCreateSolutionApi = internal_kong_ip + solutioncreationapiurl
+            print(urlCreateSolutionApi,"urlCreateSolutionApi")
             headerCreateSolutionApi = {
                 'Content-Type': content_type,
                 'Authorization': authorization,
@@ -1866,6 +1868,7 @@ class ElevateObservation:
                 'orgid': orgIDFromTemplate,
                 adminTokenHeaderName: adminAccessToken
             }
+            print(headerCreateSolutionApi,"headerCreateSolutionApi")
             queryparamsCreateSolutionApi = '?frameworkId=' + str(frameworkExternalId) + '&entityType=' + entityType + '&isExternalProgram=' + isExternalProgram
             # queryparamsCreateSolutionApi = '?frameworkId=' + str(frameworkExternalId) + '&entityType=' + entityType
             print(queryparamsCreateSolutionApi)
@@ -3101,6 +3104,7 @@ class ElevateObservation:
                     "description": solutionDescription.lstrip().rstrip(),
                     "programExternalId": programExternalId
                 }
+            print(payloadSol_prog_mapping,"payloadSol_prog_mapping")
             headersSol_prog_mapping = {'Authorization': authorization,
                                     'X-auth-token': accessToken,
                                     'Content-Type': content_type,
@@ -4434,6 +4438,7 @@ class ElevateObservation:
                                 scope = {}
                                 print(scope)
                                 scope.update(entityHierarchy)
+                                scope["organizations"] = orgIdForScope
                                 scope["professional_subroles"] = rolesPGMID
                                 scope["professional_role"] = mainRoleproff
                                 bodySolutionUpdate = {
@@ -5242,8 +5247,10 @@ class ElevateObservation:
                                     print("entitiesType", entitiesType)
                                     scope = {}
                                     scope.update(entityHierarchy)
+                                    scope["organizations"] = orgIdForScope
                                     scope["professional_subroles"] = rolesPGMID
                                     scope["professional_role"] = mainRoleproff
+                                    print("scope", scope)
                                     bodySolutionUpdate = {
                                     "scope": scope
                                     }
@@ -5426,8 +5433,10 @@ class ElevateObservation:
                                     scopeEntities = entitiesPGMID
                                     scope = {}
                                     scope.update(entityHierarchy)
+                                    scope["organizations"] = orgIdForScope
                                     scope["professional_subroles"] = rolesPGMID
                                     scope["professional_role"] = mainRoleproff
+                                    print("scope", scope)
                                     bodySolutionUpdate = {
                                     "scope": scope
                                     }

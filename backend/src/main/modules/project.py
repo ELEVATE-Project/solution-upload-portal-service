@@ -2980,6 +2980,7 @@ class Elevateproject:
                 projectTemplateId = Projecttemp["duplicateTemplate_id"]
             c = 2
             for task in taskinternalfile:
+                print(tasksLevelEvidance, task['name'])
                 if task['name'] in tasksLevelEvidance:
                     hasAparent = task["hasAParentTask"]
                     if task["hasAParentTask"].lower() == "no":
@@ -3078,8 +3079,9 @@ class Elevateproject:
             TaskEvidenceOperator = ""
             print(payload["criteria"]["expression"])
 
-
             print(json.dumps(payload, indent=1))
+            # sys.exit()
+
             # sys.exit()
             # responseaddcertificateUploadApi = requests.request("POST",url=urladdcertificate, headers=headeraddcertificateApi,
             #                                        data=json.dumps(payload))
