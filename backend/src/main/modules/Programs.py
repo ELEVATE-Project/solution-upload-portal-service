@@ -13,10 +13,10 @@ env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" 
 # Load the .env file
 load_dotenv(dotenv_path=env_path)
 internal_access_token = os.getenv("internal_access_token")
-adminTokenHeaderName = os.getenv("adminTokenHeaderName")
+# adminTokenHeaderName = os.getenv("adminTokenHeaderName")
 jwtTokenSecret = os.getenv("jwtTokenSecret")
-projAdminAccessToken = os.getenv("projAdminAccessToken")
-adminAccessToken = os.getenv("adminAccessToken")
+# projAdminAccessToken = os.getenv("projAdminAccessToken")
+# adminAccessToken = os.getenv("adminAccessToken")
 authorization = os.getenv("authorization")
 authorizationforhost = os.getenv("authorizationforhost")
 appname = os.getenv("appname")
@@ -592,8 +592,8 @@ class Programs:
                     'Content-Type': 'application/json',
                     'Authorization':authorization,
                     'tenantId': programdetails.get('TenantID') ,
-                    'orgid': programdetails.get('OrgForAPIs'),
-                    adminTokenHeaderName: projAdminAccessToken
+                    'orgid': programdetails.get('OrgForAPIs')
+                    # adminTokenHeaderName: projAdminAccessToken
                 }
             responsePgmCreate = requests.request("POST", programCreationurl, headers=headers, data=(payload))
             messageArr = []
@@ -655,10 +655,10 @@ class Programs:
         shutil.copy(addSolutionFile, os.path.join(returnPathStr + "user_input_file.xlsx"))
         return returnPathStr
     
-    def programCheckCreate(self, programFile, MainFilePath, parentFolder, ProgramGlobalDict, PRName):
+    def programCheckCreate(self, programFile, MainFilePath, parentFolder, ProgramGlobalDict, PRName, accessToken):
         programdetails_list = ProgramGlobalDict.get('Program Details', [])
         programdetails = programdetails_list[0] if programdetails_list else {}
-        accessToken = self.generateAccessToken(parentFolder)
+        # accessToken = self.generateAccessToken(parentFolder)
         if not accessToken:
             print("Access token generation failed")
             return False

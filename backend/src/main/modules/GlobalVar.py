@@ -1053,7 +1053,7 @@ class GlobalVariables:
 
 
 
-    def ReadProgramTemplate(self, programFile, tenantId, OrgId):
+    def ReadProgramTemplate(self, programFile, tenantId, OrgId, accessToken, userRole):
         MainFilePath = GlobalVariables.createFileStructForProgram(programFile)
         wbPgm = xlrd.open_workbook(programFile, on_demand=True)
         sheetNames = wbPgm.sheet_names()
@@ -1323,7 +1323,7 @@ class GlobalVariables:
                 }
                 return result
             else:
-                programcreation = ProgramsInstance.programCheckCreate(programFile, MainFilePath, parentFolder, ProgramGlobalDict, PRName)
+                programcreation = ProgramsInstance.programCheckCreate(programFile, MainFilePath, parentFolder, ProgramGlobalDict, PRName, accessToken)
                     
                 finalObsRubricSolutionLink = programcreation
                 result = {
