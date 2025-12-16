@@ -10,10 +10,10 @@ env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" 
 # Load the .env file
 load_dotenv(dotenv_path=env_path)
 internal_access_token = os.getenv("internal_access_token")
-adminTokenHeaderName = os.getenv("adminTokenHeaderName")
+# adminTokenHeaderName = os.getenv("adminTokenHeaderName")
 jwtTokenSecret = os.getenv("jwtTokenSecret")
-projAdminAccessToken = os.getenv("projAdminAccessToken")
-adminAccessToken = os.getenv("adminAccessToken")
+# projAdminAccessToken = os.getenv("projAdminAccessToken")
+# adminAccessToken = os.getenv("adminAccessToken")
 authorization = os.getenv("authorization")
 authorizationforhost = os.getenv("authorizationforhost")
 appname = os.getenv("appname")
@@ -75,8 +75,8 @@ class CreateProject():
                 'internal-access-token': internal_access_token,
                 'Content-Type': content_type,
                 'tenantId': programdetails.get('TenantID'),
-                'orgId' : programdetails.get('Org ID'),
-                adminTokenHeaderName: projAdminAccessToken
+                'orgId' : programdetails.get('Org ID')
+                # adminTokenHeaderName: projAdminAccessToken
             }
         searchSolutionpayload = json.dumps({
             "query": {
@@ -138,8 +138,8 @@ class CreateProject():
             'X-Channel-id': x_channel_id,
             "internal-access-token": internal_access_token,
             'tenantId': programdetails.get('TenantID'),
-            'orgId' : programdetails.get('Org ID'),
-            adminTokenHeaderName: projAdminAccessToken
+            'orgId' : programdetails.get('Org ID')
+            # adminTokenHeaderName: projAdminAccessToken
             }
         responseUpdateSolutionApi = requests.post(url=solutionUpdateApiurl, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
         messageArr = ["Solution Update API called.", "URL : " + str(solutionUpdateApiurl), "Body : " + str(bodySolutionUpdate),"Response : " + str(responseUpdateSolutionApi.text),"Status Code : " + str(responseUpdateSolutionApi.status_code)]
@@ -394,8 +394,8 @@ class CreateProject():
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
                 'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs'),
-                adminTokenHeaderName: projAdminAccessToken
+                'orgid': programdetails.get('OrgForAPIs')
+                # adminTokenHeaderName: projAdminAccessToken
             }
             project_payload = {}
             filesProject = {
@@ -446,8 +446,8 @@ class CreateProject():
                         'X-Channel-id': x_channel_id,
                         'internal-access-token': internal_access_token,
                         'tenantId': programdetails.get('TenantID'),
-                        'orgid': programdetails.get('OrgForAPIs'),
-                        adminTokenHeaderName: projAdminAccessToken
+                        'orgid': programdetails.get('OrgForAPIs')
+                        # adminTokenHeaderName: projAdminAccessToken
                     }
                     fetchProjectIdPayload = {}
 
@@ -488,8 +488,8 @@ class CreateProject():
                     'X-Channel-id': x_channel_id,
                     'internal-access-token': internal_access_token,
                     'tenantId': programdetails.get('TenantID'),
-                    'orgid': programdetails.get('OrgForAPIs'),
-                    adminTokenHeaderName: projAdminAccessToken
+                    'orgid': programdetails.get('OrgForAPIs')
+                    # adminTokenHeaderName: projAdminAccessToken
                 }
                 task_payload = {}
                 filesTasks = {
@@ -537,8 +537,8 @@ class CreateProject():
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
                 'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs'),
-                adminTokenHeaderName: adminAccessToken
+                'orgid': programdetails.get('OrgForAPIs')
+                # adminTokenHeaderName: adminAccessToken
             }
             print(headerFetchSolutionApi)
             payloadFetchSolutionApi = {}
@@ -652,8 +652,8 @@ class CreateProject():
                 'X-Channel-id': x_channel_id,
                 "internal-access-token": internal_access_token,
                 'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs'),
-                adminTokenHeaderName: adminAccessToken
+                'orgid': programdetails.get('OrgForAPIs')
+                # adminTokenHeaderName: adminAccessToken
                 }
             responseUpdateSolutionApi = requests.post(url=solutionUpdateApi, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
             messageArr = ["Solution Update API called.", "URL : " + str(solutionUpdateApi), "Body : " + str(bodySolutionUpdate),"Response : " + str(responseUpdateSolutionApi.text),"Status Code : " + str(responseUpdateSolutionApi.status_code)]
@@ -746,14 +746,15 @@ class CreateProject():
                 scopeEntityType = [programdetails.get("entitiesType")]
 
                 urlCreateProjectSolutionApi = elevateprojecthost + projectsolutioncreationapi
+                print(urlCreateProjectSolutionApi,"urlCreateProjectSolutionApi")
                 headerCreateSolutionApi = {
                     'Content-Type': content_type,
                     'X-auth-token': accessToken,
                     "internal-access-token" : internal_access_token,
                     'X-Channel-id': x_channel_id,
                     'tenantId': programdetails.get('TenantID'),
-                    'orgid': programdetails.get('OrgForAPIs'),
-                    adminTokenHeaderName: projAdminAccessToken
+                    'orgid': programdetails.get('OrgForAPIs')
+                    # adminTokenHeaderName: projAdminAccessToken
                 }
                 startdate = programdetails.get('Startdateofprogram')
                 d, m, y = startdate.split('-')
@@ -776,7 +777,9 @@ class CreateProject():
                     "startDate": ProgramStartDate,
                     "endDate": ProgramEndDate,
                 }
+                print(sol_payload,"sol_payload")
                 responseCreateSolutionApi = requests.post(url=urlCreateProjectSolutionApi,headers=headerCreateSolutionApi, data=json.dumps(sol_payload))
+                print(responseCreateSolutionApi.text,"responseCreateSolutionApi")
                 messageArr = ["Project Solution Created.","URL : " + str(urlCreateProjectSolutionApi),"Status Code : " + str(responseCreateSolutionApi.status_code),"Response : " + str(responseCreateSolutionApi.text)]
                 if responseCreateSolutionApi.status_code == 200:
                     responseCreateSolutionApi = responseCreateSolutionApi.json()
@@ -795,8 +798,8 @@ class CreateProject():
                         'X-auth-token': accessToken,
                         'X-Channel-id': x_channel_id,
                         'tenantId': programdetails.get('TenantID'),
-                        'orgid': programdetails.get('OrgForAPIs'),
-                        adminTokenHeaderName: projAdminAccessToken
+                        'orgid': programdetails.get('OrgForAPIs')
+                        # adminTokenHeaderName: projAdminAccessToken
                     }
                     payloadMapSolutionProject = {
                         "externalId": duplicateTemplateExtId,
@@ -909,8 +912,8 @@ class CreateProject():
             'X-Channel-id': x_channel_id,
             'internal-access-token': internal_access_token,
             'tenantId': programdetails.get('TenantID'),
-            'orgid': programdetails.get('OrgForAPIs'),
-            adminTokenHeaderName: projAdminAccessToken
+            'orgid': programdetails.get('OrgForAPIs')
+            # adminTokenHeaderName: projAdminAccessToken
         }
         payloadFetchSolutionApi = {}
 
@@ -927,13 +930,14 @@ class CreateProject():
             print('Fetch solution Api Success')
             solutionName = responseFetchSolutionJson["result"]["name"]
         urlFetchSolutionLinkApi = elevateprojecthost + fetchlink + solutionId
+        print(urlFetchSolutionLinkApi,"urlFetchSolutionLinkApi")
         headerFetchSolutionLinkApi = {
             # 'Authorization': authorization,
-            'X-auth-token': accessToken
+            'X-auth-token': accessToken,
             # 'X-Channel-id': x_channel_id
-            # 'internal-access-token': internal_access_token,
-            # 'tenantId': tenantIDFromTemplate,
-            #         'orgId' : orgIDFromTemplate,
+            'internal-access-token': internal_access_token,
+            'tenantId': programdetails.get('TenantID'),
+            'orgid': programdetails.get('OrgForAPIs')
             #         adminTokenHeaderName: projAdminAccessToken
         }
         payloadFetchSolutionLinkApi = {}
@@ -1039,8 +1043,8 @@ class CreateProject():
                 'internal-access-token': internal_access_token,
                 'Content-Type': content_type,
                 'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs'),
-                adminTokenHeaderName: projAdminAccessToken
+                'orgid': programdetails.get('OrgForAPIs')
+                # adminTokenHeaderName: projAdminAccessToken
             }
 
             payload = json.dumps({
@@ -1241,8 +1245,8 @@ class CreateProject():
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
                 'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs'),
-                adminTokenHeaderName: projAdminAccessToken
+                'orgid': programdetails.get('OrgForAPIs')
+                # adminTokenHeaderName: projAdminAccessToken
             }
 
             print(urleditnigsvgApi, "urleditnigsvgApi")
@@ -1317,8 +1321,8 @@ class CreateProject():
                 'internal-access-token': internal_access_token,
                 'Content-Type': content_type,
                 'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs'),
-                adminTokenHeaderName: projAdminAccessToken
+                'orgid': programdetails.get('OrgForAPIs')
+                # adminTokenHeaderName: projAdminAccessToken
             }
 
             if str(projectLevelEvidance).strip().lower() == "yes":
@@ -1550,8 +1554,8 @@ class CreateProject():
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
                 'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs'),
-                adminTokenHeaderName: projAdminAccessToken
+                'orgid': programdetails.get('OrgForAPIs')
+                # adminTokenHeaderName: projAdminAccessToken
             }
             task_payload = {}
             task_file = []
@@ -1575,8 +1579,8 @@ class CreateProject():
                     'internal-access-token': internal_access_token,
                     'Content-Type': content_type,
                     'tenantId': programdetails.get('TenantID'),
-                    'orgid': programdetails.get('OrgForAPIs'),
-                    adminTokenHeaderName: projAdminAccessToken
+                    'orgid': programdetails.get('OrgForAPIs')
+                    # adminTokenHeaderName: projAdminAccessToken
                 }
 
                 certificate_payload = json.dumps({
@@ -1614,8 +1618,8 @@ class CreateProject():
                     'internal-access-token': internal_access_token,
                     'Content-Type': content_type,
                     'tenantId': programdetails.get('TenantID'),
-                    'orgid': programdetails.get('OrgForAPIs'),
-                    adminTokenHeaderName: projAdminAccessToken
+                    'orgid': programdetails.get('OrgForAPIs')
+                    # adminTokenHeaderName: projAdminAccessToken
                 }
 
                 certificate_payload = json.dumps({

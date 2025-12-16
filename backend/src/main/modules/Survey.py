@@ -1,17 +1,19 @@
-import os, uuid, requests, sys, json, time, csv
+import os, uuid, requests, sys, json, time, csv, openpyxl
 from dotenv import load_dotenv
 from pathlib import Path
 from backend.src.main.modules.common_config import *
+from openpyxl.styles import Color, PatternFill
+
 
 env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" / ".env"
 
 # Load the .env file
 load_dotenv(dotenv_path=env_path)
 internal_access_token = os.getenv("internal_access_token")
-adminTokenHeaderName = os.getenv("adminTokenHeaderName")
+# adminTokenHeaderName = os.getenv("adminTokenHeaderName")
 jwtTokenSecret = os.getenv("jwtTokenSecret")
-projAdminAccessToken = os.getenv("projAdminAccessToken")
-adminAccessToken = os.getenv("adminAccessToken")
+# projAdminAccessToken = os.getenv("projAdminAccessToken")
+# adminAccessToken = os.getenv("adminAccessToken")
 authorization = os.getenv("authorization")
 authorizationforhost = os.getenv("authorizationforhost")
 appname = os.getenv("appname")
@@ -72,8 +74,8 @@ class CreateSurvey:
                 'X-Channel-id': x_channel_id,
                 "internal-access-token": internal_access_token,
                 'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs'),
-                adminTokenHeaderName: adminAccessToken
+                'orgid': programdetails.get('OrgForAPIs')
+                # adminTokenHeaderName: adminAccessToken
                 }
             responseUpdateSolutionApi = requests.post(url=solutionUpdateApi, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
             messageArr = []
@@ -128,8 +130,8 @@ class CreateSurvey:
                 "internal-access-token": internal_access_token,
                 'X-auth-token': accessToken,
                 'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs'),
-                adminTokenHeaderName: adminAccessToken
+                'orgid': programdetails.get('OrgForAPIs')
+                # adminTokenHeaderName: adminAccessToken
             }
             response = requests.post(
                 url=urlCreateSolutionApi,
@@ -191,8 +193,8 @@ class CreateSurvey:
                 'X-Channel-id': x_channel_id,
                 'internal-access-token': internal_access_token,
                 'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs'),
-                adminTokenHeaderName: adminAccessToken
+                'orgid': programdetails.get('OrgForAPIs')
+                # adminTokenHeaderName: adminAccessToken
             }
             payloadFetchSolutionApi = {}
             responseFetchSolutionApiUrl = requests.post(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
@@ -305,6 +307,132 @@ class CreateSurvey:
             print(err)
         return validated_main_role_ids, validated_subrole_ids_list 
     
+    def prepareProgramSuccessSheet(self, MainFilePath, solutionName_for_folder_path, programFile, solutionExternalId, solutionId,accessToken, programdetails):
+        urlFetchSolutionApi = internal_kong_ip + dbfindapi_url
+        headerFetchSolutionApi = {
+            'Authorization': authorization,
+            'X-auth-token': accessToken,
+            'Content-Type': content_type,
+            'X-Channel-id': x_channel_id,
+            'internal-access-token': internal_access_token,
+            'tenantId': programdetails.get('TenantID'),
+            'orgid': programdetails.get('OrgForAPIs')
+            # adminTokenHeaderName: projAdminAccessToken
+        }
+        payloadFetchSolutionApi = json.dumps({
+            "query": {
+                "_id": solutionId
+            },
+            "mongoIdKeys": [
+                "_id",
+                "solutionId",
+                "metaInformation.solutionId"
+            ],
+            "limit": 10000
+        })
+        responseFetchSolutionApi = requests.request("POST", url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
+                                                data=payloadFetchSolutionApi)
+        print(responseFetchSolutionApi.text, "responseFetchSolutionApi")
+        responseFetchSolutionJson = responseFetchSolutionApi.json()
+        messageArr = []
+        messageArr.append("Solution Fetch Link.")
+        messageArr.append("solution name : " + responseFetchSolutionJson["result"][0]["name"])
+        messageArr.append("solution ExternalId : " + responseFetchSolutionJson["result"][0]["externalId"])
+        messageArr.append("Upload status code : " + str(responseFetchSolutionApi.status_code))
+        self.createAPILog(solutionName_for_folder_path, messageArr)
+
+        if responseFetchSolutionApi.status_code == 200:
+            print('Fetch solution Api Success')
+            solutionName = responseFetchSolutionJson["result"][0]["name"]
+        urlFetchSolutionLinkApi = internal_kong_ip + fetchlink + solutionId
+        print(urlFetchSolutionLinkApi,"urlFetchSolutionLinkApi")
+        headerFetchSolutionLinkApi = {
+            # 'Authorization': authorization,
+            'X-auth-token': accessToken,
+            # 'X-Channel-id': x_channel_id
+            'internal-access-token': internal_access_token,
+            'tenantId': programdetails.get('TenantID'),
+            'orgid': programdetails.get('OrgForAPIs')
+            #adminTokenHeaderName: projAdminAccessToken
+        }
+        payloadFetchSolutionLinkApi = {}
+
+        responseFetchSolutionLinkApi = requests.get(url=urlFetchSolutionLinkApi, headers=headerFetchSolutionLinkApi,
+                                                    data=payloadFetchSolutionLinkApi)
+        
+        print(responseFetchSolutionLinkApi.text, "responseFetchSolutionLinkApi")
+        messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
+        messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
+        self.createAPILog(solutionName_for_folder_path, messageArr)
+        if responseFetchSolutionLinkApi.status_code == 200:
+            print(responseFetchSolutionLinkApi.text,"responseFetchSolutionLinkApi")
+            print('Fetch solution Link Api Success')
+            responseProjectUploadJson = responseFetchSolutionLinkApi.json()
+            solutionLink = responseProjectUploadJson["result"]
+            solutionLink = ','.join(solutionLink)
+            print(solutionLink,"solutionLink")
+            messageArr = []
+            messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
+            self.createAPILog(solutionName_for_folder_path, messageArr)
+            # Ensure programFile is formatted correctly
+            programFileBase = str(programFile).replace(".xlsx", "")
+            success_file_path = os.path.join(MainFilePath, programFileBase + '-SuccessSheet.xlsx')
+
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(success_file_path), exist_ok=True)
+
+            # Load the workbook correctly
+            if os.path.exists(success_file_path):
+                xfile = openpyxl.load_workbook(success_file_path)
+            else:
+                xfile = openpyxl.load_workbook(programFile)
+
+            # Use the correct way to get the sheet
+            resourceDetailsSheet = xfile["Resource Details"]  # Instead of get_sheet_by_name
+
+            print(resourceDetailsSheet)
+
+            # Define fill color
+            greenFill = PatternFill(start_color='0000FF00', end_color='0000FF00', fill_type='solid')
+
+            # Get row and column count
+            rowCountRD = resourceDetailsSheet.max_row
+            columnCountRD = resourceDetailsSheet.max_column
+
+            for row in range(3, rowCountRD + 1):
+                if str(resourceDetailsSheet["B" + str(row)].value).strip().lower() == "course":
+                    resourceDetailsSheet["D1"].value = ""
+                    resourceDetailsSheet["E1"].value = ""
+                    resourceDetailsSheet['I2'].value = "External id of the resource"
+                    resourceDetailsSheet['J2'].value = "link to access the resource/Response"
+
+                    resourceDetailsSheet['I2'].fill = greenFill
+                    resourceDetailsSheet['J2'].fill = greenFill
+                    resourceDetailsSheet['I' + str(row)].value = solutionExternalId
+                    resourceDetailsSheet['J' + str(row)].value = "The course has been successfully mapped to the program"
+
+                    resourceDetailsSheet['I' + str(row)].fill = greenFill
+                    resourceDetailsSheet['J' + str(row)].fill = greenFill
+
+                elif str(resourceDetailsSheet["A" + str(row)].value).strip() == solutionName:
+                    resourceDetailsSheet["D1"].value = ""
+                    resourceDetailsSheet["E1"].value = ""
+                    resourceDetailsSheet['I2'].value = "External id of the resource"
+                    resourceDetailsSheet['J2'].value = "link to access the resource/Response"
+
+                    resourceDetailsSheet['I2'].fill = greenFill
+                    resourceDetailsSheet['J2'].fill = greenFill
+                    resourceDetailsSheet['I' + str(row)].value = solutionExternalId
+                    resourceDetailsSheet['J' + str(row)].value = solutionLink
+
+                    resourceDetailsSheet['I' + str(row)].fill = greenFill
+                    resourceDetailsSheet['J' + str(row)].fill = greenFill
+
+            # Save the file
+            xfile.save(success_file_path)
+            print("Program success sheet is created")
+            return solutionLink
+        
     def uploadSurveyQuestionsFromDict(self, MainFilePath, parentFolder, surveyDict, accessToken, surTempExtID, surTempSolID, millisecond, programFile, programdetails,ProgramGlobalDict):
         # Ensure question upload folder exists
         questionFilePath = os.path.join(parentFolder, 'questionUpload')
@@ -437,8 +565,8 @@ class CreateSurvey:
                 'X-auth-token': accessToken,
                 'X-Channel-id': x_channel_id,
                 'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs'),
-                adminTokenHeaderName: adminAccessToken
+                'orgid': programdetails.get('OrgForAPIs')
+                # adminTokenHeaderName: adminAccessToken
             }
             filesQuestion = {
                 'questions': open(parentFolder + '/questionUpload/uploadSheet.csv', 'rb')
@@ -464,8 +592,8 @@ class CreateSurvey:
                     'X-Channel-id': x_channel_id,
                     'internal-access-token': internal_access_token,
                     'tenantId': programdetails.get('TenantID'),
-                    'orgid': programdetails.get('OrgForAPIs'),
-                    adminTokenHeaderName: adminAccessToken
+                    'orgid': programdetails.get('OrgForAPIs')
+                    # adminTokenHeaderName: adminAccessToken
                 }
                 responseImportSoluTemplateApi = requests.post(url=urlImportSoluTemplate,
                                                             headers=headerImportSoluTemplateApi)
@@ -490,8 +618,8 @@ class CreateSurvey:
                         'X-Channel-id': x_channel_id,
                         'internal-access-token': internal_access_token,
                         'tenantId': programdetails.get('TenantID'),
-                        'orgid': programdetails.get('OrgForAPIs'),
-                        adminTokenHeaderName: adminAccessToken
+                        'orgid': programdetails.get('OrgForAPIs')
+                        # adminTokenHeaderName: adminAccessToken
                     }
                     responseSurveyProgramMappingApi = requests.post(url=urlSurveyProgramMapping,headers=headeSurveyProgramMappingApi)
                     messageArr = []
@@ -544,10 +672,11 @@ class CreateSurvey:
                                 "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
                             self.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate, programdetails)
                         print('Survey Successfully Added')
-                        # print(surveySolutionlink)
-                        # surveySolutionlink = ElevateObservation.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, solutionExtIdSuc,
-                        #                     solutionIdSuc, accessToken)
-                        surveySolutionlink = "https: Deeplink for survey created successfully."
+
+                        surveySolutionlink = self.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, solutionExtIdSuc,
+                                            solutionIdSuc, accessToken, programdetails)
+                        
+                        # surveySolutionlink = "https: Deeplink for survey created successfully."
                         return surveySolutionlink
                     else:
                         print('Program Mapping Failed')
