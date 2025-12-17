@@ -2343,7 +2343,7 @@ class Elevateproject:
                             print("rolesPGMID", rolesPGMID)
                             scopeEntities = entitiesPGMID
                             scope = {}
-                            scope["organizations"] = [orgIDFromTemplate]        
+                            scope["organizations"] = orgIdForScope       
                             scope["professional_subroles"] = rolesPGMID
                             scope["professional_role"] = mainRoleproff
                             scope.update(entityHierarchy)
