@@ -409,126 +409,6 @@ class Elevateproject:
         
         return returnPathStr
     
-    def fetchEntityType(solutionName_for_folder_path, accessToken, entitiesPGM, scopeEntityType,schoolEntitiesPGM,clusterEntitiesPGM,blockEntitiesPGM,districtEntitiesPGM,stateEntitiesPGM):
-        urlFetchEntityListApi = elevateentityhost + searchforlocation
-        print(urlFetchEntityListApi,"urlFetchEntityListApi")
-        headerFetchEntityListApi = {
-            'Content-Type': content_type,
-            'internal-access-token': internal_access_token,
-        }
-        print(headerFetchEntityListApi,"headerFetchEntityListApi")
-        # Initialize a dictionary to store entity types for each entity
-        entityTypes = []
-        entityTypeID =[]
-        # Loop through each entity name in the entitiesPGM list
-        for entityName in entitiesPGM:
-            entityName = entityName.strip()  # Remove any extra spaces
-
-            # Prepare the payload for the API request
-            payload = {
-                "query": {
-                    "metaInformation.name": entityName,
-                    "tenantId":tenantIDFromTemplate,  # Use the current entity name
-                    "entityType": scopeEntityType[0]
-                    # "orgIds": {"$in":ElevateObservation.append_to_list(ElevateObservation.normalize_cell_value(orgIDFromTemplate),'ALL')},
-                },
-                "projection": [
-                    "entityType","_id","metaInformation.name"
-                ]
-            }
-            data = json.dumps(payload)
-            print(data,"data")
-            # Make the API call inside the loop to send one request per entity
-            responseFetchEntityListApi = requests.post(url=urlFetchEntityListApi, headers=headerFetchEntityListApi, data=data)
-            # Log API call details
-            print(responseFetchEntityListApi.text,"responseFetchEntityListApi")
-            messageArr = ["Entities List Fetch API executed for entity: " + entityName, 
-                        "URL  : " + str(urlFetchEntityListApi),
-                        "Status : " + str(responseFetchEntityListApi.status_code)]
-            ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
-
-            # Check if the API call was successful
-            if responseFetchEntityListApi.status_code == 200:
-                responseFetchEntityListApi = responseFetchEntityListApi.json()
-
-                # Loop through the result to find the entityType
-                global entityToUpload
-                entityToUpload = None  # Initialize for each entity
-                for listEntities in responseFetchEntityListApi['result']:
-                    entityToUpload = listEntities['entityType']
-                    EntityName = listEntities['metaInformation']['name']
-                    entityId = listEntities['_id']
-                    print(entityId,"entityId")
-                    # entityToUpload = listEntities.get('entityType', '').lower().strip()
-
-                    # If a valid entityType is found, store it in the dictionary and break out of the loop
-                    
-                    
-                    DetailsFetchURL = elevateentityhost + fetchDetailsEntity + entityId
-                    headerEntityDetails = {
-                        "tenantId": tenantIDFromTemplate
-                    }
-                    payload = {}
-                    EntityDetailsResponse = requests.request("GET", DetailsFetchURL, headers=headerEntityDetails, data=payload)
-                    print(EntityDetailsResponse.text,"EntityDetailsResponse")
-                    if EntityDetailsResponse.status_code == 200:
-                        EntityDetailsResponseJson = EntityDetailsResponse.json()
-                        # EntityDetails = EntityDetailsResponseJson.get("result", {})
-                        # print(EntityDetails,"EntityDetails")\
-                        entities = EntityDetailsResponseJson.get("result", [])
-                        for entity in entities:
-                            # entity = entitie[0]
-                            entityId = entity.get("_id", {})
-                            entityToUpload = entity.get("entityType")
-                            parent_info = entity.get("parentInformation", {})
-                            EntityFlag = False
-                            if parent_info.get("school", [{}])[0].get("name"):
-                                school_name = parent_info.get("school", [{}])[0].get("name")
-                                print("school:", school_name)
-                                if schoolEntitiesPGM == "" or schoolEntitiesPGM == school_name:
-                                    EntityFlag = True
-                            elif parent_info.get("cluster", [{}])[0].get("name"):
-                                cluster_name = parent_info.get("cluster", [{}])[0].get("name")
-                                print("Cluster:", cluster_name)
-                                if clusterEntitiesPGM == "" or clusterEntitiesPGM == cluster_name:
-                                    EntityFlag = True
-                            elif parent_info.get("block", [{}])[0].get("name"):
-                                block_name = parent_info.get("block", [{}])[0].get("name")
-                                print("Block:", block_name)
-                                if blockEntitiesPGM == "" or block_name == blockEntitiesPGM:
-                                    EntityFlag = True
-                            elif parent_info.get("district", [{}])[0].get("name"):
-                                district_name = parent_info.get("district", [{}])[0].get("name")
-                                print("District:", district_name)
-                                if district_name == "" or district_name == districtEntitiesPGM:
-                                    EntityFlag = True
-                            elif EntityName == stateEntitiesPGM:
-                                print("State:", stateEntitiesPGM)
-                                EntityFlag = True
-                            else:
-                                EntityFlag = True
-                            if EntityFlag:
-                                entityTypes.append(entityToUpload)
-                                
-                            if EntityFlag:
-                                entityTypeID.append(entityId)
-                            if EntityFlag == True:
-                                print(entityToUpload,entityId)
-                            else:
-                                print("Not the right entity ...")
-
-                    else:
-                    # Handle cases where the API call fails for a specific entity
-                        raise RuntimeError(f"Failed to fetch entity type for '{entityName}'. Status code: {EntityDetailsResponse.status_code}")
-            
-                # If no entityType is found for this entity, raise an error for that specific entity
-                if not entityToUpload:
-                    raise ValueError(f"Entity type not found for entity '{entityName}'.")
-            else:
-                # Handle cases where the API call fails for a specific entity
-                raise RuntimeError(f"Failed to fetch entity type for '{entityName}'. Status code: {responseFetchEntityListApi.status_code}")
-        # Return all found entity types
-        return entityTypes,entityTypeID
     
     def getProgramInfo(accessTokenUser, solutionName_for_folder_path, programNameInp):
         try:
@@ -962,7 +842,208 @@ class Elevateproject:
         else:
             print(errorVar,"pdpm mapping failure")
             return False
-    
+
+    def validate_hierarchy(parent_info, entity_level, pgm_maps, entity_type, entity_name):
+        hierarchy = ["school", "cluster", "block", "district", "state"]
+        start_index = hierarchy.index(entity_level)
+
+        for level in hierarchy[start_index:]:
+            pgm_values = pgm_maps.get(level)
+
+            # Empty / "" means ALL
+            if not pgm_values:
+                continue
+
+            # 🔥 If validating the entity itself, read from entity name
+            if level == entity_type:
+                value = entity_name
+            else:
+                value = parent_info.get(level, [{}])[0].get("name")
+
+            if not value:
+                print(f"{level} missing in entity hierarchy")
+                return False
+
+            if value not in pgm_values:
+                print(f"{level} mismatch: {value} not in {pgm_values}")
+                return False
+
+        return True
+   
+    def fetchEntityTypeAndHierarchy(solutionName_for_folder_path,accessToken,entitiesPGM,scopeEntityType,schoolEntitiesPGM,
+        clusterEntitiesPGM,blockEntitiesPGM,districtEntitiesPGM,stateEntitiesPGM):
+        urlFetchEntityListApi = elevateentityhost + searchforlocation
+
+        headerFetchEntityListApi = {
+            'Content-Type': content_type,
+            'internal-access-token': internal_access_token,
+        }
+
+        entityTypes = []
+        entityTypeID = []
+
+        for entityName in entitiesPGM:
+            entityName = entityName.strip()
+
+            payload = {
+                "query": {
+                    "metaInformation.name": entityName,
+                    "tenantId": tenantIDFromTemplate,
+                    "entityType": scopeEntityType[0]
+                },
+                "projection": ["entityType", "_id", "metaInformation.name"]
+            }
+
+            response = requests.post(
+                url=urlFetchEntityListApi,
+                headers=headerFetchEntityListApi,
+                data=json.dumps(payload)
+            )
+
+            ElevateObservation.createAPILog(
+                solutionName_for_folder_path,
+                [
+                    f"Entities List Fetch API executed for entity: {entityName}",
+                    f"URL: {urlFetchEntityListApi}",
+                    f"Status: {response.status_code}"
+                ]
+            )
+
+            if response.status_code != 200:
+                raise RuntimeError(
+                    f"Failed to fetch entity list for '{entityName}'. "
+                    f"Status code: {response.status_code}"
+                )
+
+            responseJson = response.json()
+            entityToUpload = None
+
+            for listEntity in responseJson.get("result", []):
+                entityId = listEntity["_id"]
+
+                detailsUrl = elevateentityhost + fetchDetailsEntity + entityId
+                detailsResp = requests.get(
+                    detailsUrl,
+                    headers={"tenantId": tenantIDFromTemplate}
+                )
+
+                if detailsResp.status_code != 200:
+                    raise RuntimeError(
+                        f"Failed to fetch entity details for '{entityName}'. "
+                        f"Status code: {detailsResp.status_code}"
+                    )
+
+                entities = detailsResp.json().get("result", [])
+                print("Fetched Entities Details:", entities)
+
+                for entity in entities:
+                    parent_info = entity.get("parentInformation", {})
+                    print("Parent Information:", parent_info)
+                    entityToUpload = entity.get("entityType")
+                    entityId = entity.get("_id")
+
+                    EntityFlag = False
+
+                    pgm_maps = {
+                        "school": schoolEntitiesPGM,
+                        "cluster": clusterEntitiesPGM,
+                        "block": blockEntitiesPGM,
+                        "district": districtEntitiesPGM,
+                        "state": stateEntitiesPGM
+                    }
+
+                    # Detect lowest entity level present
+                    if schoolEntitiesPGM:
+                        detected_level = "school"
+                    elif clusterEntitiesPGM:
+                        detected_level = "cluster"
+                    elif blockEntitiesPGM:
+                        detected_level = "block"
+                    elif districtEntitiesPGM:
+                        detected_level = "district"
+                    elif stateEntitiesPGM:
+                        detected_level = "state"
+                    else:
+                        detected_level = "state"
+
+                    print("Detected Entity Level:", detected_level)
+
+                    # 🔥 STRICT VALIDATION FROM DETECTED LEVEL → STATE
+                    entity_name = entity.get("metaInformation", {}).get("name")
+                    entity_type = entity.get("entityType").lower()
+
+                    if Elevateproject.validate_hierarchy(
+                            parent_info,
+                            detected_level,
+                            pgm_maps,
+                            entity_type,
+                            entity_name
+                        ):
+                        EntityFlag = True
+                    else:
+                        print("Hierarchy validation failed")
+                        return False
+
+                    if EntityFlag:
+                        entityTypes.append(entityToUpload)
+                        entityTypeID.append(entityId)
+                        print("Accepted:", entityToUpload, entityId)
+                    else:
+                        print("Rejected entity:", entityId)
+
+            if not entityToUpload:
+                raise ValueError(f"Entity type not found for entity '{entityName}'")
+
+        # -------------------- PARENT–CHILD MERGE LOGIC --------------------
+
+        hierarchy = ["state", "district", "block", "cluster", "school"]
+        merged_output = {level: [] for level in hierarchy}
+
+        for entityId in entityTypeID:
+            urlFetchEntity = elevateentityhost + fetchDetailsEntity + entityId
+
+            response = requests.get(
+                url=urlFetchEntity,
+                headers={
+                    'Content-Type': content_type,
+                    'tenantId': tenantIDFromTemplate,
+                    'Authorization': f'Bearer {accessToken}'
+                }
+            )
+
+            if response.status_code != 200:
+                continue
+
+            result = response.json().get("result", [])[0]
+            parent_info = result.get("parentInformation", {})
+            current_entity_type = result.get("entityType").lower()
+            current_entity_id = result.get("_id")
+
+            current_index = hierarchy.index(current_entity_type)
+
+            for i in range(current_index):
+                level = hierarchy[i]
+                if level in parent_info and parent_info[level]:
+                    val = parent_info[level][0]["_id"]
+                    if val not in merged_output[level]:
+                        merged_output[level].append(val)
+
+            if current_entity_id not in merged_output[current_entity_type]:
+                merged_output[current_entity_type].append(current_entity_id)
+
+            for i in range(current_index + 1, len(hierarchy)):
+                if not merged_output[hierarchy[i]]:
+                    merged_output[hierarchy[i]].append("ALL")
+
+        for level in hierarchy:
+            if not merged_output[level]:
+                merged_output[level].append("ALL")
+
+        print("Final Structured Hierarchy:", json.dumps(merged_output, indent=2))
+
+        return entityTypes, entityTypeID, merged_output
+
+
     def fetchEntityParentChilds(solutionName_for_folder_path, accessToken, entityIds):
         try:
             global errorVar
@@ -1124,6 +1205,8 @@ class Elevateproject:
                         subRoles = [r.strip() for r in subRoles if r.strip()]
 
                         verifiedRoles = Elevateproject.validate_roles_against_api(mainRoles, subRoles)
+                        if not verifiedRoles:
+                            return False
                         global mainRoleproff
 
                         mainRoleproff = verifiedRoles[0]
@@ -1154,8 +1237,11 @@ class Elevateproject:
                         print("rolesPGMID", rolesPGMID)
                         
                         scopeEntityType = [EntityType] if isinstance(EntityType, str) else EntityType
-                        entitiesType = Elevateproject.fetchEntityType(parentFolder, accessToken,
+                        entitiesType = Elevateproject.fetchEntityTypeAndHierarchy(parentFolder, accessToken,
                                                     entitiesPGM.lstrip().rstrip().split(","), scopeEntityType,schoolEntitiesPGM,clusterEntitiesPGM,blockEntitiesPGM,districtEntitiesPGM,stateEntitiesPGM)
+                        if not entitiesType:
+                            return False
+
                         if entitiesPGM:
                             entitiesPGM = entitiesPGM
                             scopeEntityType = entitiesType[0]
@@ -1165,7 +1251,8 @@ class Elevateproject:
                         # entitiesPGMID = Elevateproject.fetchEntityId(parentFolder, accessToken,
                                                     # entitiesPGM.lstrip().rstrip().split(","), scopeEntityType,entitiesPGM)
                         global orgIds, entityHierarchy
-                        entityHierarchy = Elevateproject.fetchEntityParentChilds(parentFolder, scopeEntityType, entitiesPGMID)
+                        entityHierarchy = entitiesType[2]
+                        # entityHierarchy = Elevateproject.fetchEntityParentChilds(parentFolder, scopeEntityType, entitiesPGMID)
                         print("fetchedhirearchy", entityHierarchy)
                         if not Elevateproject.getProgramInfo(accessToken, parentFolder, programNameInp.encode('utf-8').decode('utf-8')):
                             if dictDetailsEnv.get('Program ID'):
@@ -1199,7 +1286,8 @@ class Elevateproject:
                             entitiesPGMID = entitiesType[1]
                             print("entitiesPGMID915", entitiesPGMID)
                             # entitiesPGMID = Elevateproject.fetchEntityId(parentFolder, accessToken,entitiesPGM.lstrip().rstrip().split(","), scopeEntityType,entitiesPGM)
-                            entityHierarchy = Elevateproject.fetchEntityParentChilds(parentFolder, scopeEntityType, entitiesPGMID)
+                            entityHierarchy = entitiesType[2]
+                            # entityHierarchy = Elevateproject.fetchEntityParentChilds(parentFolder, scopeEntityType, entitiesPGMID)
 
                             # sys.exit()
                             # fetch sub-role details 
@@ -2337,6 +2425,10 @@ class Elevateproject:
                             scopeRoles = solutionDetails[0]
                             scopeSubRoles = solutionDetails[1]
                             verifiedRoles = Elevateproject.validate_roles_against_api(scopeRoles, scopeSubRoles)
+                            if not verifiedRoles:
+                                errorVar = "Roles validation failed!"
+                                print(errorVar)
+                                return False
                             mainRoleproff = verifiedRoles[0]
                             rolesPGMID = verifiedRoles[1]
                             print("mainRole", mainRoleproff)
@@ -3473,7 +3565,7 @@ class Elevateproject:
         if response.status_code != 200:
             messageArr.append("Error fetching roles.")
             print("Error fetching roles.")
-            return [], []
+            return False
 
         role_data = response.json()
         validated_main_role_ids = []
@@ -3505,12 +3597,15 @@ class Elevateproject:
                             print(f"Subrole '{sub_external_id}' validated under mainRole '{role}'")
                 else:
                     messageArr.append(f"Failed to fetch subroles for mainRole '{role}'")
+                    return False
             else:
                 messageArr.append(f"MainRole '{role}' not found in API")
+                return False
 
         for s in remaining_subroles:
             messageArr.append(f"Subrole '{s}' not found in any of the provided mainRoles.")
-
+            return False
+        
         for msg in messageArr:
             print(msg)
 
