@@ -3325,7 +3325,7 @@ class ElevateObservation:
                 print("Child solution : " + childObservationExternalId)
                 responseSol_prog_mapping = responseSol_prog_mapping.json()
                 child_id = responseSol_prog_mapping['result']['_id']                
-                ElevateObservation.observationChildId = child_id
+                # ElevateObservation.observationChildId = child_id
                 
                 solutionDetails = responseSol_prog_mapping['result']['projectTemplateDetails']
                 for sol in solutionDetails:
