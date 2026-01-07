@@ -2079,16 +2079,15 @@ class Elevateproject:
                 )
 
                 observationSolutionChildId = None
-                ObservationChildfrom = None
-
                 # Try getting the observation child ID
-                try:
-                    observationSolutionChildId = ElevateObs.ElevateObservation.observationChildId
-                    print("child id :", observationSolutionChildId)
-                except AttributeError:
-                    # Fallback if no observationChildId exists
-                    ObservationChildfrom = solutionDetailsInTask[2] if len(solutionDetailsInTask) > 2 else None
-                    print(ObservationChildfrom, "ObservationChild")
+                
+                # observationSolutionChildId = ElevateObs.ElevateObservation.observationChildId
+                observationSolutionChildId = Elevateproject.fetchObservationChildId(
+                    projectName_for_folder_path,
+                    accessToken,
+                    solutionNameOrId
+                )
+                print("child id :", observationSolutionChildId)
 
                 # Prepare body for update
                 bodysolutionUpdate = {
@@ -2097,7 +2096,7 @@ class Elevateproject:
                 }
 
                 # Use whichever ID exists
-                child_id_to_update = observationSolutionChildId or ObservationChildfrom
+                child_id_to_update = observationSolutionChildId
                 if child_id_to_update:
                     Elevateproject.ObservationsolutionUpdate(
                         projectName_for_folder_path,
@@ -2105,8 +2104,6 @@ class Elevateproject:
                         child_id_to_update,
                         bodysolutionUpdate
                     )
-
-
                 print("observation child solution deactivated")
                 solutionSubType = solutionDetailsInTask[0]
                 solutionId = solutionDetailsInTask[1]
@@ -2159,6 +2156,49 @@ class Elevateproject:
                 writer.writerows([task_values])
             #   subtaskname2 = str(dictTasksDetails["Subtask"]).encode('utf-8').decode('utf-8').strip()
 
+    def fetchObservationChildId(projectName_for_folder_path, accessToken, observationNameOrId):
+        dbfindapiurl = internal_kong_ip + dbfindapi_url
+        searchObservationpayload = {}
+        headerdbFindApi = {
+                'Authorization': authorization,
+                'X-auth-token': accessToken,
+                'X-Channel-id': x_channel_id,
+                'internal-access-token': internal_access_token,
+                'Content-Type': content_type,
+                'tenantId': tenantIDFromTemplate,
+                'orgId' : orgIDFromTemplate,
+                adminTokenHeaderName: projAdminAccessToken
+        }
+        searchObservationpayload = json.dumps({
+            "query": {
+                "name": observationNameOrId,
+                "isReusable" : False
+            }
+        })
+        print(searchObservationpayload,"searchObservationpayload")
+        print(dbfindapiurl,"dbfindapiurl")
+        searchObservationresponse = requests.request("POST", url=dbfindapiurl, headers=headerdbFindApi,
+                                                data=searchObservationpayload)
+        print(searchObservationresponse.text,"searchObservationresponse")
+        if searchObservationresponse.status_code == 200:
+            searchObservationjson = searchObservationresponse.json()
+            results = searchObservationjson.get("result", [])
+            print(len(results), "2188")
+            for observation in results:
+                observation_id = observation["_id"]
+
+                if observation.get("_id"):
+                    messageArr = [f"Observation found : {observationNameOrId} ,'-', {observation_id}"]
+                    Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
+                    print("searchObservationApi Success")
+                    return observation_id
+                else:
+                    messageArr = [f"Task observation solution not found : {observationNameOrId}"]
+                    Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
+                    print("searchObservationApi Failed")
+                    return False
+                
+            
     def projectUpload(projectFile, projectName_for_folder_path, accessToken):
         try:
             global errorVar
