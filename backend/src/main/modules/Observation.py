@@ -68,7 +68,7 @@ class CreateObservation:
             writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
             writer.writerow(messageArr)
 
-    def FetchTempExternalID(self, parentFolder, accessToken, solutionName, programdetails):
+    def FetchTempExternalID(self, parentFolder, accessToken, solutionName, programdetails, userRole):
         try:
             urldbFindPT = elevateprojecthost + dbfindapi_projectTemplate
             headers = apiHeader.headers().headerFetchEntitytype(accessToken)
@@ -123,7 +123,7 @@ class CreateObservation:
                 return False
             
             urldbFindPT = elevateprojecthost + solutionupdateapi + projectSolutionID
-            headerUpdateSolutionApi = apiHeader.headers().headersObservationsolutionUpdate(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken)
+            headerUpdateSolutionApi = apiHeader.headers().headersObservationsolutionUpdate(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
             
             searchSolutionpayloadPT = {
                 "status": "inactive",
@@ -208,7 +208,7 @@ class CreateObservation:
                             solutionName = str(dictImp.get(colname, "") or "").strip()
                             print(solutionName,"solutionName")
                             if solutionName!= "":
-                                ProjectTempExternalID = self.FetchTempExternalID(parentFolder, accessToken, solutionName, programdetails)
+                                ProjectTempExternalID = self.FetchTempExternalID(parentFolder, accessToken, solutionName, programdetails, userRole)
                                 if not ProjectTempExternalID:
                                     return False
                             else:
@@ -226,7 +226,7 @@ class CreateObservation:
                         for levls in range(1, countImps + 1):
                             colname = f"L{levls}-improvement-projects"
                             solutionName = str(dictImp.get(colname, "") or "").strip()
-                            ProjectTempExternalID = self.FetchTempExternalID(parentFolder, accessToken, solutionName, programdetails)
+                            ProjectTempExternalID = self.FetchTempExternalID(parentFolder, accessToken, solutionName, programdetails, userRole)
                             if not ProjectTempExternalID:
                                 return False
                             criteriaImpDict[crit_key][colname] = ProjectTempExternalID
@@ -1694,7 +1694,7 @@ class CreateObservation:
                 if not solutionDetails:
                     self.errorVar.append("Fetch solution details API Failed.")
                     return finalObsRubricSolutionLink, self.errorVar
-                self.solutionUpdate(parentFolder, accessToken, solutionId, {"status": "inactive", "isDeleted": True}, programdetails, userRole)
+                self.solutionUpdate(parentFolder, accessToken, childId[0], {"status": "inactive", "isDeleted": True}, programdetails, userRole)
                 scopeRoles = solutionDetails[0]
                 scopeSubRoles = solutionDetails[1]
                 # ✅ Fix: ensure roles are lists

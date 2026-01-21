@@ -72,7 +72,8 @@ class CreateProject():
         headerdbFindApi = apiHeader.headers().headerCheckEntityOfSolution(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
         searchSolutionpayload = json.dumps({
             "query": {
-                "name": solutionNameOrId
+                "name": solutionNameOrId,
+                "isReusable": True
             },
             "mongoIdKeys": [
                 "_id",
@@ -81,46 +82,60 @@ class CreateProject():
             ],
             "limit": 10000
         })
-        print(searchSolutionpayload,"searchSolutionpayload")
         searchSolutionresponse = requests.request("POST", url=urldbFind, headers=headerdbFindApi,
                                                 data=searchSolutionpayload)
         print(searchSolutionresponse.text,"searchSolutionresponse")
         if searchSolutionresponse.status_code == 200:
             searchSolutionjson = searchSolutionresponse.json()
             results = searchSolutionjson.get("result", [])
-            print(len(results), "1607")
+            print(results[-1].get("isReusable"))
+            solutionId_parent = results[-1].get("_id")
+            solutionEntityType = results[-1].get("entityType")
+            solutionExternalId = results[-1].get("externalId")
 
-            for solution in results:
-                solution_id = solution["_id"]
-                print(solution.get("isReusable"))
+            urldbFind = internal_kong_ip + dbfindapi_url
+            searchSolutionpayload = {}
+            headerdbFindApi = apiHeader.headers().headerCheckEntityOfSolution(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
+            searchSolutionpayload = json.dumps({
+                "query": {
+                    "name": solutionNameOrId,
+                    "isReusable": False
+                },
+                "mongoIdKeys": [
+                    "_id",
+                    "solutionId",
+                    "metaInformation.solutionId"
+                ],
+                "limit": 10000
+            })
+            print(searchSolutionpayload,"searchSolutionpayload")
+            searchSolutionresponse = requests.request("POST", url=urldbFind, headers=headerdbFindApi,
+                                                    data=searchSolutionpayload)
+            print(searchSolutionresponse.text,"searchSolutionresponse")
+            if searchSolutionresponse.status_code == 200:
+                searchSolutionjson = searchSolutionresponse.json()
+                results = searchSolutionjson.get("result", [])
+                print(results[-1].get("isReusable"))
+                solutionId_child = results[-1].get("_id")
+                return [solutionExternalId, solutionId_child, solutionEntityType]
 
-                if solution.get("isReusable") is True:
-                    messageArr = []
-                    messageArr = [f"URL : {urldbFind}", f"Status Code : {searchSolutionresponse.status_code}"]
-                    messageArr.append(f"Solution found : {solution_id}")
-                    self.createAPILog(projectName_for_folder_path, messageArr)
-                    print("searchSolutionApi Success")
-
-                    solutionEntityType = solution.get("entityType")
-                    solutionExternalId = solution.get("externalId")
-
-                    messageArr = [f"Task solution Entity Type found : {solutionEntityType}"]
-                    self.createAPILog(projectName_for_folder_path, messageArr)
-                    print("FetchSolutionDocApi Success")
-
-                    return [solutionEntityType, solutionExternalId]
-                else:
-                    print("No solution Found..")
-                    messageArr = ["No Solution found"]
-                    self.createAPILog(projectName_for_folder_path, messageArr)
-
+            else:
+                messageArr = [
+                    "No solution Found..",
+                    f"URL : {urldbFind}",
+                    f"Status Code : {searchSolutionresponse.status_code}"
+                    ]
+                self.createAPILog(projectName_for_folder_path, messageArr)
+                return False
         else:
             messageArr = [
-                "Solution fetch failed",
+                "No parent solution Found..",
                 f"URL : {urldbFind}",
                 f"Status Code : {searchSolutionresponse.status_code}"
                 ]
             self.createAPILog(projectName_for_folder_path, messageArr)
+            return False
+
 
     def ObservationsolutionUpdate(self, solutionName_for_folder_path, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole):
         solutionUpdateApiurl = internal_kong_ip + solutionupdateapi + str(solutionId)
@@ -305,10 +320,8 @@ class CreateProject():
                         parentFolder, solutionNameOrId, accessToken, programdetails, userRole
                     )
 
-                    observationSolutionChildId = None
-                    ObservationChildfrom = None
-
-                    ObservationChildfrom = solutionDetailsInTask[2] if len(solutionDetailsInTask) > 2 else None
+                    ObservationChildfrom = solutionDetailsInTask[1]
+                    # ObservationChildfrom = solutionDetailsInTask[2] if len(solutionDetailsInTask) > 2 else None
                     print(ObservationChildfrom, "ObservationChild")
 
                     # Prepare body for update
@@ -318,7 +331,7 @@ class CreateProject():
                     }
 
                     # Use whichever ID exists
-                    child_id_to_update = observationSolutionChildId or ObservationChildfrom
+                    child_id_to_update = ObservationChildfrom
                     if child_id_to_update:
                         self.ObservationsolutionUpdate(
                             parentFolder,
@@ -329,8 +342,8 @@ class CreateProject():
                             userRole
                         )
                     print("observation child solution deactivated")
-                    solutionSubType = solutionDetailsInTask[0]
-                    solutionId = solutionDetailsInTask[1]
+                    solutionSubType = solutionDetailsInTask[2]
+                    solutionId = solutionDetailsInTask[0]
 
                     taskSolutionType = dictTasksDetails["solutionType"]
                 else:
