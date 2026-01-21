@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 from pathlib import Path
 from backend.src.main.modules.common_config import *
 from difflib import get_close_matches
+import backend.src.main.modules.headers as apiHeader
+
 env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" / ".env"
 
 # Load the .env file
@@ -33,7 +35,6 @@ class CreateProject():
         self.errorVar = []
     
     def createAPILog(self, solutionName_for_folder_path, messageArr):
-        print(solutionName_for_folder_path, "solutionName_for_folder_path")
         file_exists = os.path.join(solutionName_for_folder_path, 'apiHitLogs', 'apiLogs.txt')
         os.makedirs(os.path.dirname(file_exists), exist_ok=True)
         # Create file with header if it doesn't exist
@@ -65,19 +66,10 @@ class CreateProject():
             writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
             writer.writerow(messageArr)
 
-    def checkEntityOfSolution(self, projectName_for_folder_path, solutionNameOrId, accessToken, programdetails):
+    def checkEntityOfSolution(self, projectName_for_folder_path, solutionNameOrId, accessToken, programdetails, userRole):
         urldbFind = internal_kong_ip + dbfindapi_url
         searchSolutionpayload = {}
-        headerdbFindApi = {
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                'internal-access-token': internal_access_token,
-                'Content-Type': content_type,
-                'tenantId': programdetails.get('TenantID'),
-                'orgId' : programdetails.get('Org ID')
-                # adminTokenHeaderName: projAdminAccessToken
-            }
+        headerdbFindApi = apiHeader.headers().headerCheckEntityOfSolution(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
         searchSolutionpayload = json.dumps({
             "query": {
                 "name": solutionNameOrId
@@ -90,7 +82,6 @@ class CreateProject():
             "limit": 10000
         })
         print(searchSolutionpayload,"searchSolutionpayload")
-        print(urldbFind,"2163")
         searchSolutionresponse = requests.request("POST", url=urldbFind, headers=headerdbFindApi,
                                                 data=searchSolutionpayload)
         print(searchSolutionresponse.text,"searchSolutionresponse")
@@ -104,7 +95,9 @@ class CreateProject():
                 print(solution.get("isReusable"))
 
                 if solution.get("isReusable") is True:
-                    messageArr = [f"Solution found : {solution_id}"]
+                    messageArr = []
+                    messageArr = [f"URL : {urldbFind}", f"Status Code : {searchSolutionresponse.status_code}"]
+                    messageArr.append(f"Solution found : {solution_id}")
                     self.createAPILog(projectName_for_folder_path, messageArr)
                     print("searchSolutionApi Success")
 
@@ -125,22 +118,13 @@ class CreateProject():
             messageArr = [
                 "Solution fetch failed",
                 f"URL : {urldbFind}",
-                f"Status Code : {searchSolutionresponse.status_code}",
-                f"Response : {searchSolutionresponse.text}"
-            ]
+                f"Status Code : {searchSolutionresponse.status_code}"
+                ]
             self.createAPILog(projectName_for_folder_path, messageArr)
 
-    def ObservationsolutionUpdate(self, solutionName_for_folder_path, accessToken, solutionId, bodySolutionUpdate, programdetails):
+    def ObservationsolutionUpdate(self, solutionName_for_folder_path, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole):
         solutionUpdateApiurl = internal_kong_ip + solutionupdateapi + str(solutionId)
-        headerUpdateSolutionApi = {
-            'Content-Type': content_type,
-            'X-auth-token': accessToken,
-            'X-Channel-id': x_channel_id,
-            "internal-access-token": internal_access_token,
-            'tenantId': programdetails.get('TenantID'),
-            'orgId' : programdetails.get('Org ID')
-            # adminTokenHeaderName: projAdminAccessToken
-            }
+        headerUpdateSolutionApi = apiHeader.headers().headersObservationsolutionUpdate(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
         responseUpdateSolutionApi = requests.post(url=solutionUpdateApiurl, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
         messageArr = ["Solution Update API called.", "URL : " + str(solutionUpdateApiurl), "Body : " + str(bodySolutionUpdate),"Response : " + str(responseUpdateSolutionApi.text),"Status Code : " + str(responseUpdateSolutionApi.status_code)]
         self.createAPILog(solutionName_for_folder_path, messageArr)
@@ -151,7 +135,7 @@ class CreateProject():
             print("Solution Update Failed.")
             return False
 
-    def prepareProjectAndTasksSheets(self, wbObservation, parentFolder, accessToken, programdetails):
+    def prepareProjectAndTasksSheets(self, wbObservation, parentFolder, accessToken, programdetails, userRole):
         print("prepareProjectAndTasksSheets")
 
         millisecond = int(time.time() * 1000)
@@ -318,7 +302,7 @@ class CreateProject():
 
                     taskSolutionType = taskType
                     solutionDetailsInTask = self.checkEntityOfSolution(
-                        parentFolder, solutionNameOrId, accessToken, programdetails
+                        parentFolder, solutionNameOrId, accessToken, programdetails, userRole
                     )
 
                     observationSolutionChildId = None
@@ -341,7 +325,8 @@ class CreateProject():
                             accessToken,
                             child_id_to_update,
                             bodysolutionUpdate,
-                            programdetails
+                            programdetails,
+                            userRole
                         )
                     print("observation child solution deactivated")
                     solutionSubType = solutionDetailsInTask[0]
@@ -386,33 +371,29 @@ class CreateProject():
         else:
             return False
 
-    def projectUpload(self, parentFolder, accessToken, programdetails):
+    def projectUpload(self, parentFolder, accessToken, programdetails, userRole):
         try:
             urlProjectUploadApi = elevateprojecthost + projectuploadapi
-            headerProjectUploadApi = {
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                'internal-access-token': internal_access_token,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: projAdminAccessToken
-            }
+            print("Project Upload API URL:", urlProjectUploadApi)
+            headerProjectUploadApi = apiHeader.headers().headersprojectUpload(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
+            print("Project Upload API Headers:", headerProjectUploadApi)
             project_payload = {}
             filesProject = {
                 'projectTemplates': open(parentFolder + '/projectUpload/projectUpload.csv', 'rb')
             }
+            print(filesProject,"filesProject")
             responseProjectUploadApi = requests.post(url=urlProjectUploadApi, headers=headerProjectUploadApi,data=project_payload,files=filesProject)
-            print(responseProjectUploadApi.text,"responseProjectUploadApi")
+            print(responseProjectUploadApi,"responseProjectUploadApi")
             messageArr = ["program mapping is success.","File path : " + parentFolder + '/projectUpload/projectUpload.csv']
             messageArr.append("Upload status code : " + str(responseProjectUploadApi.status_code))
-            # Elevateproject.createAPILog(parentFolder, messageArr)
+            self.createAPILog(parentFolder, messageArr)
             if responseProjectUploadApi.status_code == 200:
                 print('ProjectUploadApi Success')
                 with open(parentFolder + '/projectUpload/projectInternal.csv','w+',encoding='utf-8') as projectRes:
                     projectRes.write(responseProjectUploadApi.text)
 
                     messageArr=["responnse :" ,responseProjectUploadApi.text ]
-                    # Elevateproject.createAPILog(parentFolder,messageArr)
+                    self.createAPILog(parentFolder,messageArr)
                     return True
             else:
                 if responseProjectUploadApi.status_code in [400, 401, 403, 404, 422]:
@@ -424,14 +405,14 @@ class CreateProject():
 
                 print(self.errorVar)
                 messageArr.append(f"Error Response: {responseProjectUploadApi.text}")
-                # Elevateproject.createAPILog(parentFolder, messageArr)
+                self.createAPILog(parentFolder, messageArr)
                 return False
         except Exception as e:
             self.errorVar.append(f"⚠️ Exception: {str(e)}")
-            # Elevateproject.createAPILog(projectName_for_folder_path, [f"Exception: {str(e)}"])
+            self.createAPILog(parentFolder, [f"Exception: {str(e)}"])
             return False
 
-    def taskUpload(self, parentFolder, accessToken, programdetails):
+    def taskUpload(self, parentFolder, accessToken, programdetails, userRole):
         try:
             projectInternalfile = open(parentFolder + '/projectUpload/projectInternal.csv', mode='r',encoding='utf-8')
             projectInternalfile = csv.DictReader(projectInternalfile)
@@ -440,24 +421,16 @@ class CreateProject():
                 project_id = projectInternal["_SYSTEM_ID"]
                 if str(project_id).strip() == "Could not pushed to kafka":
                     fetchProjectIdApi = elevateentityhost + fetchsolutiondetails
-                    headerfetchProjectIdApi = {
-                        'Authorization': authorization,
-                        'X-auth-token': accessToken,
-                        'X-Channel-id': x_channel_id,
-                        'internal-access-token': internal_access_token,
-                        'tenantId': programdetails.get('TenantID'),
-                        'orgid': programdetails.get('OrgForAPIs')
-                        # adminTokenHeaderName: projAdminAccessToken
-                    }
+                    headersFetchSolAPI =apiHeader.headers().headersFetchSol(accessToken, programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), userRole)
                     fetchProjectIdPayload = {}
 
-                    responseProjectListApi = requests.get(url=fetchProjectIdApi, headers=headerfetchProjectIdApi,
+                    responseProjectListApi = requests.get(url=fetchProjectIdApi, headers=headersFetchSolAPI,
                                                         data=fetchProjectIdPayload)
                     messageArr = ["Tasks Upload Sheet Prepared.",
                                 "File path : " + parentFolder + '/taskUpload/taskUpload.csv']
                     messageArr.append("URL : " + str(fetchProjectIdApi))
                     messageArr.append("Upload status code : " + str(responseProjectListApi.status_code))
-                    # Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
+                    self.createAPILog(parentFolder, messageArr)
 
                     if responseProjectListApi.status_code == 200:
                         print('project fetch api Success')
@@ -479,18 +452,11 @@ class CreateProject():
                         errorVar = error_message
                         print(error_message)
                         messageArr.append(f"Error Response: {error_message}")
-                        # Elevateproject.createAPILog(projectName_for_folder_path, messageArr) 
+                        self.createAPILog(parentFolder, messageArr) 
                         return False 
 
                 urlTasksUploadApi = elevateprojecthost + taskuploadapi + project_id
-                headerTasksUploadApi = {
-                    'X-auth-token': accessToken,
-                    'X-Channel-id': x_channel_id,
-                    'internal-access-token': internal_access_token,
-                    'tenantId': programdetails.get('TenantID'),
-                    'orgid': programdetails.get('OrgForAPIs')
-                    # adminTokenHeaderName: projAdminAccessToken
-                }
+                headerTasksUploadApi = apiHeader.headers().headersTaskUpload(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
                 task_payload = {}
                 filesTasks = {
                     'projectTemplateTasks': open(parentFolder + '/taskUpload/taskUpload.csv',
@@ -504,7 +470,7 @@ class CreateProject():
                             "File path : " + parentFolder + '/taskUpload/taskUpload.csv']
                 messageArr.append("URL : " + str(urlTasksUploadApi))
                 messageArr.append("Upload status code : " + str(responseTasksUploadApi.status_code))
-                # Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
+                self.createAPILog(parentFolder, messageArr)
                 if responseTasksUploadApi.status_code == 200:
                     print('TaskUploadApi Success')
                     with open(parentFolder + '/taskUpload/taskInternal.csv','w+',encoding='utf-8') as tasksRes:
@@ -519,39 +485,40 @@ class CreateProject():
                         self.errorVar.append(f"TasksUploadApi-Unexpected Error {responseTasksUploadApi.status_code}: {responseTasksUploadApi.text}")
 
                     messageArr.append(f"Error Response: {responseTasksUploadApi.text}")
-                    # Elevateproject.createAPILog(projectName_for_folder_path, messageArr)
+                    self.createAPILog(parentFolder, messageArr)
                     return False
         except Exception as e:
             self.errorVar.append(f"⚠️ Exception: {str(e)}")
-            # Elevateproject.createAPILog(projectName_for_folder_path, [f"Exception: {str(e)}"])
+            self.createAPILog(parentFolder, [f"Exception: {str(e)}"])
             return False
 
-    def fetchSolutionDetailsFromProgramSheet(self, parentFolder, solutionId, accessToken, programdetails, ProgramGlobalDict):
+    def fetchSolutionDetailsFromProgramSheet(self, parentFolder, solutionId, accessToken, programdetails, ProgramGlobalDict, userRole):
         try:
             print("fetching solution details...")
-            urlFetchSolutionApi = elevateprojecthost + fetchsolutiondoc + solutionId
-            headerFetchSolutionApi = {
-                'Content-Type': 'application/json',
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                'internal-access-token': internal_access_token,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: adminAccessToken
-            }
-            print(headerFetchSolutionApi)
-            payloadFetchSolutionApi = {}
-            responseFetchSolutionApiUrl = requests.get(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
+            urlFetchSolutionApi = elevateprojecthost + dbfindapi_url
+            print(urlFetchSolutionApi,"urlFetchSolutionApi")
+            headerFetchSolutionApi = apiHeader.headers().headerFetchSolutionDetailFromProgramSheetApi(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
+            print(headerFetchSolutionApi,"headerFetchSolutionApi")
+            payloadFetchSolutionApi = json.dumps({
+                    "query": {
+                        "_id": solutionId
+                    },
+                    "mongoIdKeys": [
+                        "_id","name", "externalId"
+                    ],
+                    "limit": 10000
+                })
+            responseFetchSolutionApiUrl = requests.post(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
                                                     data=payloadFetchSolutionApi)
+            print(responseFetchSolutionApiUrl.text,"responseFetchSolutionApiUrl")
             responseFetchSolutionJson = responseFetchSolutionApiUrl.json()
             messageArr = ["Solution Fetch Link.",
-                        "solution name : " + responseFetchSolutionJson["result"]["name"],
-                        "solution ExternalId : " + responseFetchSolutionJson["result"]["externalId"]]
-            messageArr.append("Upload status code : " + str(responseFetchSolutionApiUrl.status_code))
-            # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                        "solution name : " + responseFetchSolutionJson["result"][-1]["name"],
+                        "solution ExternalId : " + responseFetchSolutionJson["result"][-1]["externalId"],
+                        "Upload status code : " + str(responseFetchSolutionApiUrl.status_code)]
+            self.createAPILog(parentFolder, messageArr)
             if responseFetchSolutionApiUrl.status_code == 200:
-                solutionName = responseFetchSolutionJson["result"]["name"]
+                solutionName = responseFetchSolutionJson["result"][-1]["name"]
                 print(solutionName,"solutionName")
                 # xfile = openpyxl.load_workbook(programdetails)
                 # sheet_name = 'Resource Details'.strip()
@@ -571,23 +538,21 @@ class CreateProject():
                     self.errorVar.append(f"FetchSolutionApiUrl-Server Error {responseFetchSolutionApiUrl.status_code}: {responseFetchSolutionApiUrl.text}")
                 else:
                     self.errorVar.append(f"FetchSolutionApiUrl-Unexpected Error {responseFetchSolutionApiUrl.status_code}: {responseFetchSolutionApiUrl.text}")
+                messageArr = self.errorVar
+                self.createAPILog(parentFolder,messageArr)
                 return False
         except Exception as e:
             self.errorVar.append(f"Error occurred: {str(e)}")
+            messageArr = self.errorVar
+            self.createAPILog(parentFolder,messageArr)
             return False
     
     def validate_roles_against_api(self, mainRoles, subRoles, programdetails, parentFolder):
         urlFetchRoleList = userLoginHost + fetchprofessionalRole
-        headers = {
-            'Content-Type': content_type,
-            'tenantId': programdetails.get('TenantID'),
-            'X-Channel-id': x_channel_id,
-        }
+        headersvalidateRolesApi = apiHeader.headers().header_validate_roles_against_api(programdetails.get('TenantID'))
         payload = {}
 
-        response = requests.request("GET", urlFetchRoleList, headers=headers, data=payload)
-        # response = requests.get(urlFetchRoleList, headers=headers, data=json.dumps({}))
-
+        response = requests.request("GET", urlFetchRoleList, headers=headersvalidateRolesApi, data=payload)
         messageArr = []
         messageArr.append("Fetched professional roles from: " + urlFetchRoleList)
         messageArr.append("Status Code: " + str(response.status_code))
@@ -612,7 +577,7 @@ class CreateProject():
                 main_role_id = matched['_id']
                 validated_main_role_ids.append(main_role_id)
                 subrole_url = f"{userLoginHost}entity-management/v1/entities/subEntityList/{main_role_id}?type=professional_subroles"
-                subrole_resp = requests.request("GET",subrole_url, headers=headers,data=payload)
+                subrole_resp = requests.request("GET",subrole_url, headers=headersvalidateRolesApi,data=payload)
                 if subrole_resp.status_code == 200:
                     subroles_data = subrole_resp.json()
                     for item in subroles_data['result']['data']:
@@ -636,28 +601,22 @@ class CreateProject():
         for s in remaining_subroles:
             messageArr.append(f"Subrole '{s}' not found in any of the provided mainRoles.")
             self.errorVar.append(f"Subrole '{s}' not found in any of the provided mainRoles.")
-        # Programs.createAPILog(parentFolder, messageArr)
+        self.createAPILog(parentFolder, messageArr)
         for err in self.errorVar:
             print(err)
+        if self.errorVar:
+            return False
 
         return validated_main_role_ids, validated_subrole_ids_list   
     
-    def solutionUpdate(self, solutionName_for_folder_path, accessToken, solutionId, bodySolutionUpdate,programdetails):
+    def solutionUpdate(self, solutionName_for_folder_path, accessToken, solutionId, bodySolutionUpdate,programdetails,userRole):
         try:
             solutionUpdateApi = elevateprojecthost + solutionupdateapi + str(solutionId)
-            headerUpdateSolutionApi = {
-                'Content-Type': 'application/json',
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                "internal-access-token": internal_access_token,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: adminAccessToken
-                }
+            headerUpdateSolutionApi = apiHeader.headers().headerSolutionUpdateAPI(programdetails.get('TenantID'),programdetails.get('OrgForAPIs'),accessToken, userRole)
+             
             responseUpdateSolutionApi = requests.post(url=solutionUpdateApi, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
             messageArr = ["Solution Update API called.", "URL : " + str(solutionUpdateApi), "Body : " + str(bodySolutionUpdate),"Response : " + str(responseUpdateSolutionApi.text),"Status Code : " + str(responseUpdateSolutionApi.status_code)]
-            # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             if responseUpdateSolutionApi.status_code == 200:
                 print("Solution Update Success.")
                 return True
@@ -668,24 +627,25 @@ class CreateProject():
                     self.errorVar.append(f"UpdateSolutionApi-Server Error {responseUpdateSolutionApi.status_code}: {responseUpdateSolutionApi.text}")
                 else:
                     self.errorVar.append(f"UpdateSolutionApi-Unexpected Error {responseUpdateSolutionApi.status_code}: {responseUpdateSolutionApi.text}")
-                # ElevateObservation.createAPILog(solutionName_for_folder_path, errorVar)
+                self.createAPILog(solutionName_for_folder_path, self.errorVar)
                 return False
             
         except Exception as e:
             self.errorVar.append(f"Error occurred: {str(e)}")
+            messageArr = self.errorVar
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             return False
         
-    def fetchUserDetails(self, accessToken, projectServiceId):
+    def fetchUserDetails(self, parentFolder, accessToken, projectServiceId):
         try:
-            decoded_token = jwt.decode(accessToken, options={"verify_signature": False}, algorithms=["HS256"])
-            data=decoded_token.get('data')
-            user_id = data.get('id')  
+            # decoded_token = jwt.decode(accessToken, options={"verify_signature": False}, algorithms=["HS256"])
+            # data=decoded_token.get('data')
+            # user_id = data.get('id')  
             url = userLoginHost + userinfoapiurl
             messageArr = ["User search API called."]
-            headers = {#'Content-Type': 'application/json',
-                    'internal-access-token': internal_access_token,
-                    'X-auth-token': accessToken}
-            responseUserSearch = requests.request("GET", url, headers=headers)
+            headerfetchUserDetails = apiHeader.headers().headerfetchUserDetailsAPI(accessToken)
+            responseUserSearch = requests.request("GET", url, headers=headerfetchUserDetails)
+            messageArr.append(["Solution Update API called.", "URL : " + str(url),"Response : " + str(responseUserSearch.text),"Status Code : " + str(responseUserSearch.status_code)])
             if responseUserSearch.status_code == 200:
                 responseUserSearch = responseUserSearch.json()
                 if responseUserSearch['result']:
@@ -702,6 +662,8 @@ class CreateProject():
                     return [userKeycloak, userName, firstName,roledetails,rootOrgId]
                 else:
                     self.errorVar.append("-->Given username/email is not present in projectService platform<--.")
+                    messageArr.append(self.errorVar)
+                    self.createAPILog(parentFolder, messageArr)
                     return False
             else:
                 if responseUserSearch.status_code in [400, 401, 403, 404, 422]:
@@ -710,12 +672,16 @@ class CreateProject():
                     self.errorVar.append(f"FetchSolutionApiUrl-Server Error {responseUserSearch.status_code}: {responseUserSearch.text}")
                 else:
                     self.errorVar.append(f"FetchSolutionApiUrl-Unexpected Error {responseUserSearch.status_code}: {responseUserSearch.text}")
+                    messageArr.append(self.errorVar)
+                    self.createAPILog(parentFolder, messageArr)
                 return False
         except Exception as e:
             self.errorVar.append(f"Error occurred: {str(e)}")
+            messageArr.append(self.errorVar)
+            self.createAPILog(parentFolder,messageArr)
             return False
 
-    def solutionCreationAndMapping(self, parentFolder, wbObservation, listOfFoundRoles, accessToken, programFile, programdetails, ProgramGlobalDict):
+    def solutionCreationAndMapping(self, parentFolder, wbObservation, listOfFoundRoles, accessToken, programFile, programdetails, ProgramGlobalDict, userRole):
         try:
             print("solutionCreationAndMapping....")
             SolutionFilePath = parentFolder + '/solutionDetails/'
@@ -747,15 +713,7 @@ class CreateProject():
 
                 urlCreateProjectSolutionApi = elevateprojecthost + projectsolutioncreationapi
                 print(urlCreateProjectSolutionApi,"urlCreateProjectSolutionApi")
-                headerCreateSolutionApi = {
-                    'Content-Type': content_type,
-                    'X-auth-token': accessToken,
-                    "internal-access-token" : internal_access_token,
-                    'X-Channel-id': x_channel_id,
-                    'tenantId': programdetails.get('TenantID'),
-                    'orgid': programdetails.get('OrgForAPIs')
-                    # adminTokenHeaderName: projAdminAccessToken
-                }
+                headerCreateSolutionApi = apiHeader.headers().headerCreateSolutionApi(programdetails.get("TenantID"), programdetails.get('OrgForAPIs'), accessToken, userRole)
                 startdate = programdetails.get('Startdateofprogram')
                 d, m, y = startdate.split('-')
                 ProgramStartDate = f"{y}-{m}-{d} 00:00:00"
@@ -784,23 +742,15 @@ class CreateProject():
                 if responseCreateSolutionApi.status_code == 200:
                     responseCreateSolutionApi = responseCreateSolutionApi.json()
                     solutionId = responseCreateSolutionApi['result']['_id']
+                    self.solutionUpdate(parentFolder, accessToken, solutionId, {"status": "inactive", "isDeleted": True}, programdetails, userRole)
                     print(solutionId,"solutionId")
                     messageArr.append("Solution Generated : " + str(solutionId))
-                    # Elevateproject.createAPILog(parentFolder, messageArr)
+                    self.createAPILog(parentFolder, messageArr)
                     print("ProjectSolutionCreationApi Success")
                     duplicateTemplateExtId = projectExternalId + '_IMPORTED'
                     queryparamsMapProjectSolutionApi = projectExternalId + '?solutionId='+solutionId
                     urlMapProjectSolutionApi = elevateprojecthost + mapsolutiontoproject + queryparamsMapProjectSolutionApi
-                    headerMapSolutionProject = {
-                        'Content-Type': content_type,
-                        'Authorization': authorization,
-                        'internal-access-token' : internal_access_token,
-                        'X-auth-token': accessToken,
-                        'X-Channel-id': x_channel_id,
-                        'tenantId': programdetails.get('TenantID'),
-                        'orgid': programdetails.get('OrgForAPIs')
-                        # adminTokenHeaderName: projAdminAccessToken
-                    }
+                    headerMapSolutionProject = apiHeader.headers().headerMapSolutionProjectAPI(programdetails.get("TenantID"), programdetails.get('OrgForAPIs'), accessToken, userRole)
                     payloadMapSolutionProject = {
                         "externalId": duplicateTemplateExtId,
                         "rating": 5
@@ -816,7 +766,7 @@ class CreateProject():
                         responseMapProjectSolutionApi = responseMapProjectSolutionApi.json()
                         duplicateTemplateId = responseMapProjectSolutionApi['result']['_id']
                         messageArr.append("duplicate TemplateId successfully created: " + str(duplicateTemplateId))
-                        # Elevateproject.createAPILog(parentFolder, messageArr)
+                        self.createAPILog(parentFolder, messageArr)
                         print("MapSolutionToProjectApi Sucsess")
                         with open(parentFolder + '/solutionDetails/solutionDetails.csv', 'a',encoding='utf-8') as file:
                             writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',',lineterminator='\n')
@@ -825,7 +775,7 @@ class CreateProject():
                                             scopeEntityType, entityToUpload, listOfFoundRoles, duplicateTemplateExtId,
                                             duplicateTemplateId]])
                         solutionDetails = self.fetchSolutionDetailsFromProgramSheet(parentFolder,
-                                                                            solutionId, accessToken, programdetails, ProgramGlobalDict)
+                                                                            solutionId, accessToken, programdetails, ProgramGlobalDict, userRole)
                         print("solutionDetails---",solutionDetails)
                         if solutionDetails:
                             scopeRoles = solutionDetails[0]
@@ -835,6 +785,8 @@ class CreateProject():
                             if isinstance(scopeSubRoles, str):
                                 scopeSubRoles = [r.strip() for r in scopeSubRoles.split(',') if r.strip()]
                             verifiedRoles = self.validate_roles_against_api(scopeRoles, scopeSubRoles, programdetails, parentFolder)
+                            if not verifiedRoles:
+                                return False
                             mainRoleproff = verifiedRoles[0]
                             rolesPGMID = verifiedRoles[1]
                             print("mainRole", mainRoleproff)
@@ -849,46 +801,43 @@ class CreateProject():
                             bodySolutionUpdate = {
                             "scope": scope
                             }
-                            if self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails):
-                                projectAuthor = wbObservation.get('Username/user id/email id/phone no. of content creator')
-                                userDetails = self.fetchUserDetails(accessToken, projectAuthor)
-                                if userDetails:
-                                    matchedShikshalokamLoginId = userDetails[0]
-                                    projectCreator = userDetails[1]
-                                    bodySolutionUpdate = {
-                                        "creator": projectCreator, "author": matchedShikshalokamLoginId}
-                                    self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails)
-
-                                    if solutionDetails[2]:
-                                        startDateArr = str(solutionDetails[2]).split("-")
-                                        bodySolutionUpdate = {
-                                            "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
-                                        self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails)
-                                    if solutionDetails[3]:
-                                        endDateArr = str(solutionDetails[3]).split("-")
-                                        bodySolutionUpdate = {
-                                            "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                                        self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails)
-                                    else:
-                                        self.errorVar.append("Date mismatching!")
-                                        return False
-                                else:
-                                    return False
+                            if not self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole):
+                                return False
+                            projectuploadsheet = (wbObservation.get("Project upload"))
+                            projectAuthor = projectuploadsheet.get('Username/user id/email id/phone no. of content creator')
+                            print("projectAuthor",projectAuthor)
+                            userDetails = self.fetchUserDetails(parentFolder, accessToken, projectAuthor)
+                            if not userDetails:
+                                return False
+                            print("userDetails",userDetails)
+                            matchedShikshalokamLoginId = userDetails[0]
+                            projectCreator = userDetails[1]
+                            bodySolutionUpdate = {
+                                "creator": projectCreator, "author": matchedShikshalokamLoginId}
+                            self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole)
+                            if solutionDetails[2]:
+                                startDateArr = str(solutionDetails[2]).split("-")
+                                bodySolutionUpdate = {
+                                    "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
+                                self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole)
+                            if solutionDetails[3]:
+                                endDateArr = str(solutionDetails[3]).split("-")
+                                bodySolutionUpdate = {
+                                    "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
+                                self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole)
+                    
+                                return [solutionExternalId, solutionId]
                             else:
+                                self.errorVar.append("Date mismatching!")
                                 return False
                         else:
                             if responseMapProjectSolutionApi.status_code in [400, 401, 403, 404, 422]:
                                 self.errorVar.append(f"MapProjectSolutionApi-Client Error {responseMapProjectSolutionApi.status_code}: {responseMapProjectSolutionApi.text}")
-                            elif responseMapProjectSolutionApi.solutionDetailsstatus_code in [500, 502, 503, 504]:
+                            elif responseMapProjectSolutionApi.status_code in [500, 502, 503, 504]:
                                 self.errorVar.append(f"MapProjectSolutionApi-Server Error {responseMapProjectSolutionApi.status_code}: {responseMapProjectSolutionApi.text}")
                             else:
                                 self.errorVar.append(f"MapProjectSolutionApi-Unexpected Error {responseMapProjectSolutionApi.status_code}: {responseMapProjectSolutionApi.text}")
                             print("Map project to solution api failed.")
-                            return False
-                        if self.errorVar ==[]:
-                            print("its created......................")
-                            return [solutionExternalId, solutionId]
-                        else:
                             return False
                     else:
                         self.errorVar.append(str(responseCreateSolutionApi.text))
@@ -902,44 +851,38 @@ class CreateProject():
                         return False
         except Exception as e:
             self.errorVar.append(f"Error occurred: {str(e)}")
+            messageArr = self.errorVar
+            self.createAPILog(parentFolder, messageArr)
             return False
     
-    def prepareProgramSuccessSheet(self, MainFilePath, solutionName_for_folder_path, programFile, solutionExternalId, solutionId,accessToken, programdetails):
-        urlFetchSolutionApi = elevateprojecthost + fetchsolutiondoc + solutionId
-        headerFetchSolutionApi = {
-            'Authorization': authorization,
-            'X-auth-token': accessToken,
-            'X-Channel-id': x_channel_id,
-            'internal-access-token': internal_access_token,
-            'tenantId': programdetails.get('TenantID'),
-            'orgid': programdetails.get('OrgForAPIs')
-            # adminTokenHeaderName: projAdminAccessToken
-        }
-        payloadFetchSolutionApi = {}
+    def prepareProgramSuccessSheet(self, MainFilePath, solutionName_for_folder_path, programFile, solutionExternalId, solutionId,accessToken, programdetails, userRole):
+        urlFetchSolutionApi = elevateprojecthost + dbfindapi_url
+        headerFetchSolutionApi = apiHeader.headers().headerUrlFetchSolutionApi(programdetails.get('TenantID'),programdetails.get('OrgForAPIs'), accessToken, userRole)
+        payloadFetchSolutionApi = json.dumps({
+                    "query": {
+                        "_id": solutionId
+                    },
+                    "mongoIdKeys": [
+                        "_id","name", "externalId"
+                    ],
+                    "limit": 10000
+                })
 
-        responseFetchSolutionApi = requests.get(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
+        responseFetchSolutionApi = requests.post(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
                                                 data=payloadFetchSolutionApi)
         responseFetchSolutionJson = responseFetchSolutionApi.json()
         messageArr = ["Solution Fetch Link.",
-                    "solution name : " + responseFetchSolutionJson["result"]["name"],
-                    "solution ExternalId : " + responseFetchSolutionJson["result"]["externalId"]]
+                    "solution name : " + responseFetchSolutionJson["result"][-1]["name"],
+                    "solution ExternalId : " + responseFetchSolutionJson["result"][-1]["externalId"]]
         messageArr.append("Upload status code : " + str(responseFetchSolutionApi.status_code))
-        # Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
+        self.createAPILog(solutionName_for_folder_path, messageArr)
 
         if responseFetchSolutionApi.status_code == 200:
             print('Fetch solution Api Success')
-            solutionName = responseFetchSolutionJson["result"]["name"]
+            solutionName = responseFetchSolutionJson["result"][-1]["name"]
         urlFetchSolutionLinkApi = elevateprojecthost + fetchlink + solutionId
         print(urlFetchSolutionLinkApi,"urlFetchSolutionLinkApi")
-        headerFetchSolutionLinkApi = {
-            # 'Authorization': authorization,
-            'X-auth-token': accessToken,
-            # 'X-Channel-id': x_channel_id
-            'internal-access-token': internal_access_token,
-            'tenantId': programdetails.get('TenantID'),
-            'orgid': programdetails.get('OrgForAPIs')
-            #         adminTokenHeaderName: projAdminAccessToken
-        }
+        headerFetchSolutionLinkApi = apiHeader.headers().headerURLFetchSolutionLinkApi(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
         payloadFetchSolutionLinkApi = {}
 
         responseFetchSolutionLinkApi = requests.get(url=urlFetchSolutionLinkApi, headers=headerFetchSolutionLinkApi,
@@ -948,7 +891,7 @@ class CreateProject():
         print(responseFetchSolutionLinkApi.text, "responseFetchSolutionLinkApi")
         messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
         messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
-        # Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
+        self.createAPILog(solutionName_for_folder_path, messageArr)
         if responseFetchSolutionLinkApi.status_code == 200:
             print(responseFetchSolutionLinkApi.text,"responseFetchSolutionLinkApi")
             print('Fetch solution Link Api Success')
@@ -957,8 +900,7 @@ class CreateProject():
             solutionLink = ','.join(solutionLink)
             print(solutionLink,"solutionLink")
             messageArr.append("Response : " + str(responseFetchSolutionLinkApi.text))
-            # Elevateproject.createAPILog(solutionName_for_folder_path, messageArr)
-            # Ensure programFile is formatted correctly
+            self.createAPILog(solutionName_for_folder_path, messageArr)
             programFileBase = str(programFile).replace(".xlsx", "")
             success_file_path = os.path.join(MainFilePath, programFileBase + '-SuccessSheet.xlsx')
 
@@ -1015,9 +957,10 @@ class CreateProject():
             # Save the file
             xfile.save(success_file_path)
             print("Program success sheet is created")
+            self.solutionUpdate(solutionName_for_folder_path, accessToken, solutionId, {"status": "active", "isDeleted": False}, programdetails, userRole)
             return solutionLink
     
-    def fetchCertificateBaseTemplate(self, wbObservation, accessToken, parentFolder, programdetails):
+    def fetchCertificateBaseTemplate(self, wbObservation, accessToken, parentFolder, programdetails, userRole):
         try:
             # --- Get certificate details dict from wbObservation ---
             certificateDetails = wbObservation.get('Certificate details', {})
@@ -1036,16 +979,7 @@ class CreateProject():
 
             # --- Call DBFind API to get base templates ---
             urldbFind = elevateprojecthost + dbfindapi
-            headerdbFindApi = {
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                'internal-access-token': internal_access_token,
-                'Content-Type': content_type,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: projAdminAccessToken
-            }
+            headerdbFindApi = apiHeader.headers().headerSolutionUpdateAPI(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
 
             payload = json.dumps({
                 "query": {'tenantId': programdetails.get('TenantID')},
@@ -1055,7 +989,8 @@ class CreateProject():
             print(urldbFind, "2163")
             responsedbFindApi = requests.request("POST", url=urldbFind, headers=headerdbFindApi, data=payload)
             print(responsedbFindApi.text, "responsedbFindApi 2166")
-
+            messageArr = ["DBFind API called.", "URL : " + str(urldbFind), "Body : " + str(payload), "Status Code : " + str(responsedbFindApi.status_code)]
+            self.createAPILog(parentFolder, messageArr)
             if responsedbFindApi.status_code == 200:
                 responseaddcetificate = responsedbFindApi.json()
                 result_list = responseaddcetificate.get('result', [])
@@ -1070,7 +1005,8 @@ class CreateProject():
                 if not baseTemplateId:
                     self.errorVar.append(f"Base template code '{baseTemplateCode}' not found in DBFind API result.")
                     return False
-
+                messageArr = [f"Base template ID '{baseTemplateId}' found for certificate type '{typeOfCertificate}'."]
+                self.createAPILog(parentFolder, messageArr)
                 return baseTemplateId
 
             else:
@@ -1082,7 +1018,7 @@ class CreateProject():
                     self.errorVar.append(f"dbFindApi-Unexpected Error {responsedbFindApi.status_code}: {responsedbFindApi.text}")
 
                 messageArr = f"Error Response: {responsedbFindApi.text}"
-                # Elevateproject.createAPILog(parentFolder, messageArr)
+                self.createAPILog(parentFolder, messageArr)
                 print("---> Error in fetching DBFind data; please give proper code value <---")
                 return False
 
@@ -1161,7 +1097,7 @@ class CreateProject():
             self.errorVar.append(f"Error occurred while downloading logos/signatures: {str(e)}")
             return False
     
-    def editsvg(self, accessToken, wbObservation, parentFolder, baseTemplate_id, programdetails):
+    def editsvg(self, accessToken, wbObservation, parentFolder, baseTemplate_id, programdetails, userRole):
         try:
             certificateDetails = wbObservation.get('Certificate details', {})
             # --- Read values from dictionary safely ---
@@ -1239,22 +1175,14 @@ class CreateProject():
 
             # --- API call setup ---
             urleditnigsvgApi = f"{elevateprojecthost}{editsvgtemp}{baseTemplateId}"
-            headereditingsvgApi = {
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                'internal-access-token': internal_access_token,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: projAdminAccessToken
-            }
-
+            headereditingsvgApi = apiHeader.headers().headereditingsvgApi(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
             print(urleditnigsvgApi, "urleditnigsvgApi")
             print(headereditingsvgApi, "headereditingsvgApi")
 
             responseeditsvg = requests.post(url=urleditnigsvgApi, headers=headereditingsvgApi, data=payload, files=downloadedfiles)
             print(responseeditsvg.text, "responseeditsvg")
-
+            messageArr = ["editsvg API called.", "URL : " + str(urleditnigsvgApi), "Payload : " + str(payload), "Response : " + str(responseeditsvg.text), "Status Code : " + str(responseeditsvg.status_code)]
+            self.createAPILog(parentFolder, messageArr)
             # --- Handle response ---
             if responseeditsvg.status_code == 200:
                 result = responseeditsvg.json()
@@ -1268,13 +1196,17 @@ class CreateProject():
                 return True
             else:
                 self.errorVar.append(f"editsvg Error {responseeditsvg.status_code}: {responseeditsvg.text}")
+                messageArr = f"Error Response: {responseeditsvg.text}"
+                self.createAPILog(parentFolder, messageArr)
                 return False
 
         except Exception as e:
             self.errorVar.append(f"Error occurred: {str(e)}")
+            messageArr = f"Error occurred: {str(e)}"
+            self.createAPILog(parentFolder, messageArr)
             return False
 
-    def prepareaddingcertificatetemp(self, wbObservation, parentFolder, accessToken, solutionId,baseTemplate_id, programdetails):
+    def prepareaddingcertificatetemp(self, wbObservation, parentFolder, accessToken, solutionId,baseTemplate_id, programdetails, userRole):
         try:
             tasksLevelEvidance = []
             projectMinNooEvide = None
@@ -1314,16 +1246,7 @@ class CreateProject():
                 os.mkdir(addcetificateFilePath)
 
             urladdcertificate = elevateprojecthost + addcertificatetemplate
-            headeraddcertificateApi = {
-                #'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                'internal-access-token': internal_access_token,
-                'Content-Type': content_type,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: projAdminAccessToken
-            }
+            headeraddcertificateApi = apiHeader.headers().headeraddcertificateApi(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
 
             if str(projectLevelEvidance).strip().lower() == "yes":
                 payload = {}
@@ -1532,31 +1455,20 @@ class CreateProject():
                     tasksRes.write(responseaddcertificateUploadApi.text)
 
             else:
-                error_message = ""
                 if responseaddcertificateUploadApi.status_code in [400, 401, 403, 404, 422]:
-                    error_message = f"addcertificateUploadApi-Client Error {responseaddcertificateUploadApi.status_code}: {responseaddcertificateUploadApi.text}"
+                    self.errorVar(f"addcertificateUploadApi-Client Error {responseaddcertificateUploadApi.status_code}: {responseaddcertificateUploadApi.text}")
                 elif responseaddcertificateUploadApi.status_code in [500, 502, 503, 504]:
-                    error_message = f"addcertificateUploadApi-Server Error {responseaddcertificateUploadApi.status_code}: {responseaddcertificateUploadApi.text}"
+                    self.errorVar(f"addcertificateUploadApi-Server Error {responseaddcertificateUploadApi.status_code}: {responseaddcertificateUploadApi.text}")
                 else:
-                    error_message = f"addcertificateUploadApi-Unexpected Error {responseaddcertificateUploadApi.status_code}: {responseaddcertificateUploadApi.text}"
-                errorVar = error_message
-                print(error_message)
+                    self.errorVar(f"addcertificateUploadApi-Unexpected Error {responseaddcertificateUploadApi.status_code}: {responseaddcertificateUploadApi.text}")
+                print(self.errorVar)
                 print("Add certificate mission failed please check logs")
-                messageArr.append("Response : " + str(responseaddcertificateUploadApi.text))
+                messageArr.append("Error Response : " + str(responseaddcertificateUploadApi.text))
                 self.createAPILog(parentFolder, messageArr)
                 return False
 
             urluploadcertificatepi = elevateprojecthost + uploadcertificatetosvg + certificatetemplateid
-
-            headeruploadcertificateApi = {
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                'internal-access-token': internal_access_token,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: projAdminAccessToken
-            }
+            headeruploadcertificateApi = apiHeader.headers().headeruploadcertificateApi(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
             task_payload = {}
             task_file = []
             certificateaddtotemplate = ('file', ( 'Dowloaded.svg',open(parentFolder + '/DownloadedSVG/Downloaded.svg', 'rb'), 'image/svg+xml'))
@@ -1564,24 +1476,18 @@ class CreateProject():
 
 
             responseDownloadsvgApi = requests.request("POST",url=urluploadcertificatepi, headers=headeruploadcertificateApi,
-                                                data=task_payload,
-                                                files=task_file)
+                                                data=task_payload, files=task_file)
+            messageArr = ["Upload certificate to svg API called.",
+                        "URL : " + str(urluploadcertificatepi),
+                        "Response : " + str(responseDownloadsvgApi.text),
+                        "Status Code : " + str(responseDownloadsvgApi.status_code)]
+            self.createAPILog(parentFolder, messageArr)
             if responseDownloadsvgApi.status_code == 200:
                 responseeditsvg = responseDownloadsvgApi.json()
                 svgid = responseeditsvg['result']['data']['templateId']
 
                 urlsolutionupdateapi = elevateprojecthost + solutionupdateapi + solutionId
-
-                headersolutionupdateApi = {
-                    'Authorization': authorization,
-                    'X-auth-token': accessToken,
-                    'X-Channel-id': x_channel_id,
-                    'internal-access-token': internal_access_token,
-                    'Content-Type': content_type,
-                    'tenantId': programdetails.get('TenantID'),
-                    'orgid': programdetails.get('OrgForAPIs')
-                    # adminTokenHeaderName: projAdminAccessToken
-                }
+                headersolutionupdateApi = apiHeader.headers().headerSolutionUpdateAPI(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
 
                 certificate_payload = json.dumps({
                     'certificateTemplateId':certificatetemplateid
@@ -1590,37 +1496,30 @@ class CreateProject():
                                                         headers=headersolutionupdateApi,
                                                         data=certificate_payload)
 
-
+                messageArr = ["Update solution API called.",
+                            "URL : " + str(urlsolutionupdateapi),
+                            "Response : " + str(responseupdatecertificateApi.text),
+                            "Status Code : " + str(responseupdatecertificateApi.status_code)]
                 if responseupdatecertificateApi.status_code == 200:
                     print("--->certificate added to the solution<---")
+                    messageArr.append("--->certificate added to the solution<---")
+                    self.createAPILog(parentFolder, messageArr)
 
                 else:
-                    error_message = ""
                     if responseupdatecertificateApi.status_code in [400, 401, 403, 404, 422]:
-                        error_message = f"updatecertificateApi-Client Error {responseupdatecertificateApi.status_code}: {responseupdatecertificateApi.text}"
+                        self.errorVar.append(f"updatecertificateApi-Client Error {responseupdatecertificateApi.status_code}: {responseupdatecertificateApi.text}")
                     elif responseupdatecertificateApi.status_code in [500, 502, 503, 504]:
-                        error_message = f"updatecertificateApi-Server Error {responseupdatecertificateApi.status_code}: {responseupdatecertificateApi.text}"
+                        self.errorVar.append(f"updatecertificateApi-Server Error {responseupdatecertificateApi.status_code}: {responseupdatecertificateApi.text}")
                     else:
-                        error_message = f"updatecertificateApi-Unexpected Error {responseupdatecertificateApi.status_code}: {responseupdatecertificateApi.text}"
-
-                    errorVar = error_message
-                    print(error_message)
+                        self.errorVar.append(f"updatecertificateApi-Unexpected Error {responseupdatecertificateApi.status_code}: {responseupdatecertificateApi.text}")
+                    print(self.errorVar)
                     print("error in updating solution")
-                    messageArr.append(f"Error Response: {error_message}")
+                    messageArr.append(f"Error Response: {self.errorVar[-1]}")
                     self.createAPILog(parentFolder, messageArr)
                     return False
 
                 urlprojecttemplateapi = elevateprojecthost + updateprojecttemplate + projectTemplateId
-                headerprojectrtemplateupdateApi = {
-                    'Authorization': authorization,
-                    'X-auth-token': accessToken,
-                    'X-Channel-id': x_channel_id,
-                    'internal-access-token': internal_access_token,
-                    'Content-Type': content_type,
-                    'tenantId': programdetails.get('TenantID'),
-                    'orgid': programdetails.get('OrgForAPIs')
-                    # adminTokenHeaderName: projAdminAccessToken
-                }
+                headerprojectrtemplateupdateApi = apiHeader.headers().headerProjectTemplateUpdateAPI(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
 
                 certificate_payload = json.dumps({
                     'certificateTemplateId': certificatetemplateid
@@ -1628,8 +1527,14 @@ class CreateProject():
                 responseupdatecertificateApi = requests.request("POST", url=urlprojecttemplateapi,
                                                                 headers=headerprojectrtemplateupdateApi,
                                                                 data=certificate_payload)
+                messageArr = ["Update project template API called.",
+                            "URL : " + str(urlprojecttemplateapi),
+                            "Response : " + str(responseupdatecertificateApi.text),
+                            "Status Code : " + str(responseupdatecertificateApi.status_code)]
                 if responseupdatecertificateApi.status_code == 200:
                     print("--->Certificate added to project<---")
+                    messageArr.append("--->Certificate added to project<---")
+                    self.createAPILog(parentFolder, messageArr)
                     return True
                 else:
                     if responseupdatecertificateApi.status_code in [400, 401, 403, 404, 422]:
@@ -1639,26 +1544,27 @@ class CreateProject():
                     else:
                         self.errorVar.append(f"TasksUploadApi-Unexpected Error {responseupdatecertificateApi.status_code}: {responseupdatecertificateApi.text}")
                     print("error in updating certificate with project")
+                    messageArr.append(f"Error Response: {self.errorVar[-1]}")
+                    self.createAPILog(parentFolder, messageArr)
                     return False
             else:
-                error_message = ""
                 if responseDownloadsvgApi.status_code in [400, 401, 403, 404, 422]:
-                    error_message = f"DownloadsvgApi-Client Error {responseDownloadsvgApi.status_code}: {responseDownloadsvgApi.text}"
+                    self.errorVar.append(f"DownloadsvgApi-Client Error {responseDownloadsvgApi.status_code}: {responseDownloadsvgApi.text}")
                 elif responseDownloadsvgApi.status_code in [500, 502, 503, 504]:
-                    error_message = f"DownloadsvgApi-Server Error {responseDownloadsvgApi.status_code}: {responseDownloadsvgApi.text}"
+                    self.errorVar.append(f"DownloadsvgApi-Server Error {responseDownloadsvgApi.status_code}: {responseDownloadsvgApi.text}")
                 else:
-                    error_message = f"DownloadsvgApi-Unexpected Error {responseDownloadsvgApi.status_code}: {responseDownloadsvgApi.text}"
-                self.errorVar.append(error_message)
-                print(error_message)
-                messageArr.append(f"Error Response: {error_message}")
+                    self.errorVar.append(f"DownloadsvgApi-Unexpected Error {responseDownloadsvgApi.status_code}: {responseDownloadsvgApi.text}")
+                messageArr.append(f"Error Response: {self.errorVar[-1]}")
                 self.createAPILog(parentFolder, messageArr)
                 print("error in updating certificate with project")
                 return False
         except Exception as e:
             self.errorVar.append(f"Error occurred: {str(e)}")
+            messageArr = f"Error occurred: {str(e)}"
+            self.createAPILog(parentFolder, messageArr)
             return False
 
-    def CreateProject(self, resource, parentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile):
+    def CreateProject(self, resource, parentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile, userRole):
         if resource.get('typeofSolution') == 4:
             print("Creating Project Solution...")
             print(resource)
@@ -1667,27 +1573,27 @@ class CreateProject():
             print(wbObservation)
             projectUpload = wbObservation.get('Project upload')
             if (projectUpload.get('has certificate')).lower() == 'no':
-                if not self.prepareProjectAndTasksSheets(wbObservation, parentFolder, accessToken, programdetails):
+                if not self.prepareProjectAndTasksSheets(wbObservation, parentFolder, accessToken, programdetails, userRole):
                     self.errorVar.append('Unable to prepare Project And Tasks Upload Sheets')
                     return projectSolutionlink, self.errorVar
                 print("Prepared project and task upload sheet success...")
-                if not self.projectUpload(parentFolder, accessToken, programdetails):
+                if not self.projectUpload(parentFolder, accessToken, programdetails, userRole):
                     self.errorVar.append('Project Upload Failed...')
                     return projectSolutionlink, self.errorVar
                 print("projectUpload")
-                if not self.taskUpload(parentFolder, accessToken, programdetails):
+                if not self.taskUpload(parentFolder, accessToken, programdetails, userRole):
                     self.errorVar.append('Task Upload Failed...')
                     return projectSolutionlink, self.errorVar
                 print("Task Upload Success...")
                 
                 listOfFoundRoles = []
-                ProjectSolutionResp = self.solutionCreationAndMapping(parentFolder, wbObservation, listOfFoundRoles, accessToken,programFile, programdetails, ProgramGlobalDict)
+                ProjectSolutionResp = self.solutionCreationAndMapping(parentFolder, wbObservation, listOfFoundRoles, accessToken,programFile, programdetails, ProgramGlobalDict, userRole)
                 if not ProjectSolutionResp:
                     self.errorVar.append('Solution creation and mapping Failed...')
                     return projectSolutionlink, self.errorVar
                 ProjectSolutionExternalId = ProjectSolutionResp[0]
                 ProjectSolutionId = ProjectSolutionResp[1]
-                projectSolutionlink = self.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, ProjectSolutionExternalId, ProjectSolutionId, accessToken, programdetails)
+                projectSolutionlink = self.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, ProjectSolutionExternalId, ProjectSolutionId, accessToken, programdetails, userRole)
                 if not projectSolutionlink:
                     self.errorVar.append('Fetching DeepLink Failed...')
                     return projectSolutionlink, self.errorVar
@@ -1696,7 +1602,7 @@ class CreateProject():
                     return projectSolutionlink, self.errorVar
             else:
                 print("---->this is certificate with project<---")
-                baseTemplate_id=self.fetchCertificateBaseTemplate(wbObservation,accessToken,parentFolder, programdetails)
+                baseTemplate_id=self.fetchCertificateBaseTemplate(wbObservation,accessToken,parentFolder, programdetails, userRole)
                 if not baseTemplate_id:
                     self.errorVar.append('Unable to fetch Certificate Base Template...')
                     return projectSolutionlink, self.errorVar
@@ -1705,36 +1611,36 @@ class CreateProject():
                     self.errorVar.append('Unable to download logo and sign...')
                     return projectSolutionlink, self.errorVar
                 print("Successfully downloaded logos and signs...")
-                if not self.editsvg(accessToken,wbObservation,parentFolder,baseTemplate_id, programdetails):
+                if not self.editsvg(accessToken,wbObservation,parentFolder,baseTemplate_id, programdetails, userRole):
                     self.errorVar.append('Unable to edit svg...')
                     return projectSolutionlink, self.errorVar
                 print("Successfully Edited SVGs...")
-                if not self.prepareProjectAndTasksSheets(wbObservation, parentFolder, accessToken, programdetails):
+                if not self.prepareProjectAndTasksSheets(wbObservation, parentFolder, accessToken, programdetails, userRole):
                     self.errorVar.append('Unable to prepare Project And Tasks Upload Sheets')
                     return projectSolutionlink, self.errorVar
                 print("Prepared project and task upload sheet success...")
-                if not self.projectUpload(parentFolder, accessToken, programdetails):
+                if not self.projectUpload(parentFolder, accessToken, programdetails, userRole):
                     self.errorVar.append('Project Upload Failed...')
                     return projectSolutionlink, self.errorVar
                 print("projectUpload")
-                if not self.taskUpload(parentFolder, accessToken, programdetails):
+                if not self.taskUpload(parentFolder, accessToken, programdetails, userRole):
                     self.errorVar.append('Task Upload Failed...')
                     return projectSolutionlink, self.errorVar
                 print("Task Upload Success...")
                 
                 listOfFoundRoles = []
-                ProjectSolutionResp = self.solutionCreationAndMapping(parentFolder, wbObservation, listOfFoundRoles, accessToken,programFile, programdetails, ProgramGlobalDict)
+                ProjectSolutionResp = self.solutionCreationAndMapping(parentFolder, wbObservation, listOfFoundRoles, accessToken,programFile, programdetails, ProgramGlobalDict, userRole)
                 if not ProjectSolutionResp:
                     self.errorVar.append('Solution creation and mapping Failed...')
                     return projectSolutionlink, self.errorVar
                 ProjectSolutionExternalId = ProjectSolutionResp[0]
                 ProjectSolutionId = ProjectSolutionResp[1]
-                certificatetemplateid= self.prepareaddingcertificatetemp(wbObservation,parentFolder, accessToken,ProjectSolutionId,baseTemplate_id,programdetails)
+                certificatetemplateid= self.prepareaddingcertificatetemp(wbObservation,parentFolder, accessToken,ProjectSolutionId,baseTemplate_id,programdetails, userRole)
                 if not certificatetemplateid:
                     self.errorVar.append('prepare adding certificate temp failed...')
                     return projectSolutionlink, self.errorVar
                 print("certificate added...")
-                projectSolutionlink = self.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, ProjectSolutionExternalId, ProjectSolutionId, accessToken, programdetails)
+                projectSolutionlink = self.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, ProjectSolutionExternalId, ProjectSolutionId, accessToken, programdetails, userRole)
                 print(projectSolutionlink,"projectSolutionlink")
                 if not projectSolutionlink:
                     self.errorVar.append('Fetching DeepLink Failed...')

@@ -6,6 +6,7 @@ from openpyxl.styles import Color, PatternFill
 from datetime import datetime
 from bson import ObjectId
 import pandas as pd
+import backend.src.main.modules.headers as apiHeader
 
 
 env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" / ".env"
@@ -36,7 +37,6 @@ class CreateObservation:
         self.errorVar = []
 
     def createAPILog(self, solutionName_for_folder_path, messageArr):
-        print(solutionName_for_folder_path, "solutionName_for_folder_path")
         file_exists = os.path.join(solutionName_for_folder_path, 'apiHitLogs', 'apiLogs.txt')
         os.makedirs(os.path.dirname(file_exists), exist_ok=True)
         # Create file with header if it doesn't exist
@@ -71,10 +71,7 @@ class CreateObservation:
     def FetchTempExternalID(self, parentFolder, accessToken, solutionName, programdetails):
         try:
             urldbFindPT = elevateprojecthost + dbfindapi_projectTemplate
-            headers = {
-                'X-auth-token': accessToken,
-                'Content-Type': content_type
-            }
+            headers = apiHeader.headers().headerFetchEntitytype(accessToken)
             searchSolutionpayloadPT = {
                 "query": {
                     "title": solutionName,
@@ -88,7 +85,7 @@ class CreateObservation:
 
             if responsePT.status_code != 200:
                 self.errorVar.append(f"DBFindPT-Error {responsePT.status_code}: {responsePT.text}")
-                # parentFolder.createAPILog(solutionName_for_folder_path, responsePT.text)
+                self.createAPILog(parentFolder, responsePT.text)
                 print("Unable to fetch Project Template External ID.")
                 return False
 
@@ -100,10 +97,7 @@ class CreateObservation:
             ProjectTempExternalID = resultsPT[0].get("externalId")
             print(ProjectTempExternalID,"ProjectTempExternalID")
             urldbFind = elevateprojecthost + dbfindapi_url
-            headers = {
-                'X-auth-token': accessToken,
-                'Content-Type': content_type
-            }
+            headers = apiHeader.headers().headerFetchEntitytype(accessToken)
             searchSolutionpayload = {
                 "query": {"name": solutionName},
                 "projection": ["status", "name"],
@@ -114,7 +108,7 @@ class CreateObservation:
 
             if response.status_code != 200:
                 self.errorVar.append(f"DBFind-Error {response.status_code}: {response.text}")
-                # parentFolder.createAPILog(solutionName_for_folder_path, response.text)
+                self.createAPILog(parentFolder, response.text)
                 print("Unable to fetch Solution...")
                 return False
 
@@ -129,15 +123,8 @@ class CreateObservation:
                 return False
             
             urldbFindPT = elevateprojecthost + solutionupdateapi + projectSolutionID
-            headerUpdateSolutionApi = {
-                'Content-Type': content_type,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                "internal-access-token": internal_access_token,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: projAdminAccessToken
-            } 
+            headerUpdateSolutionApi = apiHeader.headers().headersObservationsolutionUpdate(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken)
+            
             searchSolutionpayloadPT = {
                 "status": "inactive",
                 "isDeleted": False
@@ -159,7 +146,7 @@ class CreateObservation:
             self.errorVar.append(f"Exception in FetchTempExternalID: {str(e)}")
             return False
         
-    def criteriaUpload(self, parentFolder, wbObservation, millisAddObs, accessToken, tabName, impLedObsFlag, programdetails):
+    def criteriaUpload(self, parentFolder, wbObservation, millisAddObs, accessToken, tabName, impLedObsFlag, programdetails, userRole):
         criteriaLookUp = dict()
         criteriaColNames = ["criteriaId", "criteria_name"]
         criteriaUploadFieldnames = ['criteriaID', 'criteriaName']
@@ -363,15 +350,7 @@ class CreateObservation:
         # === Upload to API (common for both) ===
         try:
             urlCriteriaUploadApi = internal_kong_ip + criteriauploadapiurl
-            headerCriteriaUploadApi = {
-                "internal-access-token": internal_access_token,
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: adminAccessToken
-            }
+            headerCriteriaUploadApi = apiHeader.headers().headersCriteriaUpload(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
             filesCriteria = {'criteria': open(csv_path, 'rb')}
             responseCriteriaUploadApi = requests.post(url=urlCriteriaUploadApi, headers=headerCriteriaUploadApi, files=filesCriteria)
 
@@ -398,7 +377,7 @@ class CreateObservation:
             self.errorVar.append(f"Error occurred during Criteria Upload API: {str(e)}")
             return False
 
-    def frameWorkUpload(self, solutionName_for_folder_path, wbObservation, millisAddObs, accessToken, programdetails, typeofsolution):
+    def frameWorkUpload(self, solutionName_for_folder_path, wbObservation, millisAddObs, accessToken, programdetails, typeofsolution, userRole):
         detailsSheet = wbObservation['details']
         if typeofsolution == 2:
             detailsSheet["scoring_system"] = "null"
@@ -542,14 +521,9 @@ class CreateObservation:
 
             with open(frameworkFilePath + "uploadFile.json", "w",encoding='utf-8') as outfile:
                 json.dump(frameworkDocInsertObj, outfile)
-            headerFrameworkUploadApi = {'Authorization': authorization,
-                                        "internal-access-token": internal_access_token,
-                                        'X-auth-token': accessToken,
-                                        'X-Channel-id': x_channel_id,
-                                        'tenantId': programdetails.get('TenantID'),
-                                        'orgid': programdetails.get('OrgForAPIs')
-                                        # adminTokenHeaderName: adminAccessToken
-                                        }
+            
+            headerFrameworkUploadApi = apiHeader.headers().headersFrameworkUpload(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
+            
             filesFramework = {'framework': open(solutionName_for_folder_path + '/framework/uploadFile.json', 'rb')}
 
             responseFrameworkUploadApi = requests.post(url=urlCreateFrameworkApi, headers=headerFrameworkUploadApi,
@@ -558,7 +532,6 @@ class CreateObservation:
                         "File loc : " + solutionName_for_folder_path + '/framework/uploadFile.json',
                         "Framework upload API called,", "Status code : " + str(responseFrameworkUploadApi.status_code)]
             self.createAPILog(solutionName_for_folder_path, messageArr)
-            # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
             if responseFrameworkUploadApi.status_code == 200:
                 print('Framework upload Success')
                 return frameworkExternalId
@@ -582,7 +555,7 @@ class CreateObservation:
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
             
-    def themesUpload(self, solutionName_for_folder_path, wbObservation, millisAddObs, accessToken, frameworkExternalId,obsWORubWS,programdetails):
+    def themesUpload(self, solutionName_for_folder_path, wbObservation, millisAddObs, accessToken, frameworkExternalId,obsWORubWS,programdetails, userRole):
         dictCritLookUp = {}
         with open(solutionName_for_folder_path + '/criteriaUpload/uploadInternalIdsSheet.csv', 'r',encoding='utf-8') as criteriaInternalFile:
             criteriaInternalReader = csv.DictReader(criteriaInternalFile)
@@ -645,14 +618,7 @@ class CreateObservation:
                 writer.writerows(themesUploadList)
         try:
             urlThemesUploadApi = internal_kong_ip + themeuploadapiurl + frameworkExternalId
-            headerThemesUploadApi = {'Authorization': authorization,
-                                    "internal-access-token": internal_access_token,
-                                    'X-auth-token': accessToken,
-                                    'X-Channel-id': x_channel_id,
-                                    'tenantId': programdetails.get('TenantID'),
-                                    'orgid': programdetails.get('OrgForAPIs')
-                                    # adminTokenHeaderName: adminAccessToken
-                                    }
+            headerThemesUploadApi = apiHeader.headers().headersFrameworkUpload(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
             filesThemes = {'themes': open(solutionName_for_folder_path + '/themeUpload/uploadSheet.csv', 'rb')}
             responseThemeUploadApi = requests.post(url=urlThemesUploadApi, headers=headerThemesUploadApi, files=filesThemes)
             messageArr = ["Themes upload sheet prepared.",
@@ -683,22 +649,13 @@ class CreateObservation:
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
         
-    def createSolutionFromFramework(self, solutionName_for_folder_path, accessToken, frameworkExternalId,programdetails):
+    def createSolutionFromFramework(self, solutionName_for_folder_path, accessToken, frameworkExternalId,programdetails, userRole):
         try:
             entitydetails = programdetails.get("entitiesType")
             entity_type = entitydetails[0] if isinstance(entitydetails[0], str) else str(entitydetails[0][0])
             entity_type_id = entitydetails[1]
             urlCreateSolutionApi = internal_kong_ip + solutioncreationapiurl
-            headerCreateSolutionApi = {
-                'Content-Type': content_type,
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                'internal-access-token': internal_access_token,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: adminAccessToken
-            }
+            headerCreateSolutionApi = apiHeader.headers().headersCreateSolutionFromFramework(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
             isExternalProgram = "true"
             queryparamsCreateSolutionApi = '?frameworkId=' + str(frameworkExternalId) + '&entityType=' + entity_type + '&isExternalProgram=' + isExternalProgram
             responseCreateSolutionApi = requests.post(url=urlCreateSolutionApi + queryparamsCreateSolutionApi,
@@ -818,7 +775,7 @@ class CreateObservation:
         return scores
 
     def questionUpload(self, wbObservation, parentFolder, frameworkExternalId, millisAddObs, accessToken,
-                   solutionId, typeofSolution, programdetails):
+                   solutionId, typeofSolution, programdetails, userRole):
 
         # Prepare ECM and section mappings for solution types other than 2
         ecm_sections = {}
@@ -1000,21 +957,13 @@ class CreateObservation:
 
         # Update solution sequence
         bodySolutionUpdate = {"questionSequenceByEcm": questionSeqByEcmDict}
-        if not self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails):
+        if not self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole):
             return False
 
         # Call Question Upload API
         try:
             urlQuestionsUploadApi = internal_kong_ip + questionuploadapiurl
-            headerQuestionUploadApi = {
-                'Authorization': authorization,
-                "internal-access-token": internal_access_token,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: adminAccessToken
-            }
+            headerQuestionUploadApi = apiHeader.headers().headersQuestionUpload(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
             filesQuestion = {
                 'questions': open(parentFolder + '/questionUpload/uploadSheet.csv', 'rb')
             }
@@ -1041,18 +990,11 @@ class CreateObservation:
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
 
-    def fetchSolutionCriteria(self, solutionName_for_folder_path, observationId, accessToken, programdetails):
+    def fetchSolutionCriteria(self, solutionName_for_folder_path, observationId, accessToken, programdetails, userRole):
         try:
             url = internal_kong_ip + ferchsolutioncriteria + observationId
 
-            headers = {
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'internal-access-token': internal_access_token,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: adminAccessToken
-            }
+            headers = apiHeader.headers().headersFetchSolutionCriteria(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
 
             response = requests.request("POST", url, headers=headers)
             messageArr = ["Solution Created from Framework.",
@@ -1088,7 +1030,7 @@ class CreateObservation:
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
 
-    def uploadCriteriaRubrics(self,parentFolder,wbObservation,millisecond,accessToken,frameworkExternalId,withRubricsFlag,programdetails):
+    def uploadCriteriaRubrics(self,parentFolder,wbObservation,millisecond,accessToken,frameworkExternalId,withRubricsFlag,programdetails, userRole):
         # --- Load appropriate sheet ---
         criteriaRubricSheet = (
             wbObservation['criteria_rubric-scoring']
@@ -1201,15 +1143,7 @@ class CreateObservation:
             urlCriteriaRubricUploadApi = (
                 internal_kong_ip + criteriarubricuploadapiurl + frameworkExternalId + "-OBSERVATION-TEMPLATE"
             )
-            headerCriteriaRubricUploadApi = {
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                "internal-access-token": internal_access_token,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: adminAccessToken
-            }
+            headerCriteriaRubricUploadApi = apiHeader.headers().headersCriteriaRubricUpload(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
 
             # --- Send file ---
             with open(uploadSheetPath, 'rb') as f:
@@ -1250,7 +1184,7 @@ class CreateObservation:
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
              
-    def uploadThemeRubrics(self, parentFolder, wbObservation, accessToken, frameworkExternalId, withRubricsFlag, programdetails):
+    def uploadThemeRubrics(self, parentFolder, wbObservation, accessToken, frameworkExternalId, withRubricsFlag, programdetails, userRole):
         # --- Detect appropriate rubric sheet ---
         if withRubricsFlag:
             themeRubricSheet = wbObservation['theme_rubric_scoring']
@@ -1323,15 +1257,8 @@ class CreateObservation:
         # --- Upload to API ---
         try:
             urlThemeRubricUploadApi = internal_kong_ip + themerubricuploadapiurl + frameworkExternalId + "-OBSERVATION-TEMPLATE"
-            headerThemeRubricUploadApi = {
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                'internal-access-token': internal_access_token,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: adminAccessToken
-            }
+            headerThemeRubricUploadApi = apiHeader.headers().headersThemeRubricUpload(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
+            
             filesThemeRubric = {
                 'themes': open(uploadSheetPath, 'rb')
             }
@@ -1362,19 +1289,10 @@ class CreateObservation:
             print(f"Error occurred: {str(e)}")
             return False
 
-    def solutionUpdate(self, solutionName_for_folder_path, accessToken, solutionId, bodySolutionUpdate,programdetails):
+    def solutionUpdate(self, solutionName_for_folder_path, accessToken, solutionId, bodySolutionUpdate,programdetails, userRole):
         try:
             solutionUpdateApi = internal_kong_ip + solutionupdateapi + str(solutionId)
-            headerUpdateSolutionApi = {
-                'Content-Type': 'application/json',
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                "internal-access-token": internal_access_token,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: adminAccessToken
-                }
+            headerUpdateSolutionApi = apiHeader.headers().headersObservationsolutionUpdate(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
             responseUpdateSolutionApi = requests.post(url=solutionUpdateApi, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
             messageArr = []
             messageArr = ["Solution Created from Framework.",
@@ -1404,7 +1322,7 @@ class CreateObservation:
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
 
-    def createChild(self, parentFolder,wbObservation, observationExternalId, accessToken, programdetails):
+    def createChild(self, parentFolder,wbObservation, observationExternalId, accessToken, programdetails, userRole):
         entitydetails = programdetails.get("entitiesType")
         entity_type = entitydetails[0] if isinstance(entitydetails[0], str) else str(entitydetails[0][0])
         observationChildId = None
@@ -1420,14 +1338,8 @@ class CreateObservation:
                 "programExternalId": programdetails.get("_id")
             }
             
-            headersSol_prog_mapping = {'Authorization': authorization,
-                                    'X-auth-token': accessToken,
-                                    'Content-Type': content_type,
-                                    'internal-access-token': internal_access_token,
-                                    'tenantId': programdetails.get('TenantID'),
-                                    'orgid': programdetails.get('OrgForAPIs')
-                                    # adminTokenHeaderName: adminAccessToken
-                                    }
+            headersSol_prog_mapping = apiHeader.headers().headersSolutionToProgramMapping(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
+            
             responseSol_prog_mapping = requests.request("POST", urlSol_prog_mapping, headers=headersSol_prog_mapping,
                                                         data=json.dumps(payloadSol_prog_mapping))
             messageArr = []
@@ -1445,7 +1357,7 @@ class CreateObservation:
                 child_id = responseSol_prog_mapping['result']['_id']
                 observationChildId = child_id
 
-                # ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                self.createAPILog(parentFolder, messageArr)
                 print("child solutionId: " + child_id)
                 return [child_id, childObservationExternalId]
             else:
@@ -1464,32 +1376,31 @@ class CreateObservation:
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
             
-    def fetchSolutionDetailsFromProgramSheet(self, solutionName_for_folder_path, programdetails, solutionId, accessToken, ProgramGlobalDict):
+    def fetchSolutionDetailsFromProgramSheet(self, solutionName_for_folder_path, programdetails, solutionId, accessToken, ProgramGlobalDict, userRole):
         try:
-            urlFetchSolutionApi = internal_kong_ip + fetchsolutiondoc + solutionId
-            headerFetchSolutionApi = {
-                'Content-Type': 'application/json',
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                'internal-access-token': internal_access_token,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: adminAccessToken
-            }
-            payloadFetchSolutionApi = {}
+            urlFetchSolutionApi = internal_kong_ip + dbfindapi_url
+            headerFetchSolutionApi = apiHeader.headers().headersFetchSolutionDetails(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
+            payloadFetchSolutionApi = json.dumps({
+                    "query": {
+                        "_id": solutionId
+                    },
+                    "mongoIdKeys": [
+                        "_id","name", "externalId"
+                    ],
+                    "limit": 10000
+                })
             responseFetchSolutionApiUrl = requests.post(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
                                                     data=payloadFetchSolutionApi)
             responseFetchSolutionJson = responseFetchSolutionApiUrl.json()
             messageArr = []
             messageArr = ["Solution Fetch Link.",
-                        "solution name : " + responseFetchSolutionJson["result"]["name"],
-                        "solution ExternalId : " + responseFetchSolutionJson["result"]["externalId"],
+                        "solution name : " + responseFetchSolutionJson["result"][-1]["name"],
+                        "solution ExternalId : " + responseFetchSolutionJson["result"][-1]["externalId"],
                         "Upload status code : " + str(responseFetchSolutionApiUrl.status_code),
                         "Response : " + str(responseFetchSolutionApiUrl.text)]
             self.createAPILog(solutionName_for_folder_path, messageArr)
             if responseFetchSolutionApiUrl.status_code == 200:
-                solutionName = responseFetchSolutionJson["result"]["name"]
+                solutionName = responseFetchSolutionJson["result"][-1]["name"]
                 print(solutionName,"solutionName")
                 resourceDetailsSheet = ProgramGlobalDict.get('Program Resources')
                 for solutions in resourceDetailsSheet:
@@ -1516,11 +1427,7 @@ class CreateObservation:
 
     def validate_roles_against_api(self, mainRoles, subRoles, programdetails, parentFolder):
         urlFetchRoleList = userLoginHost + fetchprofessionalRole
-        headers = {
-            'Content-Type': content_type,
-            'tenantId': programdetails.get('TenantID'),
-            'X-Channel-id': x_channel_id,
-        }
+        headers = apiHeader.headers().header_validate_roles_against_api(programdetails.get('TenantID'))
         payload = {}
 
         response = requests.request("GET", urlFetchRoleList, headers=headers, data=payload)
@@ -1583,18 +1490,10 @@ class CreateObservation:
     def convert_to_date(self, date_str):
         return datetime.strptime(date_str, "%d-%m-%Y")
     
-    def prepareProgramSuccessSheet(self, MainFilePath, solutionName_for_folder_path, programFile, solutionExternalId, solutionId,accessToken, programdetails):
+    def prepareProgramSuccessSheet(self, MainFilePath, solutionName_for_folder_path, programFile, solutionExternalId, solutionId,accessToken, programdetails, userRole):
         urlFetchSolutionApi = internal_kong_ip + dbfindapi_url
-        headerFetchSolutionApi = {
-            'Authorization': authorization,
-            'X-auth-token': accessToken,
-            'Content-Type': content_type,
-            'X-Channel-id': x_channel_id,
-            'internal-access-token': internal_access_token,
-            'tenantId': programdetails.get('TenantID'),
-            'orgid': programdetails.get('OrgForAPIs')
-            # adminTokenHeaderName: projAdminAccessToken
-        }
+        headerFetchSolutionApi = apiHeader.headers().headersFetchSolutionDetails(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
+        
         payloadFetchSolutionApi = json.dumps({
             "query": {
                 "_id": solutionId
@@ -1612,25 +1511,18 @@ class CreateObservation:
         responseFetchSolutionJson = responseFetchSolutionApi.json()
         messageArr = []
         messageArr.append("Solution Fetch Link.")
-        messageArr.append("solution name : " + responseFetchSolutionJson["result"][0]["name"])
-        messageArr.append("solution ExternalId : " + responseFetchSolutionJson["result"][0]["externalId"])
+        messageArr.append("solution name : " + responseFetchSolutionJson["result"][-1]["name"])
+        messageArr.append("solution ExternalId : " + responseFetchSolutionJson["result"][-1]["externalId"])
         messageArr.append("Upload status code : " + str(responseFetchSolutionApi.status_code))
         self.createAPILog(solutionName_for_folder_path, messageArr)
 
         if responseFetchSolutionApi.status_code == 200:
             print('Fetch solution Api Success')
-            solutionName = responseFetchSolutionJson["result"][0]["name"]
+            solutionName = responseFetchSolutionJson["result"][-1]["name"]
         urlFetchSolutionLinkApi = internal_kong_ip + fetchlink + solutionId
         print(urlFetchSolutionLinkApi,"urlFetchSolutionLinkApi")
-        headerFetchSolutionLinkApi = {
-            # 'Authorization': authorization,
-            'X-auth-token': accessToken,
-            # 'X-Channel-id': x_channel_id
-            'internal-access-token': internal_access_token,
-            'tenantId': programdetails.get('TenantID'),
-            'orgid': programdetails.get('OrgForAPIs')
-            #adminTokenHeaderName: projAdminAccessToken
-        }
+        headerFetchSolutionLinkApi = apiHeader.headers().headersFetchSolutionLink(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
+        
         payloadFetchSolutionLinkApi = {}
 
         responseFetchSolutionLinkApi = requests.get(url=urlFetchSolutionLinkApi, headers=headerFetchSolutionLinkApi,
@@ -1707,9 +1599,10 @@ class CreateObservation:
             # Save the file
             xfile.save(success_file_path)
             print("Program success sheet is created")
+            self.solutionUpdate(solutionName_for_folder_path, accessToken, solutionId, {"status": "active", "isDeleted": False}, programdetails, userRole)
             return solutionLink
         
-    def ObservationSolutionCreate(self, resource, parentFolder, accessToken, ProgramGlobalDict,programdetails, MainFilePath, programFile):
+    def ObservationSolutionCreate(self, resource, parentFolder, accessToken, ProgramGlobalDict,programdetails, MainFilePath, programFile, userRole):
         finalObsRubricSolutionLink = ""
         if resource.get('typeofSolution') == 5:
             impLedObsFlag = True
@@ -1718,20 +1611,20 @@ class CreateObservation:
         wbObservation = resource.get("ResourceCre")
         millisecond = int(time.time() * 1000)
         if resource.get('typeofSolution') == 1 or resource.get('typeofSolution') == 5:
-            if not self.criteriaUpload(parentFolder, resource.get("ResourceCre"), millisecond, accessToken, "framework", impLedObsFlag, programdetails):
+            if not self.criteriaUpload(parentFolder, resource.get("ResourceCre"), millisecond, accessToken, "framework", impLedObsFlag, programdetails, userRole):
                 self.errorVar.append("Criteria Upload Failed.")
                 return finalObsRubricSolutionLink, self.errorVar
             print("Criteria Upload success....")
-            frameworkExternalId = self.frameWorkUpload(parentFolder, resource.get("ResourceCre"), millisecond, accessToken, programdetails, resource.get('typeofSolution'))
+            frameworkExternalId = self.frameWorkUpload(parentFolder, resource.get("ResourceCre"), millisecond, accessToken, programdetails, resource.get('typeofSolution'), userRole)
             if not frameworkExternalId:
                 self.errorVar.append("Framework Upload Failed.")
                 return finalObsRubricSolutionLink, self.errorVar
             print(frameworkExternalId,"frameworkExternalId")
             observationExternalId = frameworkExternalId + "-OBSERVATION-TEMPLATE"
-            if not self.themesUpload(parentFolder, resource.get("ResourceCre"), millisecond, accessToken, frameworkExternalId, False, programdetails):
+            if not self.themesUpload(parentFolder, resource.get("ResourceCre"), millisecond, accessToken, frameworkExternalId, False, programdetails, userRole):
                 self.errorVar.append("Theme Upload Failed.")
                 return finalObsRubricSolutionLink, self.errorVar
-            solutionId = self.createSolutionFromFramework(parentFolder, accessToken, frameworkExternalId, programdetails)
+            solutionId = self.createSolutionFromFramework(parentFolder, accessToken, frameworkExternalId, programdetails, userRole)
             if not solutionId:
                 self.errorVar.append("Unable to create Solution From Framework.")
                 return finalObsRubricSolutionLink, self.errorVar
@@ -1739,10 +1632,10 @@ class CreateObservation:
             print("parent solution created....")
             ECMSheet = wbObservation['ecms or domains']
             ECMUpdate = self.ECMUpdatebody(ECMSheet,millisecond)
-            if not self.solutionUpdate(parentFolder, accessToken, solutionId, ECMUpdate[0],programdetails):
+            if not self.solutionUpdate(parentFolder, accessToken, solutionId, ECMUpdate[0],programdetails, userRole):
                 self.errorVar.append("Solution Update Failed.")
                 return finalObsRubricSolutionLink, self.errorVar
-            if not self.solutionUpdate(parentFolder, accessToken, solutionId, ECMUpdate[1],programdetails):
+            if not self.solutionUpdate(parentFolder, accessToken, solutionId, ECMUpdate[1],programdetails, userRole):
                 self.errorVar.append("Solution Update Failed.")
                 return finalObsRubricSolutionLink, self.errorVar
             entitydetails = programdetails.get("entitiesType")
@@ -1757,24 +1650,24 @@ class CreateObservation:
             else:
                 criteriaLevelsReport = False
             bodySolutionUpdate = {"status": "active", "isDeleted": False, "criteriaLevelReport": criteriaLevelsReport,"parentEntityKey": parentEntityKey}
-            if not self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails):
+            if not self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole):
                 self.errorVar.append("Solution Update Failed.")
                 return finalObsRubricSolutionLink, self.errorVar
-            if not self.questionUpload(wbObservation, parentFolder, frameworkExternalId, millisecond, accessToken,solutionId,resource.get('typeofSolution'), programdetails):
+            if not self.questionUpload(wbObservation, parentFolder, frameworkExternalId, millisecond, accessToken,solutionId,resource.get('typeofSolution'), programdetails, userRole):
                 self.errorVar.append("question Upload Failed.")
                 return finalObsRubricSolutionLink, self.errorVar
             if not programdetails.get('scoring_system') == "null":
                 bodySolutionUpdate = {"isRubricDriven": True}
-                if not self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails):
+                if not self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole):
                     self.errorVar.append("Solution Update Failed.")
                     return finalObsRubricSolutionLink, self.errorVar
-                if not self.fetchSolutionCriteria(parentFolder, observationExternalId, accessToken, programdetails):
+                if not self.fetchSolutionCriteria(parentFolder, observationExternalId, accessToken, programdetails, userRole):
                     self.errorVar.append("fetchSolutionCriteria Failed.")
                     return finalObsRubricSolutionLink, self.errorVar
-                if not self.uploadCriteriaRubrics(parentFolder, wbObservation, millisecond, accessToken, frameworkExternalId, True, programdetails):
+                if not self.uploadCriteriaRubrics(parentFolder, wbObservation, millisecond, accessToken, frameworkExternalId, True, programdetails, userRole):
                     self.errorVar.append("upload Criteria Rubrics Failed.")
                     return finalObsRubricSolutionLink, self.errorVar
-                if not self.uploadThemeRubrics(parentFolder, wbObservation, accessToken, frameworkExternalId, True, programdetails):
+                if not self.uploadThemeRubrics(parentFolder, wbObservation, accessToken, frameworkExternalId, True, programdetails, userRole):
                     self.errorVar.append("upload Theme Rubrics Failed.")
                     return finalObsRubricSolutionLink, self.errorVar
             else:
@@ -1785,22 +1678,23 @@ class CreateObservation:
             else:
                 allow_multiple_submissions = False
             bodySolutionUpdate = {'allowMultipleAssessemts': allow_multiple_submissions, "creator": programdetails.get('Name_of_the_creator'),"parentEntityKey": parentEntityKey}
-            if not self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails):
+            if not self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole):
                 self.errorVar.append("upload Theme Rubrics Failed.")
                 return finalObsRubricSolutionLink, self.errorVar
-            childId = self.createChild(parentFolder, wbObservation, solutionId, accessToken, programdetails)
+            childId = self.createChild(parentFolder, wbObservation, solutionId, accessToken, programdetails, userRole)
             if not childId:
                 self.errorVar.append("upload Theme Rubrics Failed.")
                 return finalObsRubricSolutionLink, self.errorVar
             if childId[0]:
                 print("Fetching solution details")
                 solutionDetails = self.fetchSolutionDetailsFromProgramSheet(
-                    parentFolder, programdetails, childId[0], accessToken, ProgramGlobalDict
+                    parentFolder, programdetails, childId[0], accessToken, ProgramGlobalDict, userRole
                 )
                 print(solutionDetails, "solutionDetails")
                 if not solutionDetails:
                     self.errorVar.append("Fetch solution details API Failed.")
                     return finalObsRubricSolutionLink, self.errorVar
+                self.solutionUpdate(parentFolder, accessToken, solutionId, {"status": "inactive", "isDeleted": True}, programdetails, userRole)
                 scopeRoles = solutionDetails[0]
                 scopeSubRoles = solutionDetails[1]
                 # ✅ Fix: ensure roles are lists
@@ -1830,7 +1724,7 @@ class CreateObservation:
                 bodySolutionUpdate = {
                 "scope": scope
                 }
-                if not self.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate,programdetails):
+                if not self.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate, programdetails, userRole):
                     self.errorVar.append("Solution Update Failed.")
                     return finalObsRubricSolutionLink, self.errorVar
                 print("solution update success.")
@@ -1844,14 +1738,14 @@ class CreateObservation:
                         startDateArr = str(solutionDetails[2]).split("-")
                         bodySolutionUpdate = {
                             "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
-                        if not self.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate, programdetails):
+                        if not self.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate, programdetails, userRole):
                             self.errorVar.append("Solution Update Failed.")
                             return finalObsRubricSolutionLink, self.errorVar
                     if solutionDetails[3]:
                         endDateArr = str(solutionDetails[3]).split("-")
                         bodySolutionUpdate = {
                             "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                        if not self.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate, programdetails):
+                        if not self.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate, programdetails, userRole):
                             self.errorVar.append("Solution Update Failed.")
                             return finalObsRubricSolutionLink, self.errorVar
                 else:
@@ -1859,7 +1753,7 @@ class CreateObservation:
                     print("Date Mismatched! Creation Stopped")
                     return finalObsRubricSolutionLink, self.errorVar
                 ObsRubricSolutionLink = self.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, childId[1], childId[0],
-                                        accessToken, programdetails)
+                                        accessToken, programdetails, userRole)
                 if not ObsRubricSolutionLink:
                     self.errorVar.append("Solution Fetch Link Failed.")
                     return finalObsRubricSolutionLink, self.errorVar
@@ -1869,24 +1763,24 @@ class CreateObservation:
                     return finalObsRubricSolutionLink, self.errorVar   
         elif resource.get('typeofSolution') == 2:
             finalObsSolutionLink = ""
-            if not self.criteriaUpload(parentFolder, resource.get("ResourceCre"), millisecond, accessToken, "criteria", False, programdetails):
+            if not self.criteriaUpload(parentFolder, resource.get("ResourceCre"), millisecond, accessToken, "criteria", False, programdetails, userRole):
                 self.errorVar.append("Criteria Upload Failed.")
                 return finalObsSolutionLink,self.errorVar
             print("Criteria Upload success....")
-            frameworkExternalId = self.frameWorkUpload(parentFolder, resource.get("ResourceCre"), millisecond, accessToken, programdetails, resource.get('typeofSolution'))
+            frameworkExternalId = self.frameWorkUpload(parentFolder, resource.get("ResourceCre"), millisecond, accessToken, programdetails, resource.get('typeofSolution'), userRole)
             if not frameworkExternalId:
                 self.errorVar.append("Framework Upload Failed.")
                 return finalObsSolutionLink,self.errorVar
             observationExternalId = frameworkExternalId + "-OBSERVATION-TEMPLATE"
-            if not self.themesUpload(parentFolder, resource.get("ResourceCre"), millisecond, accessToken, frameworkExternalId, True, programdetails):
+            if not self.themesUpload(parentFolder, resource.get("ResourceCre"), millisecond, accessToken, frameworkExternalId, True, programdetails, userRole):
                 self.errorVar.append("Theme Upload Failed.")
                 return finalObsSolutionLink,self.errorVar
-            solutionId = self.createSolutionFromFramework(parentFolder, accessToken, frameworkExternalId, programdetails)
+            solutionId = self.createSolutionFromFramework(parentFolder, accessToken, frameworkExternalId, programdetails, userRole)
             if not solutionId:
                 self.errorVar.append("Unable to create Solution From Framework.")
                 return finalObsSolutionLink,self.errorVar
             sectionsObj = {"sections": {'S1': 'Observation Question'}}
-            if not self.solutionUpdate(parentFolder, accessToken, solutionId, sectionsObj, programdetails):
+            if not self.solutionUpdate(parentFolder, accessToken, solutionId, sectionsObj, programdetails, userRole):
                 self.errorVar.append("Solution Update Failed.")
                 return finalObsSolutionLink,self.errorVar
             ecmObj = {}
@@ -1895,17 +1789,17 @@ class CreateObservation:
                 "evidenceMethods": {'OB': {'externalId': 'OB', 'tip': None, 'name': 'Observation', 'description': None,
                                         'modeOfCollection': 'onfield', 'canBeNotApplicable': False,
                                         'notApplicable': False, 'canBeNotAllowed': False, 'remarks': None}}}
-            if not self.solutionUpdate(parentFolder, accessToken, solutionId, ecmObj, programdetails):
+            if not self.solutionUpdate(parentFolder, accessToken, solutionId, ecmObj, programdetails, userRole):
                 self.errorVar.append("Solution Update Failed.")
                 return finalObsSolutionLink,self.errorVar
-            if not self.questionUpload(wbObservation, parentFolder, frameworkExternalId, millisecond, accessToken,solutionId,resource.get('typeofSolution'), programdetails):
+            if not self.questionUpload(wbObservation, parentFolder, frameworkExternalId, millisecond, accessToken,solutionId,resource.get('typeofSolution'), programdetails, userRole):
                 self.errorVar.append("question Upload Failed.")
                 return finalObsSolutionLink,self.errorVar
             if not programdetails.get('scoring_system') == None:
-                if not self.uploadCriteriaRubrics(parentFolder, wbObservation, millisecond, accessToken, frameworkExternalId, False, programdetails):
+                if not self.uploadCriteriaRubrics(parentFolder, wbObservation, millisecond, accessToken, frameworkExternalId, False, programdetails, userRole):
                     self.errorVar.append("upload Criteria Rubrics Failed.")
                     return finalObsSolutionLink,self.errorVar
-                if not self.uploadThemeRubrics(parentFolder, wbObservation, accessToken, frameworkExternalId, False, programdetails):
+                if not self.uploadThemeRubrics(parentFolder, wbObservation, accessToken, frameworkExternalId, False, programdetails, userRole):
                     self.errorVar.append("upload Theme Rubrics Failed.")
                     return finalObsSolutionLink,self.errorVar
             else:
@@ -1919,22 +1813,23 @@ class CreateObservation:
             detailsSheet = wbObservation['details']
             bodySolutionUpdate = {"status": "active", "isDeleted": False, "allowMultipleAssessemts": True,
                                 "creator": programdetails.get('Name_of_the_creator'),"parentEntityKey": parentEntityKey}
-            if not self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails):
+            if not self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole):
                 self.errorVar.append("Solution Update Failed.")
                 return finalObsSolutionLink,self.errorVar
-            childId = self.createChild(parentFolder, wbObservation, solutionId, accessToken, programdetails)
+            childId = self.createChild(parentFolder, wbObservation, solutionId, accessToken, programdetails, userRole)
             if not childId:
                 self.errorVar.append("upload Theme Rubrics Failed.")
                 return finalObsSolutionLink,self.errorVar
             if childId[0]:
                 print("Fetching solutions details")
                 solutionDetails = self.fetchSolutionDetailsFromProgramSheet(
-                    parentFolder, programdetails, childId[0], accessToken, ProgramGlobalDict
+                    parentFolder, programdetails, childId[0], accessToken, ProgramGlobalDict, userRole
                 )
                 print(solutionDetails, "solutionDetails")
                 if not solutionDetails:
                     self.errorVar.append("Fetch solution details API Failed.")
                     return finalObsSolutionLink,self.errorVar
+                self.solutionUpdate(parentFolder, accessToken, childId[0], {"status":"inactive", "isDeleted": True}, programdetails, userRole)
                 scopeRoles = solutionDetails[0]
                 scopeSubRoles = solutionDetails[1]
                 # ✅ Fix: ensure roles are lists
@@ -1964,7 +1859,7 @@ class CreateObservation:
                 bodySolutionUpdate = {
                 "scope": scope
                 }
-                if not self.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate,programdetails):
+                if not self.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate, programdetails, userRole):
                     self.errorVar.append("Solution Update Failed.")
                     return finalObsSolutionLink,self.errorVar
                 print("solution update success.")
@@ -1978,14 +1873,14 @@ class CreateObservation:
                         startDateArr = str(solutionDetails[2]).split("-")
                         bodySolutionUpdate = {
                             "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
-                        if not self.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate, programdetails):
+                        if not self.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate, programdetails, userRole):
                             self.errorVar.append("Solution Update Failed.")
                             return finalObsSolutionLink, self.errorVar
                     if solutionDetails[3]:
                         endDateArr = str(solutionDetails[3]).split("-")
                         bodySolutionUpdate = {
                             "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                        if not self.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate, programdetails):
+                        if not self.solutionUpdate(parentFolder, accessToken, childId[0], bodySolutionUpdate, programdetails, userRole):
                             self.errorVar.append("Solution Update Failed.")
                             return finalObsSolutionLink,self.errorVar
                 else:
@@ -1993,7 +1888,7 @@ class CreateObservation:
                     print("Date Mismatched! Creation Stopped")
                     return finalObsSolutionLink,self.errorVar
                 ObsSolutionLink = self.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, childId[1], childId[0],
-                                        accessToken, programdetails)
+                                        accessToken, programdetails, userRole)
                 print(ObsSolutionLink,"ObsSolutionLink")
                 if not ObsSolutionLink:
                     self.errorVar.append("Solution Fetch Link Failed.")

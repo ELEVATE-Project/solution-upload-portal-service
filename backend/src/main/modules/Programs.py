@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 import os, json, requests, sys, csv, shutil, wget
 from datetime import datetime
-
+import backend.src.main.modules.headers as apiHeader
 
 env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" / ".env"
 
@@ -74,44 +74,6 @@ class Programs:
             writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
             writer.writerow(messageArr)  # <-- use writerow for a single record
 
-        
-    def generateAccessToken(self, parentFolder):
-        try:
-            headerKeyClockUser = {'Content-Type': "application/x-www-form-urlencoded",'origin': "default-qa.tekdinext.com"}
-            # responseKeyClockUser = requests.post(url=config.get(environment, 'elevateuserhost') + config.get(environment, 'userlogin'), headers=headerKeyClockUser,
-                                                #  data=json.dumps(config.get(environment, 'keyclockAPIBody')))
-            # Elevateproject.terminatingMessage(type(json.loads(config.get(environment, 'keyclockAPIBody'))))\
-            loginBody = {
-                'identifier' : identifier,
-                'password' : password
-            }
-            responseKeyClockUser = requests.post(userLoginHost + keyclockapiurl , headers=headerKeyClockUser, data=loginBody)
-            messageArr = []
-            messageArr.append("URL : " + str(keyclockapiurl))
-            messageArr.append("Body : " + str(loginBody))
-            messageArr.append("Status Code : " + str(responseKeyClockUser.status_code))
-            if responseKeyClockUser.status_code == 200:
-                responseKeyClockUser = responseKeyClockUser.json()
-                accessTokenUser = responseKeyClockUser['result']['access_token']
-                messageArr.append("Acccess Token : " + str(accessTokenUser))
-                Programs.createAPILog(parentFolder, messageArr)
-                fileheader = ["Access Token","Access Token succesfully genarated","Passed"]
-                Programs.apicheckslog(parentFolder,fileheader)
-                print("--->Access Token Generated!")
-                # Elevateproject.decodeToken(accessTokenUser)
-                return accessTokenUser
-            
-            else:
-                print("Error in generating Access token")
-                print("Status code : " + str(responseKeyClockUser.status_code))
-                Programs.createAPILog(parentFolder, messageArr)
-                self.errorVar.append(responseKeyClockUser.text)
-                return False
-        except Exception as e:
-            print(f"Error occurred: {str(e)}")
-            self.errorVar
-            print(self.errorVar,"---> API-Error")
-
     def CheckProgramExistance(self, programdetails, accessToken, parentFolder):
         mainRoleStr = programdetails.get('Targetedroleatprogramlevel', "")
         mainRoles = [r.strip() for r in mainRoleStr.split(",") if r.strip()]
@@ -145,11 +107,7 @@ class Programs:
             },
             "mongoIdKeys": []
         })
-
-        headersProgramSearch = {
-            'Content-Type': content_type,
-            'X-auth-token': accessToken
-        }
+        headersProgramSearch = apiHeader.headers().programSearchHeaders(accessToken)
 
         print(f"Checking program existence for: '{program_name}' (Tenant: {tenant_id})")
 
@@ -263,14 +221,10 @@ class Programs:
 
     def validate_roles_against_api(self, mainRoles, subRoles, programdetails, parentFolder):
         urlFetchRoleList = userLoginHost + fetchprofessionalRole
-        headers = {
-            'Content-Type': content_type,
-            'tenantId': programdetails.get('TenantID'),
-            'X-Channel-id': x_channel_id,
-        }
+        validateRoleHeader = apiHeader.headers().validateRoleHeaders(programdetails.get('TenantID'))
         payload = {}
 
-        response = requests.request("GET", urlFetchRoleList, headers=headers, data=payload)
+        response = requests.request("GET", urlFetchRoleList, headers=validateRoleHeader, data=payload)
         # response = requests.get(urlFetchRoleList, headers=headers, data=json.dumps({}))
 
         messageArr = []
@@ -297,7 +251,7 @@ class Programs:
                 main_role_id = matched['_id']
                 validated_main_role_ids.append(main_role_id)
                 subrole_url = f"{userLoginHost}entity-management/v1/entities/subEntityList/{main_role_id}?type=professional_subroles"
-                subrole_resp = requests.request("GET",subrole_url, headers=headers,data=payload)
+                subrole_resp = requests.request("GET",subrole_url, headers=validateRoleHeader,data=payload)
                 if subrole_resp.status_code == 200:
                     subroles_data = subrole_resp.json()
                     for item in subroles_data['result']['data']:
@@ -348,10 +302,7 @@ class Programs:
         entitiesPGM = Programs.ensure_list(entitiesPGM)
 
         urlFetchEntityListApi = elevateentityhost + searchforlocation
-        headerFetchEntityListApi = {
-            'Content-Type': content_type,
-            'internal-access-token': internal_access_token,
-        }
+        headerFetchEntityListApi = apiHeader.headers().PheaderFetchEntitytype()
 
         entityTypes = []
         entityTypeID = []
@@ -385,7 +336,7 @@ class Programs:
                 entityId = listEntities.get('_id')
 
                 DetailsFetchURL = elevateentityhost + fetchDetailsEntity + entityId
-                headerEntityDetails = {"tenantId": programdetails.get('TenantID')}
+                headerEntityDetails = apiHeader.headers().headerFetchEntityDetails(programdetails.get('TenantID'))
                 EntityDetailsResponse = requests.get(DetailsFetchURL, headers=headerEntityDetails)
 
                 if EntityDetailsResponse.status_code != 200:
@@ -474,11 +425,7 @@ class Programs:
             for entityId in entitiesPGMID:
                 urlFetchEntity = elevateentityhost + fetchDetailsEntity + entityId
 
-                headers = {
-                    'Content-Type': content_type,
-                    'tenantId': programdetails.get('TenantID'),
-                    'Authorization': f'Bearer {accessToken}'
-                }
+                headers = apiHeader.headers().headerFetchDetailsEntity(programdetails.get('TenantID'), accessToken)
 
                 response = requests.get(url=urlFetchEntity, headers=headers)
                 messageArr = []
@@ -529,8 +476,8 @@ class Programs:
         except Exception as e:
             self.errorVar.append(str(e))
             return None
-        
-    def ProgramCreate(self,programdetails, accessToken, parentFolder):
+
+    def ProgramCreate(self,programdetails, accessToken, parentFolder, userRole):
         print("-----> Creating a Program...")
         startDateOfProgram = self.parse_excel_date(programdetails.get('Startdateofprogram'))
         endDateOfProgram = self.parse_excel_date(programdetails.get('Enddateofprogram'), end_of_day=True)
@@ -586,16 +533,9 @@ class Programs:
                     "requestForPIIConsent": True
                 }
             )
-            headers = {
-                    'internal-access-token': internal_access_token,
-                    'X-auth-token': accessToken,
-                    'Content-Type': 'application/json',
-                    'Authorization':authorization,
-                    'tenantId': programdetails.get('TenantID') ,
-                    'orgid': programdetails.get('OrgForAPIs')
-                    # adminTokenHeaderName: projAdminAccessToken
-                }
-            responsePgmCreate = requests.request("POST", programCreationurl, headers=headers, data=(payload))
+            headerProgramCreateApi = apiHeader.headers().headerProgramCreate(accessToken, programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), userRole)
+
+            responsePgmCreate = requests.request("POST", programCreationurl, headers=headerProgramCreateApi, data=(payload))
             messageArr = []
             messageArr.append("++++++++++++ Program Creation ++++++++++++")
             messageArr.append("Program Creation URL : " + programCreationurl)
@@ -655,7 +595,7 @@ class Programs:
         shutil.copy(addSolutionFile, os.path.join(returnPathStr + "user_input_file.xlsx"))
         return returnPathStr
     
-    def programCheckCreate(self, programFile, MainFilePath, parentFolder, ProgramGlobalDict, PRName, accessToken):
+    def programCheckCreate(self, programFile, MainFilePath, parentFolder, ProgramGlobalDict, PRName, accessToken,userRole):
         programdetails_list = ProgramGlobalDict.get('Program Details', [])
         programdetails = programdetails_list[0] if programdetails_list else {}
         # accessToken = self.generateAccessToken(parentFolder)
@@ -666,7 +606,7 @@ class Programs:
         IsExistingProgram = self.CheckProgramExistance(programdetails, accessToken, parentFolder)
         SolutionResults = {}
         if not IsExistingProgram:
-            CreateProgram = self.ProgramCreate(programdetails, accessToken, parentFolder)
+            CreateProgram = self.ProgramCreate(programdetails, accessToken, parentFolder, userRole)
             if CreateProgram:
                 print("Program created successfully ... ")
         for resource in ProgramGlobalDict['Program Resources']:
@@ -686,7 +626,7 @@ class Programs:
                 SolutionName = resource.get("Nameofresourcesinprogram")
 
                 ObservationInstance = CreateObservation()
-                ObservationCreation = ObservationInstance.ObservationSolutionCreate(resource, solParentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile)
+                ObservationCreation = ObservationInstance.ObservationSolutionCreate(resource, solParentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile, userRole)
                 if not ObservationCreation:
                     self.errorVar.append("Solution creation failed.")
                 if ObservationCreation[1] == []:
@@ -698,7 +638,7 @@ class Programs:
                 SolutionName = resource.get("Nameofresourcesinprogram")
 
                 ObservationInstance = CreateObservation()
-                ObservationCreation = ObservationInstance.ObservationSolutionCreate(resource, solParentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile)
+                ObservationCreation = ObservationInstance.ObservationSolutionCreate(resource, solParentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile, userRole)
                 if not ObservationCreation:
                     self.errorVar.append("Solution creation failed.")
                 if ObservationCreation[1] == []:
@@ -709,7 +649,7 @@ class Programs:
                 print('Survey File detected...')
                 SolutionName = resource.get("Nameofresourcesinprogram")
                 SurveyInstance = CreateSurvey()
-                SurveyCreation = SurveyInstance.CreateSurvey(resource,PRName, solParentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile)
+                SurveyCreation = SurveyInstance.CreateSurvey(resource,PRName, solParentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile, userRole)
                 if not SurveyCreation:
                     self.errorVar.append("Solution creation failed.")
                 # self.errorVar.append(SurveyCreation[1])
@@ -721,7 +661,7 @@ class Programs:
                 print('Project File detected...')
                 SolutionName = resource.get("Nameofresourcesinprogram")
                 ProjectInstance = CreateProject()
-                ProjectCreation = ProjectInstance.CreateProject(resource, solParentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile)
+                ProjectCreation = ProjectInstance.CreateProject(resource, solParentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile, userRole)
                 if not ProjectCreation:
                     self.errorVar.append("Solution creation failed.")
                 # self.errorVar.append(SurveyCreation[1])
