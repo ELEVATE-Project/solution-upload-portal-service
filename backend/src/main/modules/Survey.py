@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from backend.src.main.modules.common_config import *
 from openpyxl.styles import Color, PatternFill
+import backend.src.main.modules.headers as apiHeader
 
 
 env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" / ".env"
@@ -32,7 +33,6 @@ class CreateSurvey:
         self.errorVar = []
 
     def createAPILog(self, solutionName_for_folder_path, messageArr):
-        print(solutionName_for_folder_path, "solutionName_for_folder_path")
         file_exists = os.path.join(solutionName_for_folder_path, 'apiHitLogs', 'apiLogs.txt')
         os.makedirs(os.path.dirname(file_exists), exist_ok=True)
         # Create file with header if it doesn't exist
@@ -64,19 +64,10 @@ class CreateSurvey:
             writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
             writer.writerow(messageArr)
 
-    def solutionUpdate(self, solutionName_for_folder_path, accessToken, solutionId, bodySolutionUpdate,programdetails):
+    def solutionUpdate(self, solutionName_for_folder_path, accessToken, solutionId, bodySolutionUpdate,programdetails, userRole):
         try:
             solutionUpdateApi = internal_kong_ip + solutionupdateapi + str(solutionId)
-            headerUpdateSolutionApi = {
-                'Content-Type': 'application/json',
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                "internal-access-token": internal_access_token,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: adminAccessToken
-                }
+            headerUpdateSolutionApi = apiHeader.headers().headersObservationsolutionUpdate(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
             responseUpdateSolutionApi = requests.post(url=solutionUpdateApi, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
             messageArr = []
             messageArr = ["Solution Update API called.", "URL : " + str(solutionUpdateApi), "Body : " + str(bodySolutionUpdate),"Response : " + str(responseUpdateSolutionApi.text),"Status Code : " + str(responseUpdateSolutionApi.status_code)]
@@ -91,7 +82,7 @@ class CreateSurvey:
                     self.errorVar.append(f"UpdateSolutionApi-Server Error {responseUpdateSolutionApi.status_code}: {responseUpdateSolutionApi.text}")
                 else:
                     self.errorVar.append(f"UpdateSolutionApi-Unexpected Error {responseUpdateSolutionApi.status_code}: {responseUpdateSolutionApi.text}")
-                # ElevateObservation.createAPILog(solutionName_for_folder_path, errorVar)
+                self.createAPILog(solutionName_for_folder_path, self.errorVar)
                 return False
             
         except Exception as e:
@@ -101,7 +92,7 @@ class CreateSurvey:
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
         
-    def createSurveySolution(self, parentFolder, wbObservation, accessToken, programdetails):
+    def createSurveySolution(self, parentFolder, wbObservation, accessToken, programdetails, userRole):
         print("Create Survey Solution Func Called....")
         try:
             details = wbObservation.get("details", {})
@@ -125,14 +116,7 @@ class CreateSurvey:
             print("🔧 Creating Survey Solution with body:", surveySolutionCreationReqBody)
 
             urlCreateSolutionApi = internal_kong_ip + surveysolutioncreationapiurl
-            headerCreateSolutionApi = {
-                'Content-Type': content_type,
-                "internal-access-token": internal_access_token,
-                'X-auth-token': accessToken,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: adminAccessToken
-            }
+            headerCreateSolutionApi = apiHeader.headers().headersCreateSurveySolution(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
             response = requests.post(
                 url=urlCreateSolutionApi,
                 headers=headerCreateSolutionApi,
@@ -165,7 +149,7 @@ class CreateSurvey:
                 if responseSearch.status_code == 200:
                     surveySolutionExternalId = responseSearch.json()['result']['data'][0]['externalId']
                     bodySolutionUpdate = {"creator": details["Name_of_the_creator"]}
-                    if not self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate,programdetails):
+                    if not self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate,programdetails, userRole):
                         self.errorVar.append("Solution Update Failed.")
                         return False
                     return [solutionId, surveySolutionExternalId]
@@ -183,20 +167,19 @@ class CreateSurvey:
             self.errorVar.append(f"⚠️ Exception: {str(e)}")
             return False
 
-    def fetchSolutionDetailsFromProgramSheet(self, solutionName_for_folder_path, programdetails, solutionId, accessToken, ProgramGlobalDict):
+    def fetchSolutionDetailsFromProgramSheet(self, solutionName_for_folder_path, programdetails, solutionId, accessToken, ProgramGlobalDict, userRole):
         try:
-            urlFetchSolutionApi = internal_kong_ip + fetchsolutiondoc + solutionId
-            headerFetchSolutionApi = {
-                'Content-Type': 'application/json',
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                'internal-access-token': internal_access_token,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: adminAccessToken
-            }
-            payloadFetchSolutionApi = {}
+            urlFetchSolutionApi = internal_kong_ip + dbfindapi_url
+            headerFetchSolutionApi = apiHeader.headers().headersFetchSolutionDetails(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
+            payloadFetchSolutionApi = json.dumps({
+                    "query": {
+                        "_id": solutionId
+                    },
+                    "mongoIdKeys": [
+                        "_id","name", "externalId"
+                    ],
+                    "limit": 10000
+                })
             responseFetchSolutionApiUrl = requests.post(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
                                                     data=payloadFetchSolutionApi)
             messageArr = []
@@ -210,7 +193,7 @@ class CreateSurvey:
             responseFetchSolutionJson = responseFetchSolutionApiUrl.json()
 
             if responseFetchSolutionApiUrl.status_code == 200:
-                solutionName = responseFetchSolutionJson["result"]["name"]
+                solutionName = responseFetchSolutionJson["result"][-1]["name"]
                 print(solutionName,"solutionName")
                 # xfile = openpyxl.load_workbook(programdetails)
                 # sheet_name = 'Resource Details'.strip()
@@ -240,11 +223,7 @@ class CreateSurvey:
     
     def validate_roles_against_api(self, mainRoles, subRoles, programdetails, parentFolder):
         urlFetchRoleList = userLoginHost + fetchprofessionalRole
-        headers = {
-            'Content-Type': content_type,
-            'tenantId': programdetails.get('TenantID'),
-            'X-Channel-id': x_channel_id,
-        }
+        headers = apiHeader.headers().validateRoleHeaders(programdetails.get('TenantID'))
         payload = {}
 
         response = requests.request("GET", urlFetchRoleList, headers=headers, data=payload)
@@ -307,18 +286,9 @@ class CreateSurvey:
             print(err)
         return validated_main_role_ids, validated_subrole_ids_list 
     
-    def prepareProgramSuccessSheet(self, MainFilePath, solutionName_for_folder_path, programFile, solutionExternalId, solutionId,accessToken, programdetails):
+    def prepareProgramSuccessSheet(self, MainFilePath, solutionName_for_folder_path, programFile, solutionExternalId, solutionId,accessToken, programdetails, userRole):
         urlFetchSolutionApi = internal_kong_ip + dbfindapi_url
-        headerFetchSolutionApi = {
-            'Authorization': authorization,
-            'X-auth-token': accessToken,
-            'Content-Type': content_type,
-            'X-Channel-id': x_channel_id,
-            'internal-access-token': internal_access_token,
-            'tenantId': programdetails.get('TenantID'),
-            'orgid': programdetails.get('OrgForAPIs')
-            # adminTokenHeaderName: projAdminAccessToken
-        }
+        headerFetchSolutionApi = apiHeader.headers().headersFetchSolutionDetails(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
         payloadFetchSolutionApi = json.dumps({
             "query": {
                 "_id": solutionId
@@ -336,31 +306,22 @@ class CreateSurvey:
         responseFetchSolutionJson = responseFetchSolutionApi.json()
         messageArr = []
         messageArr.append("Solution Fetch Link.")
-        messageArr.append("solution name : " + responseFetchSolutionJson["result"][0]["name"])
-        messageArr.append("solution ExternalId : " + responseFetchSolutionJson["result"][0]["externalId"])
+        messageArr.append("solution name : " + responseFetchSolutionJson["result"][-1]["name"])
+        messageArr.append("solution ExternalId : " + responseFetchSolutionJson["result"][-1]["externalId"])
         messageArr.append("Upload status code : " + str(responseFetchSolutionApi.status_code))
         self.createAPILog(solutionName_for_folder_path, messageArr)
 
         if responseFetchSolutionApi.status_code == 200:
             print('Fetch solution Api Success')
-            solutionName = responseFetchSolutionJson["result"][0]["name"]
+            solutionName = responseFetchSolutionJson["result"][-1]["name"]
         urlFetchSolutionLinkApi = internal_kong_ip + fetchlink + solutionId
         print(urlFetchSolutionLinkApi,"urlFetchSolutionLinkApi")
-        headerFetchSolutionLinkApi = {
-            # 'Authorization': authorization,
-            'X-auth-token': accessToken,
-            # 'X-Channel-id': x_channel_id
-            'internal-access-token': internal_access_token,
-            'tenantId': programdetails.get('TenantID'),
-            'orgid': programdetails.get('OrgForAPIs')
-            #adminTokenHeaderName: projAdminAccessToken
-        }
+        headerFetchSolutionLinkApi = apiHeader.headers().headersFetchSolutionLink(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
         payloadFetchSolutionLinkApi = {}
 
         responseFetchSolutionLinkApi = requests.get(url=urlFetchSolutionLinkApi, headers=headerFetchSolutionLinkApi,
                                                     data=payloadFetchSolutionLinkApi)
         
-        print(responseFetchSolutionLinkApi.text, "responseFetchSolutionLinkApi")
         messageArr = ["Solution Fetch Link.","solution id : " + solutionId,"solution ExternalId : " + solutionExternalId]
         messageArr.append("Upload status code : " + str(responseFetchSolutionLinkApi.status_code))
         self.createAPILog(solutionName_for_folder_path, messageArr)
@@ -431,9 +392,11 @@ class CreateSurvey:
             # Save the file
             xfile.save(success_file_path)
             print("Program success sheet is created")
+            bodySolutionUpdate = {"status": "active", "isDeleted": False}
+            self.solutionUpdate(solutionName_for_folder_path, accessToken,solutionId, bodySolutionUpdate, programdetails, userRole)
             return solutionLink
         
-    def uploadSurveyQuestionsFromDict(self, MainFilePath, parentFolder, surveyDict, accessToken, surTempExtID, surTempSolID, millisecond, programFile, programdetails,ProgramGlobalDict):
+    def uploadSurveyQuestionsFromDict(self, MainFilePath, parentFolder, surveyDict, accessToken, surTempExtID, surTempSolID, millisecond, programFile, programdetails,ProgramGlobalDict, userRole):
         # Ensure question upload folder exists
         questionFilePath = os.path.join(parentFolder, 'questionUpload')
         os.makedirs(questionFilePath, exist_ok=True)
@@ -559,15 +522,8 @@ class CreateSurvey:
         print(f"Questions CSV created at: {csvPath}")
         try:       
             urlQuestionsUploadApi = internal_kong_ip + questionuploadapiurl
-            headerQuestionUploadApi = {
-                "internal-access-token": internal_access_token,
-                'Authorization': authorization,
-                'X-auth-token': accessToken,
-                'X-Channel-id': x_channel_id,
-                'tenantId': programdetails.get('TenantID'),
-                'orgid': programdetails.get('OrgForAPIs')
-                # adminTokenHeaderName: adminAccessToken
-            }
+            headerQuestionUploadApi = apiHeader.headers().headersQuestionUpload(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
+            
             filesQuestion = {
                 'questions': open(parentFolder + '/questionUpload/uploadSheet.csv', 'rb')
             }
@@ -587,14 +543,7 @@ class CreateSurvey:
                 with open(parentFolder + '/questionUpload/uploadInternalIdsSheet.csv', 'w+',encoding='utf-8') as questionRes:
                     questionRes.write(responseQuestionUploadApi.text)
                 urlImportSoluTemplate = internal_kong_ip + importsurveysolutiontemplateurl + str(surTempSolID) + "?appName=manage-learn&programId=" + programdetails.get('_id')
-                headerImportSoluTemplateApi = {
-                    'X-auth-token': accessToken,
-                    'X-Channel-id': x_channel_id,
-                    'internal-access-token': internal_access_token,
-                    'tenantId': programdetails.get('TenantID'),
-                    'orgid': programdetails.get('OrgForAPIs')
-                    # adminTokenHeaderName: adminAccessToken
-                }
+                headerImportSoluTemplateApi = apiHeader.headers().headersImportSurveySolutionTemplate(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
                 responseImportSoluTemplateApi = requests.post(url=urlImportSoluTemplate,
                                                             headers=headerImportSoluTemplateApi)
                 messageArr = []
@@ -609,18 +558,13 @@ class CreateSurvey:
                     messageArr = ["********* Creating Child api *********", "URL : " + urlImportSoluTemplate,
                                 "Status code : " + str(responseImportSoluTemplateApi.status_code),
                                 "Response : " + responseImportSoluTemplateApi.text]
-                    # ElevateObservation.createAPILog(parentFolder, messageArr)
+                    self.createAPILog(parentFolder, messageArr)
                     responseImportSoluTemplateApi = responseImportSoluTemplateApi.json()
                     solutionIdSuc = responseImportSoluTemplateApi["result"]["solutionId"]
+                    bodySolutionUpdate = {"status": "inactive", "isDeleted": True}
+                    self.solutionUpdate(parentFolder, accessToken,solutionIdSuc, bodySolutionUpdate, programdetails, userRole)
                     urlSurveyProgramMapping = internal_kong_ip + importsurveysolutiontoprogramurl + str(solutionIdSuc) + "?programId=" + programdetails.get('_id')
-                    headeSurveyProgramMappingApi = {
-                        'X-auth-token': accessToken,
-                        'X-Channel-id': x_channel_id,
-                        'internal-access-token': internal_access_token,
-                        'tenantId': programdetails.get('TenantID'),
-                        'orgid': programdetails.get('OrgForAPIs')
-                        # adminTokenHeaderName: adminAccessToken
-                    }
+                    headeSurveyProgramMappingApi = apiHeader.headers().headersSurveyProgramMapping(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
                     responseSurveyProgramMappingApi = requests.post(url=urlSurveyProgramMapping,headers=headeSurveyProgramMappingApi)
                     messageArr = []
                     messageArr = ["Survey Program Mapping Api.",
@@ -639,7 +583,7 @@ class CreateSurvey:
                         solutionExtIdSuc = responseImportSoluTemplateApi["result"]["solutionExternalId"]
                         print("Survey Child Id : " + str(solutionExtIdSuc))
                         solutionDetails = self.fetchSolutionDetailsFromProgramSheet(parentFolder, programdetails, solutionIdSuc,
-                                                                            accessToken, ProgramGlobalDict)  
+                                                                            accessToken, ProgramGlobalDict, userRole)  
                         print(solutionDetails,"solutionDetailssurvey") 
                         scopeRoles = [ solutionDetails[0] ]
                         scopeSubRoles = [ solutionDetails[1] ]
@@ -659,22 +603,22 @@ class CreateSurvey:
                         "scope": scope
                         }
                         print("scope", bodySolutionUpdate)
-                        self.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate, programdetails)
+                        self.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate, programdetails, userRole)
                     
                         if solutionDetails[2]:
                             startDateArr = str(solutionDetails[2]).split("-")
                             bodySolutionUpdate = {
                                 "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
-                            self.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate, programdetails)
+                            self.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate, programdetails, userRole)
                         if solutionDetails[3]:
                             endDateArr = str(solutionDetails[3]).split("-")
                             bodySolutionUpdate = {
                                 "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                            self.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate, programdetails)
+                            self.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate, programdetails, userRole)
                         print('Survey Successfully Added')
 
                         surveySolutionlink = self.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, solutionExtIdSuc,
-                                            solutionIdSuc, accessToken, programdetails)
+                                            solutionIdSuc, accessToken, programdetails, userRole)
                         
                         # surveySolutionlink = "https: Deeplink for survey created successfully."
                         return surveySolutionlink
@@ -720,13 +664,13 @@ class CreateSurvey:
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
 
-    def CreateSurvey(self, resource, PRName, parentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile):
+    def CreateSurvey(self, resource, PRName, parentFolder, accessToken, ProgramGlobalDict, programdetails, MainFilePath, programFile, userRole):
         if resource.get('typeofSolution') == 3:
             surveySolutionlink = ""
             wbObservation = resource.get("ResourceCre")
             millisecond = int(time.time() * 1000)
             print(wbObservation)
-            surveyResp = self.createSurveySolution(parentFolder, wbObservation, accessToken, programdetails)
+            surveyResp = self.createSurveySolution(parentFolder, wbObservation, accessToken, programdetails, userRole)
             if not surveyResp:
                 self.errorVar.append('unable to create survey solution.')
                 return surveySolutionlink, self.errorVar
@@ -734,10 +678,10 @@ class CreateSurvey:
             surTempExtID = surveyResp[1]
             surTempSolID = surveyResp[0]
             bodySolutionUpdate = {"status": "active", "isDeleted": False}
-            if not self.solutionUpdate(parentFolder, accessToken,surTempSolID, bodySolutionUpdate, programdetails):
+            if not self.solutionUpdate(parentFolder, accessToken,surTempSolID, bodySolutionUpdate, programdetails, userRole):
                 self.errorVar.append("Solution Update Failed.")
                 return surveySolutionlink, self.errorVar
-            surveySolutionlink = self.uploadSurveyQuestionsFromDict(MainFilePath, parentFolder, wbObservation, accessToken, surTempExtID, surTempSolID, millisecond, programFile, programdetails, ProgramGlobalDict)
+            surveySolutionlink = self.uploadSurveyQuestionsFromDict(MainFilePath, parentFolder, wbObservation, accessToken, surTempExtID, surTempSolID, millisecond, programFile, programdetails, ProgramGlobalDict, userRole)
             if not surveyResp:
                 self.errorVar.append('unable to upload survey questions...')
                 return surveySolutionlink, self.errorVar

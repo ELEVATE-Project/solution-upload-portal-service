@@ -56,7 +56,7 @@ class SurveyCreate:
 
     def _build_payload(self, resourceType, include_isReusable=True):
         """Build query payload based on resourceType."""
-        query = {"status": "active","isReusable":False}
+        query = {"status": "active","isReusable":False,"tenantId":"shikshalokam","orgId":"sot"}
         if resourceType == "observation with rubrics":
             query.update({
                 "type": "observation",
@@ -165,6 +165,7 @@ class SurveyCreate:
         print(headers, "headers")
 
         payload = self._build_payload(resourceType, include_isReusable=True)
+        print(resourceType,"resourceType")
 
         try:
             # choose URL based on resourceType
@@ -215,7 +216,9 @@ class SurveyCreate:
                 'SOLUTION_CREATED_DATE': item.get('createdAt') if item.get('createdAt') != 'None' else None,
                 'START_DATE': item.get('startDate') if item.get('startDate') != 'None' else None,
                 'END_DATE': item.get('endDate') if item.get('endDate') != 'None' else None,
-                'PROGRAM_NAME': item.get('programName', 'None')
+                'PROGRAM_NAME': item.get('programName', 'None'),
+                'ORGID': item.get('orgId', 'None'),
+                'TENANTID': item.get('tenantId', 'None'),
             }
             solutions_data.append(solution_data)
 
@@ -302,7 +305,10 @@ class SurveyCreate:
                     'SOLUTION_NAME': solution_name,
                     'SOLUTION_CREATED_DATE': solution_createdat,
                     'START_DATE': startdate,
-                    'END_DATE': endate
+                    'END_DATE': endate,
+                    'PROGRAM_NAME': item.get('programName', 'None'),
+                    'ORGID': item.get('orgId', 'None'),
+                    'TENANTID': item.get('tenantId', 'None')
                 })
 
         print("Data written to CSV successfully.")

@@ -209,15 +209,15 @@ def login():
 def signup():
     req_body = request.get_json()
     # get the 'admin_token' from the request header 
-    auth = request.headers.get('admin_token')
+    # auth = request.headers.get('admin_token')
     # check for the auth token 
-    if(not auth):
+    # if(not auth):
         # if the auth token is missing return authorization failed 
-        return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : ""}}
-    else:
+        # return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : ""}}
+    # else:
         # the auth token is present in the header and check the token present in the env file 
-        if not auth == os.environ.get('admin_token'):
-            return {"status" : 500,"code" : "Not Authorized" , "result" : {"templateLinks" : ""}}
+        # if not auth == os.environ.get('admin_token'):
+            # return {"status" : 500,"code" : "Not Authorized" , "result" : {"templateLinks" : ""}}
 
     # if auth is checked 
     try:
@@ -893,20 +893,21 @@ def update_conditions(_id):
 @app.route(APPLICATION_BASE_URL+'/api/v1/survey/getSolutions', methods=['POST'])
 def fetchSurveySolutions():
     resourceType = request.get_json()
+    print(resourceType,'resourceType896')
     # Token validation
-    auth = request.headers.get("Authorization")
-    signing_key = os.environ.get("SECRET_KEY")
-    payload = False
-    if(not auth):
-        return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : ""}}
-    else:
-        try:
-            payload = jwt.decode(auth, signing_key, algorithms=['HS256'])
-        except Exception as e:
-            print(e)
+    # auth = request.headers.get("Authorization")
+    # signing_key = os.environ.get("SECRET_KEY")
+    # payload = False
+    # if(not auth):
+    #     return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : ""}}
+    # else:
+    #     try:
+    #         payload = jwt.decode(auth, signing_key, algorithms=['HS256'])
+    #     except Exception as e:
+    #         print(e)
 
-    if(not payload):
-        return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : "True"}}
+    # if(not payload):
+    #     return {"status" : 500,"code" : "Authorization Failed" , "result" : {"templateLinks" : "True"}}
     survey = SurveyCreate()
     access_token = survey.generate_access_token()
     fetchedSolutionList=survey.fetch_solution_id(access_token,resourceType['resourceType'])
@@ -924,7 +925,7 @@ def fetchSurveySolutions_Csv():
     survey = SurveyCreate()
     access_token = survey.generate_access_token()
     csvFilePath=survey.fetch_solution_id_csv(access_token,resurceType['resourceType'])
-    ospath = os.environ.get("HOSTIP")+"/template/api/v1/errDownload?templatePath=" + csvFilePath
+    ospath = os.environ.get("HOSTIP")+APPLICATION_BASE_URL+"/api/v1/errDownload?templatePath=" + csvFilePath
 
     if csvFilePath:
         return jsonify({"status": 200, "code": "Success", "csvFilePath": ospath})
@@ -939,7 +940,10 @@ def create():
     print(req['file'],"req['file']")
     print(req['tenantId'],"req['tenantId']")
     print(req['orgId'],"req['orgId']")
-    programFile=ResourceInstance.ReadProgramTemplate(req['file'],req['tenantId'],req['orgId'])
+    print(req['USER_TOKEN'],"req['USER_TOKEN']")
+    print(req['userRole'],"req['userRole']")
+
+    programFile=ResourceInstance.ReadProgramTemplate(req['file'],req['tenantId'],req['orgId'],req['USER_TOKEN'],req['userRole'])
     if isinstance(programFile, str):
         try:
             programFile = json.loads(programFile)
@@ -1076,4 +1080,3 @@ def tenant_org_context():
 if (__name__ == '__main__'):
     app.run(host=os.environ.get("HOSTIP")  , port=os.environ.get("FLASK_RUN_PORT") , debug=True)
     
-

@@ -1323,7 +1323,7 @@ class GlobalVariables:
                 }
                 return result
             else:
-                programcreation = ProgramsInstance.programCheckCreate(programFile, MainFilePath, parentFolder, ProgramGlobalDict, PRName, accessToken)
+                programcreation = ProgramsInstance.programCheckCreate(programFile, MainFilePath, parentFolder, ProgramGlobalDict, PRName, accessToken, userRole)
                     
                 finalObsRubricSolutionLink = programcreation
                 result = {
