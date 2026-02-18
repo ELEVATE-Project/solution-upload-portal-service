@@ -1321,6 +1321,91 @@ class CreateObservation:
             self.createAPILog(solutionName_for_folder_path, messageArr)
             self.errorVar.append(f"Error occurred: {str(e)}")
             return False
+        
+    def UpdateCertForSolution(self, solutionName_for_folder_path, childTemplateId, childSolutionId, accessToken,programdetails, userRole):
+        global errorVar
+        try:
+            urldbFind = elevateprojecthost + dbfindapi_url
+            headers = {
+                'X-auth-token': accessToken,
+                'Content-Type': content_type
+            }
+            searchSolutionpayload = {
+                "query": {"_id": childSolutionId},
+                "projection": ["status", "name"],
+                "mongoIdKeys": ["_id"],
+                "limit": 10000
+            }
+            response = requests.post(urldbFind, headers=headers, json=searchSolutionpayload)
+            results = response.json().get("result", [])
+            if not results:
+                errorVar = "No solutions found for name: "
+                print(errorVar)
+                return False
+
+            projectSolutionName = results[0].get("name")
+            if response.status_code != 200:
+                errorVar = f"DBFind-Error {response.status_code}: {response.text}"
+                self.createAPILog(solutionName_for_folder_path, response.text)
+                print("Unable to fetch Solution...")
+                return False
+            
+            urldbFind = elevateprojecthost + dbfindapi_url
+            headers = {
+                'X-auth-token': accessToken,
+                'Content-Type': content_type
+            }
+            searchSolutionpayload = {
+                "query": {"name": projectSolutionName,
+                          "status": "inactive"},
+                "projection": ["status", "name", "certificateTemplateId"],
+                "mongoIdKeys": ["_id"],
+                "limit": 10000
+            }
+            response = requests.post(urldbFind, headers=headers, json=searchSolutionpayload)
+            results = response.json().get("result", [])
+            if not results:
+                errorVar = "No solutions found for name: "
+                print(errorVar)
+                return False
+            if results[0].get("certificateTemplateId"):
+                certificateTemplateId = results[0].get("certificateTemplateId") 
+                print(certificateTemplateId,"certificateTemplateId")
+                urldbFindPT = elevateprojecthost + solutionupdateapi + childSolutionId
+                headerUpdateSolutionApi = apiHeader.headers().headersObservationsolutionUpdate(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
+                searchSolutionpayloadPT = {
+                    "certificateTemplateId": certificateTemplateId
+                }
+                responseSolutionUpdate = requests.post(urldbFindPT, headers=headerUpdateSolutionApi, json=searchSolutionpayloadPT)
+
+                if responseSolutionUpdate.status_code == 200:
+                    print("Child Solution Update Success.")
+                else:
+                    print("Child Solution Update Failed.")
+                    return False
+
+                urldbFindCPT = elevateprojecthost + projectTemplateupdateapi + childTemplateId
+                headerUpdateSolutionApi = apiHeader.headers().headersObservationsolutionUpdate(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
+                searchSolutionpayloadPT = {
+                    "certificateTemplateId": certificateTemplateId
+                }
+                responseSolutionUpdate = requests.post(urldbFindCPT, headers=headerUpdateSolutionApi, json=searchSolutionpayloadPT)
+
+                if responseSolutionUpdate.status_code == 200:
+                    print("Child Solution Update Success.")
+                else:
+                    print("Child Solution Update Failed.")
+                    return False
+            if response.status_code != 200:
+                errorVar = f"DBFind-Error {response.status_code}: {response.text}"
+                self.createAPILog(solutionName_for_folder_path, response.text)
+                print("Unable to fetch Solution...")
+                return False
+            return True
+        except Exception as e:
+            errorVar = f"Exception in UpdateCertForSolution: {str(e)}"
+            print(errorVar, "---> API-Error")
+            return False
 
     def createChild(self, parentFolder,wbObservation, observationExternalId, accessToken, programdetails, userRole):
         entitydetails = programdetails.get("entitiesType")
@@ -1355,7 +1440,11 @@ class CreateObservation:
 
                 responseSol_prog_mapping = responseSol_prog_mapping.json()
                 child_id = responseSol_prog_mapping['result']['_id']
-                observationChildId = child_id
+                solutionDetails = responseSol_prog_mapping['result']['projectTemplateDetails']
+                for sol in solutionDetails:
+                    childTemplateId = sol.get('childProjectTemplateId')
+                    childSolutionId = sol.get('solutionId')
+                    self.UpdateCertForSolution(parentFolder, childTemplateId, childSolutionId, accessToken, programdetails, userRole)
 
                 self.createAPILog(parentFolder, messageArr)
                 print("child solutionId: " + child_id)

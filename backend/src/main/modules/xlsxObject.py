@@ -25,6 +25,7 @@ hostUrl = os.getenv("hostUrl")
 preprodHostUrl = os.getenv("preprodHostUrl")
 errBasic = os.getenv("errBasic")
 errAdv = os.getenv("errAdv")
+sampleTemplatesCollectionName = os.getenv("sampleTemplatesCollection")
 
 
 
@@ -34,6 +35,8 @@ class xlsxObject:
     client = pymongo.MongoClient(connectionUrl)
     self.validationDB = client[databaseName]
     collection = self.validationDB[collectionName]
+    self.sampleTemplatesCollection = self.validationDB[sampleTemplatesCollectionName]
+
     self.templateId = id
     # print(collection,"collection")
     query = {"id":self.templateId}
@@ -516,6 +519,10 @@ class xlsxObject:
   
   def basicCondition(self):
     responseData = {"data":[]}
+    
+    # Validate template structure first
+    responseData = self.validateTemplateStructure(responseData)
+    
     collection = self.validationDB[conditionCollection]
 
     # Query tokenConfig from conditions collection and check whether the generated token is expired or not
@@ -1011,4 +1018,93 @@ class xlsxObject:
             continue
 
 
+    return responseData
+
+  def readSampleTemplate(self, templateId):
+    # This function will read the sample template from the sampleTemplates collection
+    
+    try:
+        templateId = int(templateId)
+    except ValueError:
+        pass # Keep as is if not castable
+
+    query = {"templateCode": templateId}
+    result = self.sampleTemplatesCollection.find(query)
+    data = []
+    for i in result:
+      del i["_id"]
+      data.append(i)
+      
+    if len(data) == 0:
+      return None
+    else:
+      return data[0]
+
+  def validateTemplateStructure(self, responseData):
+    # This function will validate the structure of the uploaded file with the sample template
+    
+    sampleTemplate = self.readSampleTemplate(self.templateId)
+    if sampleTemplate is None:
+      print("Sample template not found/configured for this templateId")
+      return responseData
+
+    try:
+      sampleTemplatePath = self.metadata["xlsxPath"].split(".")[0] + "_sample.xlsx"
+      sampleLink = sampleTemplate["templateLink"]
+      
+      # Handle Google Sheets links to download as xlsx
+      if sampleLink[:39] == "https://docs.google.com/spreadsheets/d/":
+        x = sampleLink.split("/")[5]
+        sampleLink = "https://docs.google.com/spreadsheets/export?id={}&exportFormat=xlsx".format(x)
+      
+      wget.download(sampleLink, sampleTemplatePath)
+      
+      sampleXlsxData = pd.read_excel(sampleTemplatePath, sheet_name=None)
+      
+      # Process sample data headers similar to upload data processing
+      for key in sampleXlsxData.keys():
+        if not sampleXlsxData[key].empty:
+           newHeader = sampleXlsxData[key].iloc[0]
+           sampleXlsxData[key] = sampleXlsxData[key][1:]
+           sampleXlsxData[key].columns = newHeader
+
+      # Helper to standardize column names for comparison (strip spaces, ignore empty)
+      def clean_columns(columns):
+         return [str(c).strip() for c in columns if str(c) != 'nan']
+
+      # Validate Sheets
+      userSheets = self.xlsxData.keys()
+      sampleSheets = sampleXlsxData.keys()
+      
+      for sheet in sampleSheets:
+        if sheet not in userSheets:
+           responseData["data"].append({"errCode": errBasic, "sheetName": sheet, "columnName": "", "errMessage": "Sheet '{}' is missing in the uploaded file".format(sheet), "suggestion": "Please ensure the file contains all sheets from the template"})
+           continue
+        
+        # Validate Columns
+        if sampleXlsxData[sheet].empty and self.xlsxData[sheet].empty:
+            continue
+
+        userColumns = clean_columns(self.xlsxData[sheet].columns)
+        sampleColumns = clean_columns(sampleXlsxData[sheet].columns)
+        
+        # Check for missing columns
+        for col in sampleColumns:
+          if col not in userColumns:
+             responseData["data"].append({"errCode": errBasic, "sheetName": sheet, "columnName": col, "errMessage": "Column '{}' is missing in sheet '{}'".format(col, sheet), "suggestion": "Please ensure the sheet contains all columns from the template"})
+
+        # Check for extra columns
+        for col in userColumns:
+          if col not in sampleColumns:
+             responseData["data"].append({"errCode": errBasic, "sheetName": sheet, "columnName": col, "errMessage": "Extra column '{}' found in sheet '{}'".format(col, sheet), "suggestion": "Please remove the extra column or match the template"})
+
+      
+      if os.path.exists(sampleTemplatePath):
+        os.remove(sampleTemplatePath)
+        
+    except Exception as e:
+      print(e, "Error in validateTemplateStructure")
+      if os.path.exists(sampleTemplatePath):
+        os.remove(sampleTemplatePath)
+    
     return responseData
