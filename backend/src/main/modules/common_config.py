@@ -58,6 +58,7 @@ tenantFetch = "user/v1/tenant/read/"
 updatecertificatesolu = "v1/solutions/update/"
 updateprojecttemplate = "v1/project/templates/update/"
 fetchprofessionalRole = "entity-management/v1/entities/entityListBasedOnEntityType?entityType=professional_role"
+projectTemplateupdateapi = "/v1/project/templates/update/"
 certificatetypeof = {
     "onelogo-onesignature": "onelogo_onesign",
     "onelogo-twosignature": "onelogo_twosign",
