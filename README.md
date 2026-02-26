@@ -1,4 +1,4 @@
-# Solution UPload Portal Service
+# Solution Upload Portal Service
 
 Backend service for the Data Upload and Validation tool.
 
