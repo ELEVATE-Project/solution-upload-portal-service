@@ -1,35 +1,35 @@
-# template-validation-portal-service
+# Template Validation Portal Service
 
-Repository for backend service of Data upload and Validation tool
+Backend service for the Data Upload and Validation tool.
 
-Code pushes to be done in the `main` branch only.
+**Branch policy**: Code pushes should be done to the `main` branch only.
 
 ## Limitations
-The character limit on the os.path is 260 characters and the path can not be beyond the limit. Please Keep the file names short.
 
-## Requirements
-1. Python dependencies
-2. MongoDB data restore
+- Some operating systems enforce a maximum path length (commonly 260 characters). Keep file and folder names short to avoid path-related errors.
 
-## Python dependencies
+## Prerequisites
 
-There are two ways to install python dependencies :-
+- Python dependencies
+- MongoDB data restore (seed data)
 
+## Install dependencies
 
-1. Conda and environment.yml file (recommended):-
+You can install Python dependencies using either Conda (recommended) or `venv`.
 
-```
+### Option 1: Conda (recommended)
+
+```bash
 conda env create -f environment.yml
 conda activate templateValidation
 ```
 
-Note :- Please refer to below link for installing conda in ubuntu
+If you do not have Conda installed, refer to the official documentation:
+`https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html`
 
-https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html
+### Option 2: Virtual environment (`venv`)
 
-
-2. Virtual env and requirement.txt file :-
-```
+```bash
 python -m venv env_name
 source env_name/bin/activate
 pip install -r requirements.txt
@@ -37,38 +37,53 @@ pip install -r requirements.txt
 
 ## MongoDB data restore
 
-Use following command to restore mongoDB dump :-
+Use the following command to restore the MongoDB dump:
 
-```
+```bash
 cd data
 mongorestore --host localhost --port 27017 --db templateValidation --gzip ./
 ```
 
-## Execution 
-```
+## Run the service
+
+```bash
 cd apiServices/src/main/
 python app.py
 ```
 
-Sample Templates
+## Sample templates
+
+- Shikshalokam Program Template: `https://docs.google.com/spreadsheets/d/1-XOpJSa4-3C2WezD-aUtDUXxlDgzjnsfxSlqO0kQJiI/edit?gid=0#gid=0`
+- Shikshagraha Program Template: `https://docs.google.com/spreadsheets/d/1LcwSbKESqVovz6MUaLrcwqO9qWL-tF15UJu4hXQyNZs/edit?gid=0#gid=0`
+
+## Environment variables (sample)
+
+Create a `.env` file and set values as needed:
+
+```dotenv
+FLASK_APP=app.py
+FLASK_RUN_PORT=5000
+HOSTIP="Add server IP address"
+mongoURL="Add server MongoDB URL"
+
+db=templateValidation
+userCollection=users
+conditionsCollection=conditions
+validationsCollection=validation
+sampleTemplatesCollection=sampleTemplates
+
+# Auth
+SECRET_KEY="replace-with-a-secure-secret"
+admin-token="replace-with-a-secure-admin-token"
 ```
-Shikshalokam Program Template: https://docs.google.com/spreadsheets/d/1-XOpJSa4-3C2WezD-aUtDUXxlDgzjnsfxSlqO0kQJiI/edit?gid=0#gid=0
 
+## Release branches
 
-Shikshagraha Program Template: https://docs.google.com/spreadsheets/d/1LcwSbKESqVovz6MUaLrcwqO9qWL-tF15UJu4hXQyNZs/edit?gid=0#gid=0
-```
-
-## Sample .env file
-
-FLASK_APP = app.py
-FLASK_RUN_PORT = 5000
-HOSTIP = "Add server ip Address"
-mongoURL = "Add server mongo url"
-db = templateValidation
-userCollection = users
-conditionsCollection = conditions
-validationsCollection = validation
-sampleTemplatesCollection = sampleTemplates
-#AUTH SECRET_KEY
-SECRET_KEY = "98bcbfb0f82aff815f17d5bfed66c1f4"
-admin-token = "16c6a8b5cbad36c887e74eed42454241"
+- **Elevate-Release-1.2.1**: Tenant/Org admin enhancements added logic to create program and solutions based on Tenant/Org passed in template.
+- **Elevate-Release-1.2.2**: Added validation for project templates so that `mitralink` is included for Shikshagraha and not for Shikshalokam.
+- **Elevate-Release-1.2.3**: Updated the template and corresponding code changes to add the `entity` field for project templates.
+- **Elevate-Release-1.2.4**: Code changes to handle custom entity types for project resources.
+- **Elevate-Release-1.2.5**: Added `projectTemplateUpdateApi = "/v1/project/templates/update/"` for certificate workflows where the observation-led implementation resource is required.
+- **Elevate-Release-1.2.6**: Bug fix: `orgId` previously picked the latest value from the array even when multiple orgs were passed; now multiple orgs are added to the scope collections correctly.
+- **Elevate-Release-1.2.7**: Added logic to handle creation of multiple entity resources with target mapping based on the program template.
+- **Elevate-Release-1.2.8**: Enhancement to handle multiple observations for “continue” tasks in project templates.
