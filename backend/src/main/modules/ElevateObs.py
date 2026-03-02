@@ -93,7 +93,7 @@ programName = None
 userEntity = None
 roles = ""
 mainRole = ""
-dictCritLookUp = {}
+# dictCritLookUp = {}
 isProgramnamePresent = None
 solutionLanguage = None
 keyWords = None
@@ -1969,7 +1969,8 @@ class ElevateObservation:
             print(errorVar,"---> API-Error")
             
     def themesUpload(solutionName_for_folder_path, wbObservation, millisAddObs, accessToken, frameworkExternalId,obsWORubWS):
-        global dictCritLookUp,errorVar
+        global errorVar
+        dictCritLookUp = {}
         with open(solutionName_for_folder_path + '/criteriaUpload/uploadInternalIdsSheet.csv', 'r',encoding='utf-8') as criteriaInternalFile:
             # content = criteriaInternalFile.read()
             # print(content,"---> content of criteriaInternalFile")
