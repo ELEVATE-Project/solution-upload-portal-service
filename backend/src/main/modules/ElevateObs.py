@@ -1980,7 +1980,7 @@ class ElevateObservation:
             for row in criteriaInternalReader:
                 print(row,"---> row")
 
-            print(criteriaInternalReader,"---> content of criteriaInternalFile")
+            # print(criteriaInternalReader,"---> content of criteriaInternalFile")
             for crit in criteriaInternalReader:
                 dictCritLookUp[crit['Criteria External Id']] = crit['Criteria Internal Id']
         if obsWORubWS:
