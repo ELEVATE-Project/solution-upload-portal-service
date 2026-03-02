@@ -1977,6 +1977,8 @@ class ElevateObservation:
             print(solutionName_for_folder_path,"---> solutionName_for_folder_path")
            
             criteriaInternalReader = csv.DictReader(criteriaInternalFile)
+            for row in criteriaInternalReader:
+                print(row,"---> row")
 
             print(criteriaInternalReader,"---> content of criteriaInternalFile")
             for crit in criteriaInternalReader:
