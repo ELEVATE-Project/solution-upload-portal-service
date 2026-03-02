@@ -1754,6 +1754,7 @@ class ElevateObservation:
 
             responseCriteriaUploadApi = requests.post(url=urlCriteriaUploadApi, headers=headerCriteriaUploadApi,
                                                     files=filesCriteria)
+            print(responseCriteriaUploadApi.text,"---> responseCriteriaUploadApi")
             messageArr = ["Criteria Upload Sheet Prepared.",
                         "File path : " + solutionName_for_folder_path + '/criteriaUpload/uploadSheet.csv']
             messageArr.append("Upload status code : " + str(responseCriteriaUploadApi.status_code))
