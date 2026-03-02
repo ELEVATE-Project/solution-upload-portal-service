@@ -1932,6 +1932,7 @@ class ElevateObservation:
 
             responseFrameworkUploadApi = requests.post(url=urlCreateFrameworkApi, headers=headerFrameworkUploadApi,
                                                     files=filesFramework)
+            print(responseFrameworkUploadApi.text,"---> responseFrameworkUploadApi")
             messageArr = ["Framwork json file created.",
                         "File loc : " + solutionName_for_folder_path + '/framework/uploadFile.json',
                         "Framework upload API called,", "Status code : " + str(responseFrameworkUploadApi.status_code)]
@@ -2023,6 +2024,7 @@ class ElevateObservation:
                                     adminTokenHeaderName: adminAccessToken}
             filesThemes = {'themes': open(solutionName_for_folder_path + '/themeUpload/uploadSheet.csv', 'rb')}
             responseThemeUploadApi = requests.post(url=urlThemesUploadApi, headers=headerThemesUploadApi, files=filesThemes)
+            print(responseThemeUploadApi.text,"---> responseThemeUploadApi")
             messageArr = ["Themes upload sheet prepared.",
                         "File path : " + solutionName_for_folder_path + '/themeUpload/uploadSheet.csv',
                         "Theme upload to framework API called.", "URL : " + urlThemesUploadApi,
