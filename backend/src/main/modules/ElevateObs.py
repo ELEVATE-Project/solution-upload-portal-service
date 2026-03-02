@@ -93,7 +93,7 @@ programName = None
 userEntity = None
 roles = ""
 mainRole = ""
-dictCritLookUp = {}
+# dictCritLookUp = {}
 isProgramnamePresent = None
 solutionLanguage = None
 keyWords = None
@@ -1754,6 +1754,7 @@ class ElevateObservation:
 
             responseCriteriaUploadApi = requests.post(url=urlCriteriaUploadApi, headers=headerCriteriaUploadApi,
                                                     files=filesCriteria)
+            print(responseCriteriaUploadApi.text,"---> responseCriteriaUploadApi")
             messageArr = ["Criteria Upload Sheet Prepared.",
                         "File path : " + solutionName_for_folder_path + '/criteriaUpload/uploadSheet.csv']
             messageArr.append("Upload status code : " + str(responseCriteriaUploadApi.status_code))
@@ -1763,6 +1764,11 @@ class ElevateObservation:
                 print('CriteriaUploadApi Success')
                 with open(solutionName_for_folder_path + '/criteriaUpload/uploadInternalIdsSheet.csv', 'w+',encoding='utf-8') as criteriaRes:
                     criteriaRes.write(responseCriteriaUploadApi.text)
+                # content = criteriaRes.read()
+                # print(content,"---> content of criteriaRes")
+                # print(criteriaRes,"---> criteriaRes")
+                # print(responseCriteriaUploadApi.text,"---> responseCriteriaUploadApi")
+                # print(criteriaRes.write(responseCriteriaUploadApi.text),"---> criteriaRes.write(responseCriteriaUploadApi.text)")
                 return True
             else:
                 error_message = ""
@@ -1920,6 +1926,7 @@ class ElevateObservation:
 
             with open(frameworkFilePath + "uploadFile.json", "w",encoding='utf-8') as outfile:
                 json.dump(frameworkDocInsertObj, outfile)
+            print(frameworkDocInsertObj,"---> frameworkDocInsertObj")
             headerFrameworkUploadApi = {'Authorization': authorization,
                                         "internal-access-token": internal_access_token,
                                         'X-auth-token': accessToken,
@@ -1931,6 +1938,7 @@ class ElevateObservation:
 
             responseFrameworkUploadApi = requests.post(url=urlCreateFrameworkApi, headers=headerFrameworkUploadApi,
                                                     files=filesFramework)
+            print(responseFrameworkUploadApi.text,"---> responseFrameworkUploadApi")
             messageArr = ["Framwork json file created.",
                         "File loc : " + solutionName_for_folder_path + '/framework/uploadFile.json',
                         "Framework upload API called,", "Status code : " + str(responseFrameworkUploadApi.status_code)]
@@ -1961,11 +1969,22 @@ class ElevateObservation:
             print(errorVar,"---> API-Error")
             
     def themesUpload(solutionName_for_folder_path, wbObservation, millisAddObs, accessToken, frameworkExternalId,obsWORubWS):
-        global dictCritLookUp,errorVar
+        global errorVar
+        dictCritLookUp = {}
         with open(solutionName_for_folder_path + '/criteriaUpload/uploadInternalIdsSheet.csv', 'r',encoding='utf-8') as criteriaInternalFile:
+            # content = criteriaInternalFile.read()
+            # print(content,"---> content of criteriaInternalFile")
+            # print(content,"---> content of criteriaInternalFile")
+            print(solutionName_for_folder_path,"---> solutionName_for_folder_path")
+           
             criteriaInternalReader = csv.DictReader(criteriaInternalFile)
+            # for row in criteriaInternalReader:
+                # print(row,"---> row")
+
+            # print(criteriaInternalReader,"---> content of criteriaInternalFile")
             for crit in criteriaInternalReader:
                 dictCritLookUp[crit['Criteria External Id']] = crit['Criteria Internal Id']
+                print(dictCritLookUp[crit['Criteria External Id']],"---> dictCritLookUp[crit['Criteria External Id']]")
         if obsWORubWS:
             print("Themes Observation without rubrics with scores")
             themeUploadFieldnames = ["theme", "aoi", "indicators", "criteriaInternalId"]
@@ -1986,6 +2005,7 @@ class ElevateObservation:
                     if not file_exists:
                         writerthemeUpload.writeheader()
                     writerthemeUpload.writerow(themesUploadCsv)
+                    print(themesUploadCsv,"---> themesUploadCsv")
 
         else:
             frameWorkSheet = wbObservation.sheet_by_name('framework')
@@ -2011,6 +2031,7 @@ class ElevateObservation:
                     if not file_exists:
                         writerthemeUpload.writeheader()
                     writerthemeUpload.writerow(themesUploadCsv)
+                    print(themesUploadCsv,"---> themesUploadCsv")
         try:
             urlThemesUploadApi = internal_kong_ip + themeuploadapiurl + frameworkExternalId
             headerThemesUploadApi = {'Authorization': authorization,
@@ -2022,6 +2043,7 @@ class ElevateObservation:
                                     adminTokenHeaderName: adminAccessToken}
             filesThemes = {'themes': open(solutionName_for_folder_path + '/themeUpload/uploadSheet.csv', 'rb')}
             responseThemeUploadApi = requests.post(url=urlThemesUploadApi, headers=headerThemesUploadApi, files=filesThemes)
+            print(responseThemeUploadApi.text,"---> responseThemeUploadApi")
             messageArr = ["Themes upload sheet prepared.",
                         "File path : " + solutionName_for_folder_path + '/themeUpload/uploadSheet.csv',
                         "Theme upload to framework API called.", "URL : " + urlThemesUploadApi,
@@ -3284,7 +3306,7 @@ class ElevateObservation:
         return [solutionRolesArray, solutionStartDate, solutionEndDate]
 
 
-    def createChild(solutionName_for_folder_path, observationExternalId, accessToken):
+    def createChild(solutionName_for_folder_path, observationExternalId, accessToken,typeofSolution):
         global errorVar,solutionName, solutionDescription,entityType,programExternalId,isExternalProgram,observationChildId
         error_message=""
         try:
@@ -3326,14 +3348,15 @@ class ElevateObservation:
                 responseSol_prog_mapping = responseSol_prog_mapping.json()
                 child_id = responseSol_prog_mapping['result']['_id']                
                 # ElevateObservation.observationChildId = child_id
-                
-                solutionDetails = responseSol_prog_mapping['result']['projectTemplateDetails']
-                for sol in solutionDetails:
-                    childTemplateId = sol.get('childProjectTemplateId')
-                    childSolutionId = sol.get('solutionId')
-                    ElevateObservation.UpdateCertForSolution(solutionName_for_folder_path, childTemplateId, childSolutionId, accessToken)
-                ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
-                print("child solutionId: " + child_id)
+
+                if typeofSolution == 5:
+                    solutionDetails = responseSol_prog_mapping['result']['projectTemplateDetails']
+                    for sol in solutionDetails:
+                        childTemplateId = sol.get('childProjectTemplateId')
+                        childSolutionId = sol.get('solutionId')
+                        ElevateObservation.UpdateCertForSolution(solutionName_for_folder_path, childTemplateId, childSolutionId, accessToken)
+                        ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                        print("child solutionId: " + child_id)
                 return [child_id, childObservationExternalId]
             else:
                 error_message = ""
@@ -5433,7 +5456,7 @@ class ElevateObservation:
                             #         finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                             #         return finalObsRubricSolutionLink
                             if isProgramnamePresent:
-                                childId = ElevateObservation.createChild(parentFolder, solutionId, accessToken)
+                                childId = ElevateObservation.createChild(parentFolder, solutionId, accessToken,typeofSolution)
                                 if not childId:
                                     finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                     return finalObsRubricSolutionLink
@@ -5623,7 +5646,7 @@ class ElevateObservation:
                             #         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                             #     return ObsWORSolutionLink
                             if isProgramnamePresent:
-                                childId = ElevateObservation.createChild(parentFolder, observationExternalId, accessToken)
+                                childId = ElevateObservation.createChild(parentFolder, observationExternalId, accessToken,typeofSolution)
                                 if not childId:
                                     finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                     return finalObsRubricSolutionLink
@@ -5889,7 +5912,7 @@ class ElevateObservation:
                         finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                         return finalObsRubricSolutionLink
                 if isProgramnamePresent:
-                    childId = ElevateObservation.createChild(parentFolder, observationExternalId, accessToken)
+                    childId = ElevateObservation.createChild(parentFolder, observationExternalId, accessToken,typeofSolution)
                     if not childId:
                         finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                         return finalObsRubricSolutionLink
@@ -6012,7 +6035,7 @@ class ElevateObservation:
                         "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
                     ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
                 if isProgramnamePresent:
-                    childId = ElevateObservation.createChild(parentFolder, observationExternalId, accessToken)
+                    childId = ElevateObservation.createChild(parentFolder, observationExternalId, accessToken,typeofSolution)
                     if not childId:
                         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                         return ObsWORSolutionLink
