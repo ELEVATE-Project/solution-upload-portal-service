@@ -3284,7 +3284,7 @@ class ElevateObservation:
         return [solutionRolesArray, solutionStartDate, solutionEndDate]
 
 
-    def createChild(solutionName_for_folder_path, observationExternalId, accessToken):
+    def createChild(solutionName_for_folder_path, observationExternalId, accessToken,typeofSolution):
         global errorVar,solutionName, solutionDescription,entityType,programExternalId,isExternalProgram,observationChildId
         error_message=""
         try:
@@ -3326,14 +3326,15 @@ class ElevateObservation:
                 responseSol_prog_mapping = responseSol_prog_mapping.json()
                 child_id = responseSol_prog_mapping['result']['_id']                
                 # ElevateObservation.observationChildId = child_id
-                
-                solutionDetails = responseSol_prog_mapping['result']['projectTemplateDetails']
-                for sol in solutionDetails:
-                    childTemplateId = sol.get('childProjectTemplateId')
-                    childSolutionId = sol.get('solutionId')
-                    ElevateObservation.UpdateCertForSolution(solutionName_for_folder_path, childTemplateId, childSolutionId, accessToken)
-                ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
-                print("child solutionId: " + child_id)
+
+                if typeofSolution == 5:
+                    solutionDetails = responseSol_prog_mapping['result']['projectTemplateDetails']
+                    for sol in solutionDetails:
+                        childTemplateId = sol.get('childProjectTemplateId')
+                        childSolutionId = sol.get('solutionId')
+                        ElevateObservation.UpdateCertForSolution(solutionName_for_folder_path, childTemplateId, childSolutionId, accessToken)
+                        ElevateObservation.createAPILog(solutionName_for_folder_path, messageArr)
+                        print("child solutionId: " + child_id)
                 return [child_id, childObservationExternalId]
             else:
                 error_message = ""
@@ -5433,7 +5434,7 @@ class ElevateObservation:
                             #         finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                             #         return finalObsRubricSolutionLink
                             if isProgramnamePresent:
-                                childId = ElevateObservation.createChild(parentFolder, solutionId, accessToken)
+                                childId = ElevateObservation.createChild(parentFolder, solutionId, accessToken,typeofSolution)
                                 if not childId:
                                     finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                     return finalObsRubricSolutionLink
@@ -5623,7 +5624,7 @@ class ElevateObservation:
                             #         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                             #     return ObsWORSolutionLink
                             if isProgramnamePresent:
-                                childId = ElevateObservation.createChild(parentFolder, observationExternalId, accessToken)
+                                childId = ElevateObservation.createChild(parentFolder, observationExternalId, accessToken,typeofSolution)
                                 if not childId:
                                     finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                                     return finalObsRubricSolutionLink
@@ -5889,7 +5890,7 @@ class ElevateObservation:
                         finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                         return finalObsRubricSolutionLink
                 if isProgramnamePresent:
-                    childId = ElevateObservation.createChild(parentFolder, observationExternalId, accessToken)
+                    childId = ElevateObservation.createChild(parentFolder, observationExternalId, accessToken,typeofSolution)
                     if not childId:
                         finalObsRubricSolutionLink = {ObsWRResourceName: errorVar}
                         return finalObsRubricSolutionLink
@@ -6012,7 +6013,7 @@ class ElevateObservation:
                         "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
                     ElevateObservation.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate)
                 if isProgramnamePresent:
-                    childId = ElevateObservation.createChild(parentFolder, observationExternalId, accessToken)
+                    childId = ElevateObservation.createChild(parentFolder, observationExternalId, accessToken,typeofSolution)
                     if not childId:
                         ObsWORSolutionLink = {ObsWORResourceName: errorVar}
                         return ObsWORSolutionLink
