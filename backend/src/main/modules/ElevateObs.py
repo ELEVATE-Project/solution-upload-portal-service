@@ -1977,12 +1977,13 @@ class ElevateObservation:
             print(solutionName_for_folder_path,"---> solutionName_for_folder_path")
            
             criteriaInternalReader = csv.DictReader(criteriaInternalFile)
-            for row in criteriaInternalReader:
-                print(row,"---> row")
+            # for row in criteriaInternalReader:
+                # print(row,"---> row")
 
             # print(criteriaInternalReader,"---> content of criteriaInternalFile")
             for crit in criteriaInternalReader:
                 dictCritLookUp[crit['Criteria External Id']] = crit['Criteria Internal Id']
+                print(dictCritLookUp[crit['Criteria External Id']],"---> dictCritLookUp[crit['Criteria External Id']]")
         if obsWORubWS:
             print("Themes Observation without rubrics with scores")
             themeUploadFieldnames = ["theme", "aoi", "indicators", "criteriaInternalId"]
