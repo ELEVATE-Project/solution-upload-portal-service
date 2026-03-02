@@ -1921,6 +1921,7 @@ class ElevateObservation:
 
             with open(frameworkFilePath + "uploadFile.json", "w",encoding='utf-8') as outfile:
                 json.dump(frameworkDocInsertObj, outfile)
+            print(frameworkDocInsertObj,"---> frameworkDocInsertObj")
             headerFrameworkUploadApi = {'Authorization': authorization,
                                         "internal-access-token": internal_access_token,
                                         'X-auth-token': accessToken,
@@ -1988,6 +1989,7 @@ class ElevateObservation:
                     if not file_exists:
                         writerthemeUpload.writeheader()
                     writerthemeUpload.writerow(themesUploadCsv)
+                    print(themesUploadCsv,"---> themesUploadCsv")
 
         else:
             frameWorkSheet = wbObservation.sheet_by_name('framework')
@@ -2013,6 +2015,7 @@ class ElevateObservation:
                     if not file_exists:
                         writerthemeUpload.writeheader()
                     writerthemeUpload.writerow(themesUploadCsv)
+                    print(themesUploadCsv,"---> themesUploadCsv")
         try:
             urlThemesUploadApi = internal_kong_ip + themeuploadapiurl + frameworkExternalId
             headerThemesUploadApi = {'Authorization': authorization,
