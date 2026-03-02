@@ -1764,6 +1764,10 @@ class ElevateObservation:
                 print('CriteriaUploadApi Success')
                 with open(solutionName_for_folder_path + '/criteriaUpload/uploadInternalIdsSheet.csv', 'w+',encoding='utf-8') as criteriaRes:
                     criteriaRes.write(responseCriteriaUploadApi.text)
+
+                print(criteriaRes.text,"---> criteriaRes")
+                print(responseCriteriaUploadApi.text,"---> responseCriteriaUploadApi")
+                print(criteriaRes.write(responseCriteriaUploadApi.text),"---> criteriaRes.write(responseCriteriaUploadApi.text)")
                 return True
             else:
                 error_message = ""
@@ -1966,6 +1970,8 @@ class ElevateObservation:
     def themesUpload(solutionName_for_folder_path, wbObservation, millisAddObs, accessToken, frameworkExternalId,obsWORubWS):
         global dictCritLookUp,errorVar
         with open(solutionName_for_folder_path + '/criteriaUpload/uploadInternalIdsSheet.csv', 'r',encoding='utf-8') as criteriaInternalFile:
+            print(solutionName_for_folder_path,"solutionName_for_folder_path")
+            print(criteriaInternalFile.text,"---> criteriaInternalFile")
             criteriaInternalReader = csv.DictReader(criteriaInternalFile)
             for crit in criteriaInternalReader:
                 dictCritLookUp[crit['Criteria External Id']] = crit['Criteria Internal Id']
