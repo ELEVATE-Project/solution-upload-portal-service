@@ -585,8 +585,8 @@ class CreateSurvey:
                         solutionDetails = self.fetchSolutionDetailsFromProgramSheet(parentFolder, programdetails, solutionIdSuc,
                                                                             accessToken, ProgramGlobalDict, userRole)  
                         print(solutionDetails,"solutionDetailssurvey") 
-                        scopeRoles = [ solutionDetails[0] ]
-                        scopeSubRoles = [ solutionDetails[1] ]
+                        scopeRoles = [r.strip() for r in solutionDetails[0].split(",") if r.strip()]
+                        scopeSubRoles = [r.strip() for r in solutionDetails[1].split(",") if r.strip()]
                         verifiedRoles = self.validate_roles_against_api(scopeRoles, scopeSubRoles,programdetails, parentFolder)
                         mainRoleproff = verifiedRoles[0]
                         rolesPGMID = verifiedRoles[1]

@@ -1724,9 +1724,9 @@ class CreateObservation:
             if not self.solutionUpdate(parentFolder, accessToken, solutionId, ECMUpdate[1],programdetails, userRole):
                 self.errorVar.append("Solution Update Failed.")
                 return finalObsRubricSolutionLink, self.errorVar
-            entitydetails = programdetails.get("entitiesType")
-            Entity_To_Upload = entitydetails[0] if isinstance(entitydetails[0], str) else str(entitydetails[0][0])
-            if Entity_To_Upload.strip().lower() in ['state', 'district', 'block', 'cluster', 'school']:
+            Resourcedet = wbObservation.get("details")
+            ObsEntityType = Resourcedet.get("entity_type")
+            if ObsEntityType.strip().lower() in ['state', 'district', 'block', 'cluster', 'school']:
                 parentEntityKey = "state"
             else:
                 parentEntityKey = None
@@ -1781,13 +1781,8 @@ class CreateObservation:
                     self.errorVar.append("Fetch solution details API Failed.")
                     return finalObsRubricSolutionLink, self.errorVar
                 self.solutionUpdate(parentFolder, accessToken, childId[0], {"status": "inactive", "isDeleted": True}, programdetails, userRole)
-                scopeRoles = solutionDetails[0]
-                scopeSubRoles = solutionDetails[1]
-                # ✅ Fix: ensure roles are lists
-                if isinstance(scopeRoles, str):
-                    scopeRoles = [scopeRoles]
-                if isinstance(scopeSubRoles, str):
-                    scopeSubRoles = [scopeSubRoles]
+                scopeRoles = [r.strip() for r in solutionDetails[0].split(",") if r.strip()]
+                scopeSubRoles = [r.strip() for r in solutionDetails[1].split(",") if r.strip()]
                 verifiedRoles = self.validate_roles_against_api(
                     scopeRoles, scopeSubRoles, programdetails, parentFolder
                 )
@@ -1890,9 +1885,9 @@ class CreateObservation:
                     return finalObsSolutionLink,self.errorVar
             else:
                 print("Observation with scoring system : null.")
-            entitydetails = programdetails.get("entitiesType")
-            Entity_To_Upload = entitydetails[0] if isinstance(entitydetails[0], str) else str(entitydetails[0][0])
-            if Entity_To_Upload.strip().lower() in ['state', 'district', 'block', 'cluster', 'school']:
+            Resourcedet = wbObservation.get("details")
+            ObsEntityType = Resourcedet.get("entity_type")
+            if ObsEntityType.strip().lower() in ['state', 'district', 'block', 'cluster', 'school']:
                 parentEntityKey = "state"
             else:
                 parentEntityKey = None
@@ -1916,13 +1911,8 @@ class CreateObservation:
                     self.errorVar.append("Fetch solution details API Failed.")
                     return finalObsSolutionLink,self.errorVar
                 self.solutionUpdate(parentFolder, accessToken, childId[0], {"status":"inactive", "isDeleted": True}, programdetails, userRole)
-                scopeRoles = solutionDetails[0]
-                scopeSubRoles = solutionDetails[1]
-                # ✅ Fix: ensure roles are lists
-                if isinstance(scopeRoles, str):
-                    scopeRoles = [scopeRoles]
-                if isinstance(scopeSubRoles, str):
-                    scopeSubRoles = [scopeSubRoles]
+                scopeRoles = [r.strip() for r in solutionDetails[0].split(",") if r.strip()]
+                scopeSubRoles = [r.strip() for r in solutionDetails[1].split(",") if r.strip()]
                 verifiedRoles = self.validate_roles_against_api(
                     scopeRoles, scopeSubRoles, programdetails, parentFolder
                 )
