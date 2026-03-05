@@ -557,14 +557,18 @@ class Programs:
                         print("Program ID:", programID)
                         return True
                     else:
-                        if responsePgmCreate.status_code in [400, 401, 403, 404, 422]:
-                            self.errorVar.append(f"PgmCreate-Client Error {responsePgmCreate.status_code}: {responsePgmCreate.text}")
-                        elif responsePgmCreate.status_code in [500, 502, 503, 504]:
-                            self.errorVar.append(f"PgmCreate-Server Error {responsePgmCreate.status_code}: {responsePgmCreate.text}")
-                        else:
-                            self.errorVar.append(f"PgmCreate-Unexpected Error {responsePgmCreate.status_code}: {responsePgmCreate.text}")
+                        self.errorVar.append(f"PgmCreate-Unexpected Error {responsePgmCreate.status_code}: {responsePgmCreate.text}")
                         print("Program creation API failed. Please check logs.")
                         return False
+            else:
+                if responsePgmCreate.status_code in [400, 401, 403, 404, 422]:
+                    self.errorVar.append(f"PgmCreate-Client Error {responsePgmCreate.status_code}: {responsePgmCreate.text}")
+                elif responsePgmCreate.status_code in [500, 502, 503, 504]:
+                    self.errorVar.append(f"PgmCreate-Server Error {responsePgmCreate.status_code}: {responsePgmCreate.text}")
+                else:
+                    self.errorVar.append(f"PgmCreate-Unexpected Error {responsePgmCreate.status_code}: {responsePgmCreate.text}")
+                print("Program creation API failed. Please check logs.")
+                return False
         except Exception as e:
             self.errorVar.append(str(e))
             return False
@@ -598,16 +602,16 @@ class Programs:
     def programCheckCreate(self, programFile, MainFilePath, parentFolder, ProgramGlobalDict, PRName, accessToken,userRole):
         programdetails_list = ProgramGlobalDict.get('Program Details', [])
         programdetails = programdetails_list[0] if programdetails_list else {}
-        # accessToken = self.generateAccessToken(parentFolder)
-        if not accessToken:
-            print("Access token generation failed")
-            return False
 
         IsExistingProgram = self.CheckProgramExistance(programdetails, accessToken, parentFolder)
         SolutionResults = {}
         if not IsExistingProgram:
             CreateProgram = self.ProgramCreate(programdetails, accessToken, parentFolder, userRole)
-            if CreateProgram:
+            if not CreateProgram:
+                print("Program creation failed ... ")
+                SolutionResults["NA"] = self.errorVar
+                return SolutionResults
+            else:
                 print("Program created successfully ... ")
         for resource in ProgramGlobalDict['Program Resources']:
             dest_dir = "InputFiles"
