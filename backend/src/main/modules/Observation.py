@@ -1758,7 +1758,9 @@ class CreateObservation:
                     return finalObsRubricSolutionLink, self.errorVar
             else:
                 print("Observation with scoring system : null.")
-            allow_multiple_submissions = programdetails.get('allow_multiple_submissions')
+            ObsDictVal = resource.get("ResourceCre")
+            ObsDet = ObsDictVal.get("details")
+            allow_multiple_submissions = ObsDet.get("allow_multiple_submissions")
             if allow_multiple_submissions == 1 or allow_multiple_submissions == 'TRUE':
                 allow_multiple_submissions = True
             else:
