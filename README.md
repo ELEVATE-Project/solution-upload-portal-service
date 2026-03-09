@@ -128,7 +128,12 @@ You can export data from the portal for review:
 ## Limitations
 The character limit on the os.path is 260 characters and the path can not be beyond the limit. Please Keep the file names short.
 
-## Requirements
+
+---------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+## Requirements To set up backend service of SUP
 1. Python dependencies
 2. MongoDB data restore
 
