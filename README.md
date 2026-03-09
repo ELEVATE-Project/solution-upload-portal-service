@@ -7,7 +7,7 @@
 
 ## 🔍 About This Tool
 
-The **Solution Upload Portal** is a unified tool that simplifies the end-to-end process of **creating, validating, and publishing** educational solutions like:
+The **Solution Upload Portal** is a unified tool that simplifies the end-to-end process of **creating, validating, and publishing**  solutions like:
 
 - 📋 **Observations**
 - 📊 **Surveys**
