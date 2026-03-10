@@ -1,5 +1,5 @@
-host =  "" # add your host ip
-internal_kong_ip = "" # add your kong ip
+host =  "https://diksha-mock.onrender.com/" # add your host ip
+internal_kong_ip = "https://diksha-mock.onrender.com/" # add your kong ip
 keyclockapibody = "" # add key clock body
 authorization = "" #add bearer token
 authorizationforhost = "" # add bearer for host
@@ -22,7 +22,7 @@ importsurveysolutiontemplateurl = "private/mlsurvey/api/v1/surveys/importSurvery
 importsurveysolutiontoprogramurl = "private/mlsurvey/api/v1/surveys/mapSurverySolutionToProgram/"
 solutiontoprogrammappingapiurl = "private/mlsurvey/api/v1/solutions/importFromSolution"
 fetchprograminfoapiurl = "private/mlcore/api/v1/admin/dbFind/programs"
-fetchsolutiondetails = "private/mlcore/api/v1/solutions/list?type="
+fetchsolutiondetails = "/private/mlcore/api/v1/solutions/list?type="
 frameworkcreationapi = "private/mlsurvey/api/v1/frameworks/create"
 solutionupdateapi = "private/mlcore/api/v1/solutions/update/"
 listofrolesapi = "private/mlsurvey/api/v1/userRoles/list"
