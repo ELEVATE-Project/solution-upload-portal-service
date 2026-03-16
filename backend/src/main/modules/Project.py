@@ -483,7 +483,9 @@ class CreateProject():
                             "File path : " + parentFolder + '/taskUpload/taskUpload.csv']
                 messageArr.append("URL : " + str(urlTasksUploadApi))
                 messageArr.append("Upload status code : " + str(responseTasksUploadApi.status_code))
+                messageArr.append("Response : " + str(responseTasksUploadApi.text))
                 self.createAPILog(parentFolder, messageArr)
+                print(responseTasksUploadApi.text,"responseTasksUploadApi")
                 if responseTasksUploadApi.status_code == 200:
                     print('TaskUploadApi Success')
                     with open(parentFolder + '/taskUpload/taskInternal.csv','w+',encoding='utf-8') as tasksRes:
