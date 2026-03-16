@@ -275,7 +275,7 @@ class Elevateproject:
                                         col_index_env in range(programDetailsSheet.ncols)}
                     tenantIdFromProgramFile = dictDetailsEnv.get('Tenant ID')
                     # orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
-                    if tenantIdFromProgramFile == "shikshalokam":
+                    if tenantIdFromProgramFile == "shikshalokam" or tenantIdFromProgramFile == "tan90":
                         # orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
                         global orgIdForScope
                         orgIds_str = dictDetailsEnv.get('Org ID', '')
@@ -1529,7 +1529,7 @@ class Elevateproject:
             # projectDetailsCols.append("Project Level Evidence")
             # projectDetailsCols.append("Minimum No. of Evidence")
             # sys.exit()
-            if tenantIDFromTemplate == "shikshalokam":
+            if tenantIDFromTemplate == "shikshalokam" or tenantIDFromTemplate == "tan90":
                 taskUploadCols = ["TaskId", "TaskTitle", "parentTaskId",
                             "Mandatory task(Yes or No)","Solution Name","solutionType","isAnExternalTask","Number of submissions for observation"]
             else: 
@@ -1675,7 +1675,7 @@ class Elevateproject:
                         dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
                                         for
                                         col_index_env in range(detailsEnvSheet.ncols)}
-                        if tenantIDFromTemplate != "shikshalokam":
+                        if tenantIDFromTemplate != "shikshalokam" and tenantIDFromTemplate != "tan90":
                             if dictDetailsEnv["Solution Name"] and dictDetailsEnv["Mitra_Link"]:
                                 errorVar = "Validation Failed - Either an observation as a task or Mithra link, only one can be given per task."
                             elif (dictDetailsEnv["learningResources1-link"] or dictDetailsEnv["learningResources2-link"] or dictDetailsEnv["learningResources3-link"] or dictDetailsEnv["learningResources4-link"]) and dictDetailsEnv["Mitra_Link"]:
@@ -2009,7 +2009,7 @@ class Elevateproject:
             dictTasksDetails = {keysTasks[col_index_env]: tasksDetailsSheet.cell(row_index_env, col_index_env).value
                                 for col_index_env in range(tasksDetailsSheet.ncols)}
             taskName = str(dictTasksDetails["TaskTitle"]).encode('utf-8').decode('utf-8').strip()
-            if tenantIDFromTemplate != 'shikshalokam':
+            if tenantIDFromTemplate != 'shikshalokam' and tenantIDFromTemplate != 'tan90':
                 Mitra_Link = str(dictTasksDetails["Mitra_Link"]).strip()
                 if Mitra_Link == "":
                     Mitra_Link = Mitra_Link
@@ -2039,7 +2039,7 @@ class Elevateproject:
             elif dictTasksDetails["learningResources1-name"] != "" and dictTasksDetails["learningResources1-link"] != "":
                 taskType = "content"
 
-            elif tenantIDFromTemplate != 'shikshalokam':
+            elif tenantIDFromTemplate != 'shikshalokam' and tenantIDFromTemplate != 'tan90':
                 if dictTasksDetails["Mitra_Link"] != "":
                     taskType = "reflection"
                 else:
@@ -2145,7 +2145,7 @@ class Elevateproject:
                     task_lr_value_count += 1
             task_values.append(taskminNoOfSubmissionsRequired)
             task_values.append(sequenceNumber)
-            if tenantIDFromTemplate != 'shikshalokam':
+            if tenantIDFromTemplate != 'shikshalokam' and tenantIDFromTemplate != 'tan90':
                 task_values.append(Mitra_Link)
                 if Mitra_Link.strip() != "":
                     task_values.append("Start Reflection")

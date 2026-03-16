@@ -3551,7 +3551,7 @@ class ElevateObservation:
                         tenantIdFromProgramFile = dictDetailsEnv.get('Tenant ID')
                         # orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
                         global orgIdForScope
-                        if tenantIdFromProgramFile == "shikshalokam":
+                        if tenantIdFromProgramFile == "shikshalokam" or tenantIdFromProgramFile == "tan90":
                             orgIds_str = dictDetailsEnv.get('Org ID', '')
                             orgIds = [oid.strip() for oid in orgIds_str.split(',') if oid.strip()]
                             orgIdForScope = orgIds
