@@ -3548,7 +3548,7 @@ class ElevateObservation:
                         dictDetailsEnv = {keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
                                         for
                                         col_index_env in range(detailsEnvSheet.ncols)}
-                        tenantIdFromProgramFile = dictDetailsEnv.get('Tenant ID')
+                        tenantIdFromProgramFile = dictDetailsEnv.get('Tenant ID') 
                         # orgIdsFromProgramFile = dictDetailsEnv.get('Org ID')
                         global orgIdForScope
                         if tenantIdFromProgramFile == "shikshalokam" or tenantIdFromProgramFile == "tan90":
