@@ -151,7 +151,7 @@ class GlobalVariables:
             """Return True if every cell in row r is blank/whitespace."""
             return all(str(sheet.cell(r, c).value).strip() == "" for c in range(sheet.ncols))
     
-    def ObservationFileRead(self, addResourceSolution, impLedObsFlag, typeofSolution,PRName):
+    def ObservationFileRead(self, addResourceSolution, impLedObsFlag, typeofSolution,PRName, ProgramGlobalDict, programFile):
         ObservationDict = {
             "details": {},
             "framework": [],
@@ -373,10 +373,82 @@ class GlobalVariables:
                         keysEnv[col_index_env]: sheet.cell(row_index_env, col_index_env).value
                         for col_index_env in range(sheet.ncols)
                     }
-                    for eachCols in dictDetailsEnv.keys():
-                        if eachCols.strip() == "L" + str(countImps) + "-improvement-projects":
-                            countImps += 1
 
+                    WorkdictDetailsEnv = dictDetailsEnv.copy()
+                    # WorkdictDetailsEnv.pop("criteriaId", None)
+                    obsIMP_entity = ObservationDict["details"].get("entity_type", "").strip().lower()
+                    for key in WorkdictDetailsEnv:
+                        col = WorkdictDetailsEnv.get(key)
+                        if key == "criteriaId":
+                            continue
+                        if not col:
+                            continue
+
+                        solution_name = str(col).strip()
+                        wbPgm = xlrd.open_workbook(programFile, on_demand=True)
+                        sheetNames = wbPgm.sheet_names()
+                        for sheetEnv in sheetNames:
+                            if sheetEnv.strip().lower() == 'program details':
+                                pass
+                            if sheetEnv.strip().lower() == 'resource details':
+                                detailsEnvSheet = wbPgm.sheet_by_name(sheetEnv)
+                                keysEnva = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in range(detailsEnvSheet.ncols)]
+                                found = False  # track match
+
+                                for row_index_env in range(2, detailsEnvSheet.nrows):
+                                    dictDetailsEnva = {
+                                        keysEnva[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
+                                        for col_index_env in range(detailsEnvSheet.ncols)
+                                    }
+
+                                    res_name = (dictDetailsEnva.get("Name of resources in program") or "").strip()
+                                    # solution_name = (row_data.get("Solution Name") or "").strip()
+                                    if res_name != solution_name:
+                                        continue
+
+                                    found = True
+                                    resourceLinkOrExtPGM = dictDetailsEnva['Resource Link']
+                                    resourceLinkOrExtPGM = str(resourceLinkOrExtPGM).split('/')[5]
+
+                                    resourcefile_url = 'https://docs.google.com/spreadsheets/d/' + resourceLinkOrExtPGM + '/export?format=xlsx'
+
+                                    download_file = wget.download(resourcefile_url, out='InputFiles')
+
+                                    resourceTemplate = xlrd.open_workbook(download_file, on_demand=True)
+
+                                    for sheets in resourceTemplate.sheet_names():
+                                        if sheets.strip().lower() != 'project upload':
+                                            continue
+
+                                        resourceDetailsSheet = resourceTemplate.sheet_by_name(sheets)
+
+                                        keysResource = [
+                                            resourceDetailsSheet.cell(1, c).value
+                                            for c in range(resourceDetailsSheet.ncols)
+                                        ]
+
+                                        row_resource_data = {
+                                            keysResource[c]: resourceDetailsSheet.cell(2, c).value
+                                            for c in range(resourceDetailsSheet.ncols)
+                                        }
+                                        if (row_resource_data.get("entityType") or "").strip().lower() != \
+                                        (obsIMP_entity).strip().lower():
+
+                                            self.errorVar.append(
+                                                f"Entity type mismatch: '{res_name}' at row {r+1}"
+                                            )
+
+                                        break  # ✅ stop sheet loop
+
+                                    break  # ✅ stop row loop once match is found
+
+                                        # ✅ Optional: if no match found
+                                if not found:
+                                    self.errorVar.append(
+                                        f"No matching resource found for '{solution_name}' at row {r+1}"
+                                    )  
+                                break  
+                    WorkdictDetailsEnv = {}
                     ObservationDict["imp mapping"].append(dictDetailsEnv)
                 countImps -= 1
 
@@ -809,7 +881,7 @@ class GlobalVariables:
             print(f"{field_name} '{identifier}' is valid.")
             return True
 
-    def projectValidate(self, addResourceSolution,PRName, tenantid):
+    def projectValidate(self, addResourceSolution,PRName, tenantid, ProgramGlobalDict, programFile):
         print("Validating project temp....")
         hasCertificateFlag = False
         ProjectDict = {
@@ -937,8 +1009,73 @@ class GlobalVariables:
                         sol_type = (row_data.get("solutionType") or "").lower()
                         if sol_type in ("observation", "survey"):
                             if row_data.get("Solution Name"):
+                                wbPgm = xlrd.open_workbook(programFile, on_demand=True)
+                                sheetNames = wbPgm.sheet_names()
+                                for sheetEnv in sheetNames:
+                                    if sheetEnv.strip().lower() == 'program details':
+                                        pass
+                                    if sheetEnv.strip().lower() == 'resource details':
+                                        detailsEnvSheet = wbPgm.sheet_by_name(sheetEnv)
+                                        keysEnv = [detailsEnvSheet.cell(1, col_index_env).value for col_index_env in range(detailsEnvSheet.ncols)]
+                                        found = False  # track match
+
+                                        for row_index_env in range(2, detailsEnvSheet.nrows):
+                                            dictDetailsEnv = {
+                                                keysEnv[col_index_env]: detailsEnvSheet.cell(row_index_env, col_index_env).value
+                                                for col_index_env in range(detailsEnvSheet.ncols)
+                                            }
+
+                                            res_name = (dictDetailsEnv.get("Name of resources in program") or "").strip()
+                                            solution_name = (row_data.get("Solution Name") or "").strip()
+
+                                            if res_name != solution_name:
+                                                continue
+
+                                            found = True
+                                            resourceLinkOrExtPGM = dictDetailsEnv['Resource Link']
+                                            resourceLinkOrExtPGM = str(resourceLinkOrExtPGM).split('/')[5]
+
+                                            resourcefile_url = 'https://docs.google.com/spreadsheets/d/' + resourceLinkOrExtPGM + '/export?format=xlsx'
+
+                                            download_file = wget.download(resourcefile_url, out='InputFiles')
+
+                                            resourceTemplate = xlrd.open_workbook(download_file, on_demand=True)
+
+                                            for sheets in resourceTemplate.sheet_names():
+                                                if sheets.strip().lower() != 'details':
+                                                    continue
+
+                                                resourceDetailsSheet = resourceTemplate.sheet_by_name(sheets)
+
+                                                keysResource = [
+                                                    resourceDetailsSheet.cell(1, c).value
+                                                    for c in range(resourceDetailsSheet.ncols)
+                                                ]
+
+                                                row_resource_data = {
+                                                    keysResource[c]: resourceDetailsSheet.cell(2, c).value
+                                                    for c in range(resourceDetailsSheet.ncols)
+                                                }
+                                                if (row_resource_data.get("entity_type") or "").strip().lower() != \
+                                                (ProjectDict["Project upload"].get("entityType") or "").strip().lower():
+
+                                                    self.errorVar.append(
+                                                        f"Entity type mismatch: '{res_name}' at row {r+1}"
+                                                    )
+
+                                                break  # ✅ stop sheet loop
+
+                                            break  # ✅ stop row loop once match is found
+
+                                        # ✅ Optional: if no match found
+                                        if not found:
+                                            self.errorVar.append(
+                                                f"No matching resource found for '{solution_name}' at row {r+1}"
+                                            )  
+                                        break  
                                 if not row_data.get("Number of submissions for observation"):
                                     row_data["Number of submissions for observation"] = "1"
+
                             else:
                                 self.errorVar.append(f"Solution Name - cannot be empty in row {r+1}")
 
@@ -1048,7 +1185,6 @@ class GlobalVariables:
             for e in self.errorVar:
                 print(" -", e)
             return False
-
         return ProjectDict
 
 
@@ -1265,7 +1401,7 @@ class GlobalVariables:
                         impLedObsFlag = True
                     else:
                         impLedObsFlag = False
-                    ObservationDict = self.ObservationFileRead(addResourceSolution,impLedObsFlag,typeofSolution,PRName)
+                    ObservationDict = self.ObservationFileRead(addResourceSolution,impLedObsFlag,typeofSolution,PRName, ProgramGlobalDict, programFile)
                     if not ObservationDict:
                         print(self.errorVar)
                     else:
@@ -1304,7 +1440,7 @@ class GlobalVariables:
                     programDetails = ProgramGlobalDict['Program Details']                   
                     programDetails = programDetails[0]
                     tenantid = programDetails.get('TenantID') 
-                    ProjectDict = self.projectValidate(addResourceSolution,PRName,tenantid)
+                    ProjectDict = self.projectValidate(addResourceSolution,PRName,tenantid,ProgramGlobalDict,programFile)
                     if not ProjectDict:
                         print(self.errorVar)
                     else:
