@@ -88,6 +88,15 @@ class CreateProject():
         if searchSolutionresponse.status_code == 200:
             searchSolutionjson = searchSolutionresponse.json()
             results = searchSolutionjson.get("result", [])
+            if results == []:
+                messageArr = [
+                    "No solution Found with isReusable true..",
+                    f"URL : {urldbFind}",
+                    f"Status Code : {searchSolutionresponse.status_code}"
+                    ]
+                self.createAPILog(projectName_for_folder_path, messageArr)
+                self.errorVar.append("No solution Found with isReusable true..")
+                return False
             print(results[-1].get("isReusable"))
             solutionId_parent = results[-1].get("_id")
             solutionEntityType = results[-1].get("entityType")
@@ -115,6 +124,15 @@ class CreateProject():
             if searchSolutionresponse.status_code == 200:
                 searchSolutionjson = searchSolutionresponse.json()
                 results = searchSolutionjson.get("result", [])
+                if results == []:
+                    messageArr = [
+                        "No child solution Found with isReusable false..",
+                        f"URL : {urldbFind}",
+                        f"Status Code : {searchSolutionresponse.status_code}"
+                        ]
+                    self.createAPILog(projectName_for_folder_path, messageArr)
+                    self.errorVar.append("No child solution Found with isReusable false..")
+                    return False
                 print(results[-1].get("isReusable"))
                 solutionId_child = results[-1].get("_id")
                 return [solutionExternalId, solutionId_child, solutionEntityType]
@@ -319,7 +337,10 @@ class CreateProject():
                     solutionDetailsInTask = self.checkEntityOfSolution(
                         parentFolder, solutionNameOrId, accessToken, programdetails, userRole
                     )
-
+                    if not solutionDetailsInTask:
+                        self.errorVar.append(f"Solution '{solutionNameOrId}' not found for task '{taskName}'.")
+                        print(f"Solution '{solutionNameOrId}' not found for task '{taskName}'.")
+                        return False
                     ObservationChildfrom = solutionDetailsInTask[1]
                     # ObservationChildfrom = solutionDetailsInTask[2] if len(solutionDetailsInTask) > 2 else None
                     print(ObservationChildfrom, "ObservationChild")
