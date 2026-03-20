@@ -209,6 +209,7 @@ class CreateObservation:
                             print(solutionName,"solutionName")
                             if solutionName!= "":
                                 ProjectTempExternalID = self.FetchTempExternalID(parentFolder, accessToken, solutionName, programdetails, userRole)
+                                time.sleep(1)  # slight delay to avoid overwhelming the API if many projects
                                 if not ProjectTempExternalID:
                                     return False
                             else:
