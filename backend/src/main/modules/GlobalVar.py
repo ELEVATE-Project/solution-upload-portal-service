@@ -286,7 +286,7 @@ class GlobalVariables:
                 
             # ---------- QUESTIONS ----------
             elif sheet_lc == "questions":
-                
+                instance_parent_question_id_index = []
                 MANDATORY_COLUMNS = [
                     "section_id", "criteria_id", "question_id",
                     "question_sequence", "question_primary_language",
@@ -301,10 +301,6 @@ class GlobalVariables:
                         lambda row: bool(row.get("parent_question_id")),
                     "parent_question_value":
                         lambda row: bool(row.get("parent_question_id")),
-                    "instance_parent_question_id":
-                        lambda row: bool(row.get("instance_identifier")),
-                    "instance_identifier":
-                        lambda row: row.get("question_response_type", "").strip().lower() == "matrix",
                     "date_auto_capture":
                         lambda row: row.get("question_response_type", "").strip().lower() == "date",
                     "min_number_value":
@@ -351,8 +347,19 @@ class GlobalVariables:
                                 f"At least 2 response options are required for "
                                 f"radio/multiselect questions (row {r+1})."
                             )
+                    if row_data.get("instance_parent_question_id"):
+                        instance_parent_question_id_index.append(row_data.get("instance_parent_question_id", "").strip())
+
                     ObservationDict["questions"].append(row_data)
-            
+                for question in ObservationDict["questions"]:
+                    for ipqid in instance_parent_question_id_index:
+                        if ipqid == question.get("question_id", "").strip():
+                            if not question.get("question_response_type", "").strip().lower() == "matrix":
+                                self.errorVar.append(f"Question with question_id '{ipqid}' is referenced as instance_parent_question_id but does not have 'matrix' as question_response_type.")
+                            else:
+                                if not question.get("instance_identifier", "").strip():
+                                    self.errorVar.append(f"Question with question_id '{ipqid}' is referenced as instance_parent_question_id but does not have an 'instance_identifier' specified.")
+
             # ---------- IMP MAPPING ----------
             elif sheet_lc.strip().lower() == "imp mapping" and typeofSolution == 5:
                 print("--->Checking Imp mapping sheet...")
@@ -617,6 +624,7 @@ class GlobalVariables:
 
             elif sheet_lc == "criteria":
                 print("--->Checking criteria sheet...")
+                instance_parent_question_id_index = []
                 detailsEnvSheet = wbObservation.sheet_by_name(sheet_lc)
                 keysEnv = [detailsEnvSheet.cell(1, col_index).value.strip() for col_index in range(detailsEnvSheet.ncols)]
                 mandatory_criteria_cols = ["criteria_id", "criteria_name"]
@@ -667,10 +675,10 @@ class GlobalVariables:
                         lambda row: bool(row.get("parent_question_id")),
                     "parent_question_value":
                         lambda row: bool(row.get("parent_question_id")),
-                    "instance_parent_question_id":
-                        lambda row: bool(row.get("instance_identifier")),
-                    "instance_identifier":
-                        lambda row: row.get("question_response_type", "").strip().lower() == "matrix",
+                    # "instance_parent_question_id":
+                    #     lambda row: bool(row.get("instance_identifier")),
+                    # "instance_identifier":
+                    #     lambda row: row.get("question_response_type", "").strip().lower() == "matrix",
                     "date_auto_capture":
                         lambda row: row.get("question_response_type", "").strip().lower() == "date",
                     "min_number_value":
@@ -722,8 +730,19 @@ class GlobalVariables:
                                 f"in sheet '{sheet_name}', row {r+1}."
                             )
 
+                    if row_data.get("instance_parent_question_id"):
+                        instance_parent_question_id_index.append(row_data.get("instance_parent_question_id", "").strip())
+
                     # --- Append cleaned row to ObservationDict ---
                     ObservationWORDict["questions"].append(row_data)
+                for question in ObservationWORDict["questions"]:
+                    for ipqid in instance_parent_question_id_index:
+                        if ipqid == question.get("question_id", "").strip():
+                            if not question.get("question_response_type", "").strip().lower() == "matrix":
+                                self.errorVar.append(f"Question with question_id '{ipqid}' is referenced as instance_parent_question_id but does not have 'matrix' as question_response_type.")
+                            else:
+                                if not question.get("instance_identifier", "").strip():
+                                    self.errorVar.append(f"Question with question_id '{ipqid}' is referenced as instance_parent_question_id but does not have an 'instance_identifier' specified.") 
         if self.errorVar:
             print("Validation failed with the following errors:")
             for err in self.errorVar:
@@ -794,7 +813,7 @@ class GlobalVariables:
                 
             elif sheet_lc == "questions":
                 print("--->Checking questions sheet...")
-
+                instance_parent_question_id_index = []
                 MANDATORY_COLUMNS = [
                     "criteria_id", "question_sequence", "question_id",
                     "page", "question_number", "question_primary_language",
@@ -808,10 +827,6 @@ class GlobalVariables:
                         lambda row: bool(row.get("parent_question_id")),
                     "parent_question_value":
                         lambda row: bool(row.get("parent_question_id")),
-                    "instance_parent_question_id":
-                        lambda row: bool(row.get("instance_identifier")),
-                    "instance_identifier":
-                        lambda row: row.get("question_response_type", "").strip().lower() == "matrix",
                     "date_auto_capture":
                         lambda row: row.get("question_response_type", "").strip().lower() == "date",
                     "min_number_value":
@@ -863,8 +878,20 @@ class GlobalVariables:
                                 f"in sheet '{sheet_name}', row {r+1}."
                             )
 
+                    if row_data.get("instance_parent_question_id"):
+                        instance_parent_question_id_index.append(row_data.get("instance_parent_question_id", "").strip())
                     # --- Append cleaned row to ObservationDict ---
                     SurveyDict["questions"].append(row_data)
+                
+                for question in SurveyDict["questions"]:
+                    for ipqid in instance_parent_question_id_index:
+                        print(ipqid, question.get("question_id", "").strip())
+                        if ipqid == question.get("question_id", "").strip():
+                            if not question.get("question_response_type", "").strip().lower() == "matrix":
+                                self.errorVar.append(f"Question with question_id '{ipqid}' is referenced as instance_parent_question_id but does not have 'matrix' as question_response_type.")
+                            else:
+                                if not question.get("instance_identifier", "").strip():
+                                    self.errorVar.append(f"Question with question_id '{ipqid}' is referenced as instance_parent_question_id but does not have an 'instance_identifier' specified.")     
         if self.errorVar:
             print("Validation failed with the following errors:")
             for err in self.errorVar:
