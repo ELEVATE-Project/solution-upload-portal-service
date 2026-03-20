@@ -228,6 +228,7 @@ class CreateObservation:
                             colname = f"L{levls}-improvement-projects"
                             solutionName = str(dictImp.get(colname, "") or "").strip()
                             ProjectTempExternalID = self.FetchTempExternalID(parentFolder, accessToken, solutionName, programdetails, userRole)
+                            time.sleep(1)  # slight delay to avoid overwhelming the API if many projects
                             if not ProjectTempExternalID:
                                 return False
                             criteriaImpDict[crit_key][colname] = ProjectTempExternalID
