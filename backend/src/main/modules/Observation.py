@@ -1443,7 +1443,6 @@ class CreateObservation:
                     childSolutionId = sol.get('solutionId')
                     self.UpdateCertForSolution(parentFolder, childTemplateId, childSolutionId, accessToken, programdetails, userRole)
                     time.sleep(1)
-
                 self.createAPILog(parentFolder, messageArr)
                 print("child solutionId: " + child_id)
                 return [child_id, childObservationExternalId]
