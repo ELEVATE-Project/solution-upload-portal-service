@@ -912,7 +912,7 @@ class CreateObservation:
                 questionFileObj['weightage'] = ques.get('question_weightage',0)
                 questionFileObj['sectionHeader'] = ques.get('section_header')
                 questionFileObj['page'] = ques.get('page')
-                questionFileObj['questionNumber'] = int(float(ques['question_number'])) if ques.get('question_number') else None
+                questionFileObj['questionNumber'] = ques['question_number'] if ques.get('question_number') else None
 
                 # AutoCapture & date
                 if questionFileObj['responseType'] == 'date':
