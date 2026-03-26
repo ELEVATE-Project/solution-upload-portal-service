@@ -510,7 +510,7 @@ class CreateSurvey:
                 questionFileObj['isAGeneralQuestion'] = None
                 questionFileObj['sectionHeader'] = ques.get('section_header')
                 questionFileObj['page'] = ques.get('page')
-                questionFileObj['questionNumber'] = int(float(ques['question_number'])) if ques.get('question_number') else None
+                questionFileObj['questionNumber'] = ques['question_number'] if ques.get('question_number') else None
 
                 # ---------------- Responses R1-R20 ----------------
                 for i in range(1, 21):
