@@ -1580,7 +1580,7 @@ class CreateObservation:
     
     def prepareProgramSuccessSheet(self, MainFilePath, solutionName_for_folder_path, programFile, solutionExternalId, solutionId,accessToken, programdetails, userRole):
         urlFetchSolutionApi = internal_kong_ip + dbfindapi_url
-        headerFetchSolutionApi = apiHeader.headers().headersFetchSolutionDetails(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
+        headerFetchSolutionApi = apiHeader.headers().headersFetchSolutionDetails(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
         
         payloadFetchSolutionApi = json.dumps({
             "query": {
