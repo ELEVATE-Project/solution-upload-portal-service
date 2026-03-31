@@ -67,7 +67,7 @@ class CreateSurvey:
     def solutionUpdate(self, solutionName_for_folder_path, accessToken, solutionId, bodySolutionUpdate,programdetails, userRole):
         try:
             solutionUpdateApi = internal_kong_ip + solutionupdateapi + str(solutionId)
-            headerUpdateSolutionApi = apiHeader.headers().headersObservationsolutionUpdate(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
+            headerUpdateSolutionApi = apiHeader.headers().headersObservationsolutionUpdate(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
             responseUpdateSolutionApi = requests.post(url=solutionUpdateApi, headers=headerUpdateSolutionApi,data=json.dumps(bodySolutionUpdate))
             messageArr = []
             messageArr = ["Solution Update API called.", "URL : " + str(solutionUpdateApi), "Body : " + str(bodySolutionUpdate),"Response : " + str(responseUpdateSolutionApi.text),"Status Code : " + str(responseUpdateSolutionApi.status_code)]
@@ -116,7 +116,7 @@ class CreateSurvey:
             print("🔧 Creating Survey Solution with body:", surveySolutionCreationReqBody)
 
             urlCreateSolutionApi = internal_kong_ip + surveysolutioncreationapiurl
-            headerCreateSolutionApi = apiHeader.headers().headersCreateSurveySolution(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
+            headerCreateSolutionApi = apiHeader.headers().headersCreateSurveySolution(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
             response = requests.post(
                 url=urlCreateSolutionApi,
                 headers=headerCreateSolutionApi,
@@ -170,7 +170,7 @@ class CreateSurvey:
     def fetchSolutionDetailsFromProgramSheet(self, solutionName_for_folder_path, programdetails, solutionId, accessToken, ProgramGlobalDict, userRole):
         try:
             urlFetchSolutionApi = internal_kong_ip + dbfindapi_url
-            headerFetchSolutionApi = apiHeader.headers().headersFetchSolutionDetails(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
+            headerFetchSolutionApi = apiHeader.headers().headersFetchSolutionDetails(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
             payloadFetchSolutionApi = json.dumps({
                     "query": {
                         "_id": solutionId
@@ -288,7 +288,7 @@ class CreateSurvey:
     
     def prepareProgramSuccessSheet(self, MainFilePath, solutionName_for_folder_path, programFile, solutionExternalId, solutionId,accessToken, programdetails, userRole):
         urlFetchSolutionApi = internal_kong_ip + dbfindapi_url
-        headerFetchSolutionApi = apiHeader.headers().headersFetchSolutionDetails(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
+        headerFetchSolutionApi = apiHeader.headers().headersFetchSolutionDetails(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
         payloadFetchSolutionApi = json.dumps({
             "query": {
                 "_id": solutionId
@@ -316,7 +316,7 @@ class CreateSurvey:
             solutionName = responseFetchSolutionJson["result"][-1]["name"]
         urlFetchSolutionLinkApi = internal_kong_ip + fetchlink + solutionId
         print(urlFetchSolutionLinkApi,"urlFetchSolutionLinkApi")
-        headerFetchSolutionLinkApi = apiHeader.headers().headersFetchSolutionLink(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
+        headerFetchSolutionLinkApi = apiHeader.headers().headersFetchSolutionLink(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
         payloadFetchSolutionLinkApi = {}
 
         responseFetchSolutionLinkApi = requests.get(url=urlFetchSolutionLinkApi, headers=headerFetchSolutionLinkApi,
@@ -522,7 +522,7 @@ class CreateSurvey:
         print(f"Questions CSV created at: {csvPath}")
         try:       
             urlQuestionsUploadApi = internal_kong_ip + questionuploadapiurl
-            headerQuestionUploadApi = apiHeader.headers().headersQuestionUpload(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
+            headerQuestionUploadApi = apiHeader.headers().headersQuestionUpload(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
             
             filesQuestion = {
                 'questions': open(parentFolder + '/questionUpload/uploadSheet.csv', 'rb')
@@ -543,7 +543,7 @@ class CreateSurvey:
                 with open(parentFolder + '/questionUpload/uploadInternalIdsSheet.csv', 'w+',encoding='utf-8') as questionRes:
                     questionRes.write(responseQuestionUploadApi.text)
                 urlImportSoluTemplate = internal_kong_ip + importsurveysolutiontemplateurl + str(surTempSolID) + "?appName=manage-learn&programId=" + programdetails.get('_id')
-                headerImportSoluTemplateApi = apiHeader.headers().headersImportSurveySolutionTemplate(programdetails.get('TenantID'), programdetails.get('Org ID'), accessToken, userRole)
+                headerImportSoluTemplateApi = apiHeader.headers().headersImportSurveySolutionTemplate(programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole)
                 responseImportSoluTemplateApi = requests.post(url=urlImportSoluTemplate,
                                                             headers=headerImportSoluTemplateApi)
                 messageArr = []
