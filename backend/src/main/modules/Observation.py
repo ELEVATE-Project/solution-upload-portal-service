@@ -130,84 +130,75 @@ class CreateObservation:
             writer = csv.writer(file, quoting=csv.QUOTE_NONNUMERIC, delimiter=',', lineterminator='\n')
             writer.writerow(messageArr)
 
-    def FetchTempExternalID(self, parentFolder, accessToken, solutionName, programdetails, userRole):
+    def FetchBulkTempExternalIDs(self, parentFolder, accessToken, solutionNames, programdetails, userRole):
+        """
+        Consolidates multiple FetchTempExternalID calls into bulk searches.
+        Reduces 2N dbFind calls to 2 total.
+        """
+        if not solutionNames:
+            return {}
+
+        # Filter unique non-empty names
+        unique_names = list(set(name.strip() for name in solutionNames if name and name.strip()))
+        if not unique_names:
+            return {}
+
+        headers = apiHeader.headers().headerFetchEntitytype(accessToken)
+        mapping = {}  # {solution_name: external_id}
+
         try:
-            # ── 1. Fetch project template external-id ────────────────────────
+            # ── 1. Bulk Fetch project templates ──────────────────────────────
             urldbFindPT = elevateprojecthost + dbfindapi_projectTemplate
-            headers = apiHeader.headers().headerFetchEntitytype(accessToken)
-            searchSolutionpayloadPT = {
-                "query": {"title": solutionName, "isReusable": True},
-                "projection": ["externalId"],
-                "mongoIdKeys": ["_id", "solutionId", "metaInformation.solutionId"],
-                "limit": 10000,
-            }
-            responsePT = self._post(urldbFindPT, headers=headers, json=searchSolutionpayloadPT)
-
-            if responsePT.status_code != 200:
-                self.errorVar.append(f"DBFindPT-Error {responsePT.status_code}: {responsePT.text}")
-                self.createAPILog(parentFolder, [responsePT.text])
-                print("Unable to fetch Project Template External ID.")
-                return False
-
-            resultsPT = responsePT.json().get("result", [])
-            if not resultsPT:
-                self.errorVar.append("No projectTemplate found for: " + solutionName)
-                return False
-
-            ProjectTempExternalID = resultsPT[0].get("externalId")
-            print(ProjectTempExternalID, "ProjectTempExternalID")
-
-            # ── 2. Fetch solution ────────────────────────────────────────────
-            urldbFind = elevateprojecthost + dbfindapi_url
-            searchSolutionpayload = {
-                "query": {"name": solutionName},
-                "projection": ["status", "name"],
+            payloadPT = {
+                "query": {"title": {"$in": unique_names}, "isReusable": True},
+                "projection": ["externalId", "title"],
                 "mongoIdKeys": ["_id"],
                 "limit": 10000,
             }
-            response = self._post(urldbFind, headers=headers, json=searchSolutionpayload)
+            respPT = self._post(urldbFindPT, headers=headers, json=payloadPT)
 
-            if response.status_code != 200:
-                self.errorVar.append(f"DBFind-Error {response.status_code}: {response.text}")
-                self.createAPILog(parentFolder, [response.text])
-                print("Unable to fetch Solution...")
-                return False
-
-            results = response.json().get("result", [])
-            if not results:
-                self.errorVar.append("No solutions found for name: " + solutionName)
-                return False
-
-            projectSolutionID = results[0].get("_id")
-            if not projectSolutionID:
-                self.errorVar.append("Solution found but no projectTemplateId for: " + solutionName)
-                return False
-
-            # ── 3. Mark solution inactive ────────────────────────────────────
-            urlSolutionUpdate = elevateprojecthost + solutionupdateapi + projectSolutionID
-            headerUpdateSolutionApi = apiHeader.headers().headersObservationsolutionUpdate(
-                programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole
-            )
-            responseSolutionUpdate = self._post(
-                urlSolutionUpdate, headers=headerUpdateSolutionApi,
-                json={"status": "inactive", "isDeleted": False},
-            )
-
-            if responseSolutionUpdate.status_code == 200:
-                print("Solution Update Success.")
+            if respPT.status_code == 200:
+                for res in respPT.json().get("result", []):
+                    mapping[res['title']] = {"externalId": res['externalId']}
             else:
-                self.errorVar.append("Solution Update Failed.")
-                return False
+                self.errorVar.append(f"BulkDBFindPT-Error {respPT.status_code}")
 
-            return ProjectTempExternalID
+            # ── 2. Bulk Fetch solutions to get IDs for status update ─────────
+            urldbFindSol = elevateprojecthost + dbfindapi_url
+            payloadSol = {
+                "query": {"name": {"$in": unique_names}},
+                "projection": ["name"],
+                "mongoIdKeys": ["_id"],
+                "limit": 10000,
+            }
+            respSol = self._post(urldbFindSol, headers=headers, json=payloadSol)
+
+            if respSol.status_code == 200:
+                headerUpdate = apiHeader.headers().headersObservationsolutionUpdate(
+                    programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole
+                )
+                for res in respSol.json().get("result", []):
+                    solName = res['name']
+                    solId = res['_id']
+                    if solName in mapping:
+                        # Sequential updates still required as most APIs update single resources
+                        self._post(
+                            elevateprojecthost + solutionupdateapi + solId,
+                            headers=headerUpdate,
+                            json={"status": "inactive", "isDeleted": False},
+                        )
+            else:
+                self.errorVar.append(f"BulkDBFindSol-Error {respSol.status_code}")
+
+            # Construct lookup mapping {name: externalId}
+            return {name: info.get("externalId") for name, info in mapping.items() if "externalId" in info}
 
         except RuntimeError as e:
-            # Timeout / connection error raised by _post / _get
-            self.errorVar.append(f"Network error in FetchTempExternalID: {e}")
-            return False
+            self.errorVar.append(f"Network error in FetchBulkTempExternalIDs: {e}")
+            return {}
         except Exception as e:
-            self.errorVar.append(f"Exception in FetchTempExternalID: {str(e)}")
-            return False
+            self.errorVar.append(f"Exception in FetchBulkTempExternalIDs: {str(e)}")
+            return {}
 
     def criteriaUpload(self, parentFolder, wbObservation, millisAddObs, accessToken, tabName,
                        impLedObsFlag, programdetails, userRole):
@@ -216,7 +207,7 @@ class CreateObservation:
         criteriaUploadFieldnames = ['criteriaID', 'criteriaName']
         dictCriteriaToCsv = dict()
         criteriaLevelsFromFramework = dict()
-        countImps = 0
+        all_imp_cols = set()
 
         # ── CASE 1: FRAMEWORK TAB ─────────────────────────────────────────────
         if tabName == "framework":
@@ -229,48 +220,44 @@ class CreateObservation:
             TcountImps = []
             if impLedObsFlag:
                 impsToCriteria = wbObservation.get("imp mapping")
-                if impsToCriteria:
-                    sample_row = next(iter(impsToCriteria), {})
-                    pattern = re.compile(r'^\s*L(\d+)-improvement-projects\s*$', re.IGNORECASE)
-                    levels = set()
-                    for key in sample_row.keys():
-                        if not isinstance(key, str):
-                            continue
-                        m = pattern.match(key)
-                        if m:
-                            levels.add(int(m.group(1)))
-                    TcountImps = sorted(levels)
-
-                countImps = len(TcountImps)
                 if not impsToCriteria:
                     self.errorVar.append("Imp mapping expected but missing.")
                     return False
+                
+                # ── CONSOLIDATION: Collect all unique project names first ──
+                all_names = []
+                if isinstance(impsToCriteria[0], dict):
+                    for row in impsToCriteria:
+                        levels = [k for k in row.keys() if "improvement-projects" in k.lower()]
+                        all_imp_cols.update(levels)
+                        for k, v in row.items():
+                            if "improvement-projects" in k.lower() and v:
+                                all_names.append(str(v).strip())
+                else:
+                    keys = impsToCriteria[0]
+                    levels = [k for k in keys if "improvement-projects" in k.lower()]
+                    all_imp_cols.update(levels)
+                    for row in impsToCriteria[1:]:
+                        for i, v in enumerate(row):
+                            if "improvement-projects" in keys[i].lower() and v:
+                                all_names.append(str(v).strip())
+                
+                # Fetch all metadata in one batch
+                lookup_table = self.FetchBulkTempExternalIDs(
+                    parentFolder, accessToken, all_names, programdetails, userRole
+                )
 
                 if isinstance(impsToCriteria[0], dict):
-                    print(impsToCriteria, "impsToCriteria")
                     for dictImp in impsToCriteria:
-                        print(dictImp, "dictImp")
                         crit_key = str(dictImp.get('criteriaId', '')).strip()
-                        print(crit_key, "crit_key")
                         if not crit_key:
                             continue
                         criteriaImpDict[crit_key] = {}
-                        for levls in range(1, countImps + 1):
-                            colname = f"L{levls}-improvement-projects"
-                            print(colname, "colname")
+                        # Identify how many levels exist in this sheet
+                        levels = [k for k in dictImp.keys() if "improvement-projects" in k.lower()]
+                        for colname in levels:
                             solutionName = str(dictImp.get(colname, "") or "").strip()
-                            print(solutionName, "solutionName")
-                            if solutionName != "":
-                                ProjectTempExternalID = self.FetchTempExternalID(
-                                    parentFolder, accessToken, solutionName, programdetails, userRole
-                                )
-                                # Increased sleep to reduce API hammering / timeout risk
-                                time.sleep(IMP_PROJECT_SLEEP)
-                                if not ProjectTempExternalID:
-                                    return False
-                            else:
-                                ProjectTempExternalID = ""
-                            criteriaImpDict[crit_key][colname] = ProjectTempExternalID
+                            criteriaImpDict[crit_key][colname] = lookup_table.get(solutionName, "")
                 else:
                     keysFromImpSheet = impsToCriteria[0]
                     for row in impsToCriteria[1:]:
@@ -279,16 +266,10 @@ class CreateObservation:
                         if not crit_key:
                             continue
                         criteriaImpDict[crit_key] = {}
-                        for levls in range(1, countImps + 1):
-                            colname = f"L{levls}-improvement-projects"
+                        levels = [k for k in keysFromImpSheet if "improvement-projects" in k.lower()]
+                        for colname in levels:
                             solutionName = str(dictImp.get(colname, "") or "").strip()
-                            ProjectTempExternalID = self.FetchTempExternalID(
-                                parentFolder, accessToken, solutionName, programdetails, userRole
-                            )
-                            time.sleep(IMP_PROJECT_SLEEP)
-                            if not ProjectTempExternalID:
-                                return False
-                            criteriaImpDict[crit_key][colname] = ProjectTempExternalID
+                            criteriaImpDict[crit_key][colname] = lookup_table.get(solutionName, "")
 
             first_row_keys = list(fetchLevelsFromFramework[0].keys())
             levelCount = 0
@@ -346,8 +327,7 @@ class CreateObservation:
                         if eachCols not in criteriaUploadFieldnames:
                             criteriaUploadFieldnames.append(eachCols)
                 if impLedObsFlag:
-                    for levls in range(1, countImps + 1):
-                        imp_col = f"L{levls}-improvement-projects"
+                    for imp_col in sorted(list(all_imp_cols)):
                         if imp_col not in criteriaUploadFieldnames:
                             criteriaUploadFieldnames.append(imp_col)
 

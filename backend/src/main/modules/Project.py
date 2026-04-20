@@ -832,11 +832,11 @@ class CreateProject():
                             scope["professional_role"] = mainRoleproff
                             scope.update(programdetails.get('entityHierarchy'))
                             print(scope)
-                            bodySolutionUpdate = {
-                            "scope": scope
-                            }
-                            if not self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole):
-                                return False
+                            # bodySolutionUpdate = {
+                            # "scope": scope
+                            # }
+                            # if not self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole):
+                            #     return False
                             projectuploadsheet = (wbObservation.get("Project upload"))
                             projectAuthor = projectuploadsheet.get('Username/user id/email id/phone no. of content creator')
                             print("projectAuthor",projectAuthor)
@@ -846,24 +846,32 @@ class CreateProject():
                             print("userDetails",userDetails)
                             matchedShikshalokamLoginId = userDetails[0]
                             projectCreator = userDetails[1]
-                            bodySolutionUpdate = {
-                                "creator": projectCreator, "author": matchedShikshalokamLoginId}
-                            self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole)
+
+                            
+                            # self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole)
                             if solutionDetails[2]:
                                 startDateArr = str(solutionDetails[2]).split("-")
-                                bodySolutionUpdate = {
+                                startDateBodySolutionUpdate = {
                                     "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
-                                self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole)
-                            if solutionDetails[3]:
-                                endDateArr = str(solutionDetails[3]).split("-")
-                                bodySolutionUpdate = {
-                                    "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                                self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole)
-                    
-                                return [solutionExternalId, solutionId]
+                                # self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole)
                             else:
                                 self.errorVar.append("Date mismatching!")
                                 return False
+                            
+                            if solutionDetails[3]:
+                                endDateArr = str(solutionDetails[3]).split("-")
+                                endDateBodySolutionUpdate = {
+                                    "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
+                                
+                            else:
+                                self.errorVar.append("Date mismatching!")
+                                return False
+                            
+                            bodySolutionUpdate = {
+                                "creator": projectCreator, "author": matchedShikshalokamLoginId, "scope": scope, "startDate": startDateBodySolutionUpdate.get("startDate"), "endDate": endDateBodySolutionUpdate.get("endDate")}
+                            self.solutionUpdate(parentFolder, accessToken, solutionId, bodySolutionUpdate, programdetails, userRole)
+                    
+                            return [solutionExternalId, solutionId]
                         else:
                             if responseMapProjectSolutionApi.status_code in [400, 401, 403, 404, 422]:
                                 self.errorVar.append(f"MapProjectSolutionApi-Client Error {responseMapProjectSolutionApi.status_code}: {responseMapProjectSolutionApi.text}")
@@ -898,8 +906,7 @@ class CreateProject():
                     },
                     "mongoIdKeys": [
                         "_id","name", "externalId"
-                    ],
-                    "limit": 10000
+                    ]
                 })
 
         responseFetchSolutionApi = requests.post(url=urlFetchSolutionApi, headers=headerFetchSolutionApi,
