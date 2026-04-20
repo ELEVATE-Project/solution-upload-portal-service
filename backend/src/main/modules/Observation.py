@@ -1306,71 +1306,65 @@ class CreateObservation:
             return False
 
     def UpdateCertForSolution(self, solutionName_for_folder_path, childTemplateId, childSolutionId,
-                               accessToken, programdetails, userRole):
+                               accessToken, programdetails, userRole, solutionName=None):
         try:
             headers = {'X-auth-token': accessToken, 'Content-Type': content_type}
 
-            # ── 1. Fetch child solution name ──────────────────────────────────
-            response = self._post(
-                elevateprojecthost + dbfindapi_url, headers=headers,
-                json={"query": {"_id": childSolutionId}, "projection": ["status", "name"],
-                      "mongoIdKeys": ["_id"], "limit": 10000},
-                timeout=(10, 60),
-            )
-            results = response.json().get("result", [])
-            if not results or response.status_code != 200:
-                self.errorVar = f"DBFind-Error {response.status_code}: {response.text}"
-                return False
-            projectSolutionName = results[0].get("name")
+            # ── 1. Fetch child solution name (Skip if provided by caller) ─────
+            if not solutionName:
+                response = self._post(
+                    elevateprojecthost + dbfindapi_url, headers=headers,
+                    json={"query": {"_id": childSolutionId}, "projection": ["name"],
+                          "mongoIdKeys": ["_id"]},
+                    timeout=(10, 45),
+                )
+                results = response.json().get("result", [])
+                if not results or response.status_code != 200:
+                    self.errorVar.append(f"DBFind-Error {response.status_code}: {response.text}")
+                    return False
+                solutionName = results[0].get("name")
 
             # ── 2. Find inactive solution with matching name ───────────────────
             response = self._post(
                 elevateprojecthost + dbfindapi_url, headers=headers,
-                json={"query": {"name": projectSolutionName, "status": "inactive"},
-                      "projection": ["status", "name", "certificateTemplateId"],
-                      "mongoIdKeys": ["_id"], "limit": 10000},
-                timeout=(10, 60),
+                json={"query": {"name": solutionName, "status": "inactive"},
+                      "projection": ["certificateTemplateId"],
+                      "mongoIdKeys": ["_id"]},
+                timeout=(10, 45),
             )
             results = response.json().get("result", [])
             if not results or response.status_code != 200:
-                self.errorVar = f"DBFind-Error {response.status_code}: {response.text}"
+                self.errorVar.append(f"DBFind-Cert-Error {response.status_code}: {response.text}")
                 return False
 
-            if results[0].get("certificateTemplateId"):
-                certificateTemplateId = results[0]["certificateTemplateId"]
-                print(certificateTemplateId, "certificateTemplateId")
+            certId = results[0].get("certificateTemplateId") if results else None
+            if certId:
                 headerUpdateSolutionApi = apiHeader.headers().headersObservationsolutionUpdate(
                     programdetails.get('TenantID'), programdetails.get('OrgForAPIs'), accessToken, userRole
                 )
-                payload = {"certificateTemplateId": certificateTemplateId}
+                payload = {"certificateTemplateId": certId}
 
                 r1 = self._post(
                     elevateprojecthost + solutionupdateapi + childSolutionId,
-                    headers=headerUpdateSolutionApi, json=payload, timeout=(10, 60),
+                    headers=headerUpdateSolutionApi, json=payload, timeout=(10, 45),
                 )
-                if r1.status_code != 200:
-                    print("Child Solution Update Failed.")
-                    return False
-                print("Child Solution Update Success.")
 
                 r2 = self._post(
                     elevateprojecthost + projectTemplateupdateapi + childTemplateId,
-                    headers=headerUpdateSolutionApi, json=payload, timeout=(10, 60),
+                    headers=headerUpdateSolutionApi, json=payload, timeout=(10, 45),
                 )
-                if r2.status_code != 200:
-                    print("Child Template Update Failed.")
+
+                if r1.status_code != 200 or r2.status_code != 200:
+                    self.errorVar.append("Child Solution/Template Update Failed.")
                     return False
-                print("Child Template Update Success.")
 
             return True
 
         except RuntimeError as e:
-            self.errorVar = str(e)
-            print(self.errorVar, "---> API-Error")
+            self.errorVar.append(str(e))
             return False
         except Exception as e:
-            self.errorVar = f"Exception in UpdateCertForSolution: {str(e)}"
-            print(self.errorVar, "---> API-Error")
+            self.errorVar.append(f"Exception in UpdateCertForSolution: {str(e)}")
             return False
 
     def createChild(self, parentFolder, wbObservation, observationExternalId,
@@ -1416,12 +1410,26 @@ class CreateObservation:
                 resp_json = responseSol_prog_mapping.json()
                 child_id = resp_json['result']['_id']
                 solutionDetails = resp_json['result']['projectTemplateDetails']
+                
+                # ── CONSOLIDATION: Bulk fetch names to avoid Step 1 inside the loop ──
+                child_ids = [s.get('solutionId') for s in solutionDetails if s.get('solutionId')]
+                name_map = {}
+                if child_ids:
+                    r_names = self._post(
+                        elevateprojecthost + dbfindapi_url, 
+                        headers={'X-auth-token': accessToken, 'Content-Type': content_type},
+                        json={"query": {"_id": {"$in": child_ids}}, "projection": ["name"], "mongoIdKeys": ["_id"]}
+                    )
+                    if r_names.status_code == 200:
+                        name_map = {r['_id']: r['name'] for r in r_names.json().get('result', [])}
+
                 for sol in solutionDetails:
+                    sol_id = sol.get('solutionId')
                     self.UpdateCertForSolution(
                         parentFolder, sol.get('childProjectTemplateId'),
-                        sol.get('solutionId'), accessToken, programdetails, userRole,
+                        sol_id, accessToken, programdetails, userRole,
+                        solutionName=name_map.get(sol_id)
                     )
-                    time.sleep(1)
                 print("child solutionId: " + child_id)
                 return [child_id, childObservationExternalId]
             else:
