@@ -599,22 +599,28 @@ class CreateSurvey:
                         scope.update(entityHierarchy)
                         scope["professional_subroles"] = rolesPGMID
                         scope["professional_role"] = mainRoleproff
-                        bodySolutionUpdate = {
-                        "scope": scope
-                        }
-                        print("scope", bodySolutionUpdate)
-                        self.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate, programdetails, userRole)
+                        # bodySolutionUpdate = {
+                        # "scope": scope
+                        # }
+                        # print("scope", bodySolutionUpdate)
+                        # self.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate, programdetails, userRole)
                     
                         if solutionDetails[2]:
                             startDateArr = str(solutionDetails[2]).split("-")
-                            bodySolutionUpdate = {
+                            startDateBodySolutionUpdate = {
                                 "startDate": startDateArr[2] + "-" + startDateArr[1] + "-" + startDateArr[0] + " 00:00:00"}
-                            self.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate, programdetails, userRole)
+                            # self.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate, programdetails, userRole)
                         if solutionDetails[3]:
                             endDateArr = str(solutionDetails[3]).split("-")
-                            bodySolutionUpdate = {
+                            endDateBodySolutionUpdate = {
                                 "endDate": endDateArr[2] + "-" + endDateArr[1] + "-" + endDateArr[0] + " 23:59:59"}
-                            self.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate, programdetails, userRole)
+                        
+                        bodySolutionUpdate = {
+                            "scope": scope,
+                            "startDate": startDateBodySolutionUpdate["startDate"] if solutionDetails[2] else None,
+                            "endDate": endDateBodySolutionUpdate["endDate"] if solutionDetails[3] else None
+                        }
+                        self.solutionUpdate(parentFolder, accessToken, solutionIdSuc, bodySolutionUpdate, programdetails, userRole)
                         print('Survey Successfully Added')
 
                         surveySolutionlink = self.prepareProgramSuccessSheet(MainFilePath, parentFolder, programFile, solutionExtIdSuc,
@@ -677,10 +683,10 @@ class CreateSurvey:
             print("survey solution created...")
             surTempExtID = surveyResp[1]
             surTempSolID = surveyResp[0]
-            bodySolutionUpdate = {"status": "active", "isDeleted": False}
-            if not self.solutionUpdate(parentFolder, accessToken,surTempSolID, bodySolutionUpdate, programdetails, userRole):
-                self.errorVar.append("Solution Update Failed.")
-                return surveySolutionlink, self.errorVar
+            # bodySolutionUpdate = {"status": "active", "isDeleted": False}
+            # if not self.solutionUpdate(parentFolder, accessToken,surTempSolID, bodySolutionUpdate, programdetails, userRole):
+            #     self.errorVar.append("Solution Update Failed.")
+            #     return surveySolutionlink, self.errorVar
             surveySolutionlink = self.uploadSurveyQuestionsFromDict(MainFilePath, parentFolder, wbObservation, accessToken, surTempExtID, surTempSolID, millisecond, programFile, programdetails, ProgramGlobalDict, userRole)
             if not surveyResp:
                 self.errorVar.append('unable to upload survey questions...')
