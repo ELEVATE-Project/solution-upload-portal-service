@@ -91,6 +91,9 @@ class Programs:
         scope["professional_subroles"] = rolesPGMID
         scope["professional_role"] = mainRoleproff
         entityHierarchy = self.fetchEntityParentChilds(accessToken, programdetails, parentFolder)
+        if not entityHierarchy:
+            self.errorVar.append("Failed to fetch entity hierarchy.")
+            return False
         scope.update(entityHierarchy)
         programdetails['entityHierarchy'] = entityHierarchy
 
@@ -325,7 +328,7 @@ class Programs:
             if responseFetchEntityListApi.status_code != 200:
                 self.errorVar.append(
                     f"Failed to fetch entity type for '{entityName}'. Status code: {responseFetchEntityListApi.status_code}")
-                continue
+                return False
 
             responseFetchEntityListApi = responseFetchEntityListApi.json()
             entityToUpload = None
@@ -342,7 +345,7 @@ class Programs:
                 if EntityDetailsResponse.status_code != 200:
                     self.errorVar.append(
                         f"Failed to fetch entity details for '{entityName}'. Status code: {EntityDetailsResponse.status_code}")
-                    continue
+                    return False
 
                 EntityDetailsResponseJson = EntityDetailsResponse.json()
                 entities = EntityDetailsResponseJson.get("result", [])
@@ -409,6 +412,9 @@ class Programs:
             EntityType = "state"
         scopeEntityType = [EntityType] if isinstance(EntityType, str) else EntityType
         entitiesType = self.fetchEntityType(programdetails, entitiesPGM, scopeEntityType,schoolEntitiesPGM,clusterEntitiesPGM,blockEntitiesPGM,districtEntitiesPGM,stateEntitiesPGM)
+        if not entitiesType:
+            self.errorVar.append("Failed to fetch entity types.")
+            return False
         programdetails['entitiesType'] = entitiesType
         programdetails['TargetedEntity'] = entitiesType[0]
         if entitiesPGM:
@@ -475,7 +481,7 @@ class Programs:
 
         except Exception as e:
             self.errorVar.append(str(e))
-            return None
+            return False
 
     def ProgramCreate(self,programdetails, accessToken, parentFolder, userRole):
         print("-----> Creating a Program...")
@@ -498,6 +504,9 @@ class Programs:
         scope["professional_subroles"] = rolesPGMID
         scope["professional_role"] = mainRoleproff
         entityHierarchy = self.fetchEntityParentChilds(accessToken, programdetails, parentFolder)
+        if not entityHierarchy:
+            self.errorVar.append("Failed to fetch entity hierarchy.")
+            return False
         scope.update(entityHierarchy)
         try:
             programCreationurl = elevateprojecthost + programcreationurl
