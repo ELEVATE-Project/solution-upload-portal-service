@@ -2,9 +2,9 @@
 - hosts: elevate
   vars:
     project_path: /opt/backend/deployment
-    pm2_app_name: solution-upload-portal-service-2
-    current_path: "{{ project_path }}/solution-upload-portal-service-2"
-    default_port: 5500
+    pm2_app_name: solution-upload-portal-service
+    current_path: "{{ project_path }}/solution-upload-portal-service"
+    default_port: 5000
   
   tasks:
     - name: Verify Python is available
@@ -22,7 +22,7 @@
 
     - name: Get vault credentials
       shell: >
-        curl --location --request GET '{{ vaultAddress }}solution-upload-portal-service-2'
+        curl --location --request GET '{{ vaultAddress }}solution-upload-portal-service'
         --header 'X-Vault-Token: {{ slurpfile.content | b64decode }}'
         | jq '.data' > '{{ project_path }}/data2.json'
       register: credentials
