@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 import os, json, requests, sys, csv, shutil, wget
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import backend.src.main.modules.headers as apiHeader
 
 env_path = Path(__file__).resolve().parents[1] / "apiServices" / "src" / "main" / ".env"
@@ -31,6 +32,12 @@ password = os.getenv("password")
 origin = os.getenv("origin")
 
 class Programs:
+
+    # These values keep large uploads fast without opening hundreds of sockets to
+    # the entity service at once.  They can be overridden per deployment.
+    ENTITY_SEARCH_BATCH_SIZE = int(os.getenv("ENTITY_SEARCH_BATCH_SIZE", "100"))
+    ENTITY_FETCH_MAX_WORKERS = int(os.getenv("ENTITY_FETCH_MAX_WORKERS", "20"))
+    ENTITY_REQUEST_TIMEOUT = int(os.getenv("ENTITY_REQUEST_TIMEOUT", "30"))
 
     def __init__(self):
         self.errorVar = []
@@ -285,116 +292,96 @@ class Programs:
         return validated_main_role_ids, validated_subrole_ids_list   
     
     def ensure_list(entity):
-            if isinstance(entity, list):
-                return [str(e).strip() for e in entity if str(e).strip()]
-            elif isinstance(entity, str):
-                return [s.strip() for s in entity.split(",") if s.strip()]
-            else:
-                return []
+        if isinstance(entity, (list, tuple, set)):
+            return [str(e).strip() for e in entity if str(e).strip()]
+        if isinstance(entity, str):
+            return [s.strip() for s in entity.split(",") if s.strip()]
+        return []
             
     def fetchEntityType(self, programdetails, entitiesPGM, scopeEntityType,
                     schoolEntitiesPGM, clusterEntitiesPGM, blockEntitiesPGM,
                     districtEntitiesPGM, stateEntitiesPGM):
+        entity_names = Programs.ensure_list(entitiesPGM)
+        entity_type = scopeEntityType[0] if scopeEntityType else None
+        if not entity_names or not entity_type:
+            self.errorVar.append("At least one targeted entity and entity type are required.")
+            return False
 
-        # Ensure all entity inputs are lists
-        stateEntitiesPGM = Programs.ensure_list(stateEntitiesPGM)
-        districtEntitiesPGM = Programs.ensure_list(districtEntitiesPGM)
-        blockEntitiesPGM = Programs.ensure_list(blockEntitiesPGM)
-        clusterEntitiesPGM = Programs.ensure_list(clusterEntitiesPGM)
-        schoolEntitiesPGM = Programs.ensure_list(schoolEntitiesPGM)
-        entitiesPGM = Programs.ensure_list(entitiesPGM)
+        # Remove duplicate names while keeping spreadsheet order.  Results are
+        # ordered the same way after concurrent requests complete.
+        entity_names = list(dict.fromkeys(entity_names))
+        batch_size = max(1, self.ENTITY_SEARCH_BATCH_SIZE)
+        batches = [entity_names[index:index + batch_size]
+                   for index in range(0, len(entity_names), batch_size)]
+        url = elevateentityhost + searchforlocation
+        headers = apiHeader.headers().PheaderFetchEntitytype()
 
-        urlFetchEntityListApi = elevateentityhost + searchforlocation
-        headerFetchEntityListApi = apiHeader.headers().PheaderFetchEntitytype()
-
-        entityTypes = []
-        entityTypeID = []
-
-        for entityName in entitiesPGM:
-            entityName = entityName.strip()
+        def fetch_batch(batch):
             payload = {
                 "query": {
-                    "metaInformation.name": entityName,
+                    "metaInformation.name": {"$in": batch},
                     "tenantId": programdetails.get('TenantID'),
-                    "entityType": scopeEntityType[0]
+                    "entityType": entity_type
                 },
                 "projection": ["entityType", "_id", "metaInformation.name"]
             }
+            response = requests.post(url=url, headers=headers, data=json.dumps(payload),
+                                     timeout=self.ENTITY_REQUEST_TIMEOUT)
+            if response.status_code != 200:
+                raise RuntimeError(
+                    f"Failed to fetch entity type batch. Status {response.status_code}: {response.text}")
+            return response.json().get("result", [])
 
-            responseFetchEntityListApi = requests.post(url=urlFetchEntityListApi,
-                                                    headers=headerFetchEntityListApi,
-                                                    data=json.dumps(payload))
+        results_by_batch = [None] * len(batches)
+        workers = min(max(1, self.ENTITY_FETCH_MAX_WORKERS), len(batches))
+        try:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                future_to_index = {
+                    executor.submit(fetch_batch, batch): index
+                    for index, batch in enumerate(batches)
+                }
+                for future in as_completed(future_to_index):
+                    results_by_batch[future_to_index[future]] = future.result()
+        except Exception as error:
+            self.errorVar.append(str(error))
+            return False
 
-            if responseFetchEntityListApi.status_code != 200:
-                self.errorVar.append(
-                    f"Failed to fetch entity type for '{entityName}'. Status code: {responseFetchEntityListApi.status_code}")
-                return False
+        entities_by_name = {}
+        for batch_result in results_by_batch:
+            for entity in batch_result:
+                name = entity.get("metaInformation", {}).get("name")
+                entity_id = entity.get("_id")
+                if name and entity_id:
+                    entities_by_name.setdefault(name, []).append(entity)
 
-            responseFetchEntityListApi = responseFetchEntityListApi.json()
-            entityToUpload = None
+        entity_types, entity_ids, missing = [], [], []
+        seen_ids = set()
+        for name in entity_names:
+            matches = entities_by_name.get(name, [])
+            if not matches:
+                missing.append(name)
+                continue
+            for entity in matches:
+                entity_id = entity["_id"]
+                if entity_id not in seen_ids:
+                    seen_ids.add(entity_id)
+                    entity_types.append(entity.get("entityType", entity_type))
+                    entity_ids.append(entity_id)
 
-            for listEntities in responseFetchEntityListApi.get('result', []):
-                entityToUpload = listEntities.get('entityType')
-                EntityName = listEntities.get('metaInformation', {}).get('name', '')
-                entityId = listEntities.get('_id')
-
-                DetailsFetchURL = elevateentityhost + fetchDetailsEntity + entityId
-                headerEntityDetails = apiHeader.headers().headerFetchEntityDetails(programdetails.get('TenantID'))
-                EntityDetailsResponse = requests.get(DetailsFetchURL, headers=headerEntityDetails)
-
-                if EntityDetailsResponse.status_code != 200:
-                    self.errorVar.append(
-                        f"Failed to fetch entity details for '{entityName}'. Status code: {EntityDetailsResponse.status_code}")
-                    return False
-
-                EntityDetailsResponseJson = EntityDetailsResponse.json()
-                entities = EntityDetailsResponseJson.get("result", [])
-
-                for entity in entities:
-                    entityId = entity.get("_id")
-                    entityToUpload = entity.get("entityType")
-                    parent_info = entity.get("parentInformation", {})
-                    EntityFlag = False
-
-                    # Extract names safely
-                    school_name = (parent_info.get("school") or [{}])[0].get("name", "")
-                    cluster_name = (parent_info.get("cluster") or [{}])[0].get("name", "")
-                    block_name = (parent_info.get("block") or [{}])[0].get("name", "")
-                    district_name = (parent_info.get("district") or [{}])[0].get("name", "")
-                    state_name = (parent_info.get("state") or [{}])[0].get("name", "")
-
-                    # Check each entity list for a match
-                    if schoolEntitiesPGM and school_name in schoolEntitiesPGM:
-                        EntityFlag = True
-                    elif clusterEntitiesPGM and cluster_name in clusterEntitiesPGM:
-                        EntityFlag = True
-                    elif blockEntitiesPGM and block_name in blockEntitiesPGM:
-                        EntityFlag = True
-                    elif districtEntitiesPGM and district_name in districtEntitiesPGM:
-                        EntityFlag = True
-                    elif stateEntitiesPGM and state_name in stateEntitiesPGM:
-                        EntityFlag = True
-                    else:
-                        EntityFlag = True  # fallback if no lists are provided
-
-                    if EntityFlag:
-                        entityTypes.append(entityToUpload)
-                        entityTypeID.append(entityId)
-                        print(entityToUpload, entityId)
-                    else:
-                        print(f"Entity '{EntityName}' did not match any provided entity list.")
-
-            if not entityToUpload:
-                self.errorVar.append(f"Entity type not found for entity '{entityName}'.")
-
-        return entityTypes, entityTypeID
+        if missing:
+            self.errorVar.append(
+                f"{entity_type.capitalize()} entities not found for tenant "
+                f"{programdetails.get('TenantID')}: {', '.join(missing)}")
+        if not entity_ids:
+            return False
+        return entity_types, entity_ids
 
     def fetchEntityParentChilds(self, accessToken, programdetails, parentFolder):
-        stateEntitiesPGM = programdetails.get('Targetedstateatprogramlevel')
-        districtEntitiesPGM = programdetails.get('TargetedDistrictatprogramlevel')
-        blockEntitiesPGM = programdetails.get('TargetedBlockatprogramlevel')
-        clusterEntitiesPGM = programdetails.get('TargetedClusteratprogramlevel')
-        schoolEntitiesPGM = programdetails.get('TargetedSchoolatprogramlevel')
+        stateEntitiesPGM = Programs.ensure_list(programdetails.get('Targetedstateatprogramlevel'))
+        districtEntitiesPGM = Programs.ensure_list(programdetails.get('TargetedDistrictatprogramlevel'))
+        blockEntitiesPGM = Programs.ensure_list(programdetails.get('TargetedBlockatprogramlevel'))
+        clusterEntitiesPGM = Programs.ensure_list(programdetails.get('TargetedClusteratprogramlevel'))
+        schoolEntitiesPGM = Programs.ensure_list(programdetails.get('TargetedSchoolatprogramlevel'))
         if schoolEntitiesPGM:
             entitiesPGM = schoolEntitiesPGM
             EntityType = "school"
@@ -410,6 +397,9 @@ class Programs:
         else:
             entitiesPGM = stateEntitiesPGM
             EntityType = "state"
+        if not entitiesPGM:
+            self.errorVar.append("At least one targeted state, district, block, cluster, or school is required.")
+            return False
         scopeEntityType = [EntityType] if isinstance(EntityType, str) else EntityType
         entitiesType = self.fetchEntityType(programdetails, entitiesPGM, scopeEntityType,schoolEntitiesPGM,clusterEntitiesPGM,blockEntitiesPGM,districtEntitiesPGM,stateEntitiesPGM)
         if not entitiesType:
@@ -428,55 +418,70 @@ class Programs:
             hierarchy = ["state", "district", "block", "cluster", "school"]
             merged_output = {level: [] for level in hierarchy}
 
+            headers = apiHeader.headers().headerFetchDetailsEntity(
+                programdetails.get('TenantID'), accessToken)
+
+            def fetch_entity_details(entity_id):
+                url = elevateentityhost + fetchDetailsEntity + entity_id
+                response = requests.get(url=url, headers=headers, timeout=self.ENTITY_REQUEST_TIMEOUT)
+                return entity_id, url, response.status_code, response.text, response.json() if response.status_code == 200 else None
+
+            # The entity API calls are I/O bound.  A bounded thread pool gives a
+            # large speed-up for hundreds of entities without overwhelming it.
+            details_by_id = {}
+            worker_count = min(max(1, self.ENTITY_FETCH_MAX_WORKERS), len(entitiesPGMID))
+            with ThreadPoolExecutor(max_workers=worker_count) as executor:
+                futures = [executor.submit(fetch_entity_details, entity_id)
+                           for entity_id in entitiesPGMID]
+                for future in as_completed(futures):
+                    entity_id, url, status, response_text, response_json = future.result()
+                    Programs.createAPILog(parentFolder, [
+                        "Fetched entity details from: " + url,
+                        "Status Code: " + str(status)
+                    ])
+                    if status == 200:
+                        details_by_id[entity_id] = response_json
+                    else:
+                        error = (f"---> Error in fetching entity details for {entity_id}. "
+                                 f"Status {status} Response {response_text}")
+                        Programs.createAPILog(parentFolder, [error])
+                        self.errorVar.append(error)
+
+            # Merge in input order, so the output remains predictable even
+            # though the HTTP calls completed in parallel.
             for entityId in entitiesPGMID:
-                urlFetchEntity = elevateentityhost + fetchDetailsEntity + entityId
+                responseJson = details_by_id.get(entityId)
+                if not responseJson:
+                    continue
+                result = (responseJson.get("result") or [None])[0]
+                if not result:
+                    self.errorVar.append(f"No entity details returned for {entityId}.")
+                    continue
 
-                headers = apiHeader.headers().headerFetchDetailsEntity(programdetails.get('TenantID'), accessToken)
+                parent_info = result.get("parentInformation", {})
+                current_entity_type = (result.get("entityType") or "").lower()
+                current_entity_id = result.get("_id")
+                if current_entity_type not in hierarchy or not current_entity_id:
+                    self.errorVar.append(f"Invalid entity details returned for {entityId}.")
+                    continue
 
-                response = requests.get(url=urlFetchEntity, headers=headers)
-                messageArr = []
-                messageArr.append("Fetched professional roles from: " + urlFetchEntity)
-                messageArr.append("Status Code: " + str(response.status_code))
-                Programs.createAPILog(parentFolder, messageArr)
-                if response.status_code == 200:
-                    responseJson = response.json()
-                    result = responseJson.get("result", [])[0]
+                current_index = hierarchy.index(current_entity_type)
+                for level in hierarchy[:current_index]:
+                    parent_entities = parent_info.get(level) or []
+                    if parent_entities:
+                        parent_id = parent_entities[0].get("_id")
+                        if parent_id and parent_id not in merged_output[level]:
+                            merged_output[level].append(parent_id)
 
-                    parent_info = result.get("parentInformation", {})
-                    current_entity_type = result.get("entityType").lower()
-                    current_entity_id = result.get("_id")
-
-                    current_index = hierarchy.index(current_entity_type)
-
-                    for i in range(current_index):
-                        level = hierarchy[i]
-                        if level in parent_info and parent_info[level]:
-                            val = parent_info[level][0]["_id"]
-                            if val not in merged_output[level]:
-                                merged_output[level].append(val)
-
-                    if current_entity_id not in merged_output[current_entity_type]:
-                        merged_output[current_entity_type].append(current_entity_id)
-
-                    for i in range(current_index + 1, len(hierarchy)):
-                        if not merged_output[hierarchy[i]]:  # only add ALL if empty
-                            merged_output[hierarchy[i]].append("ALL")
-
-                else:
-                    self.errorVar.append(response.text)
-                    messageArr = []
-                    messageArr.append(f"---> Error in fetching entity details for {entityId}. "
-                        f"Status {response.status_code} Response {response.text}")
-                    Programs.createAPILog(parentFolder, messageArr)
-                    self.errorVar.append(f"---> Error in fetching entity details for {entityId}. "
-                        f"Status {response.status_code} Response {response.text}")
+                if current_entity_id not in merged_output[current_entity_type]:
+                    merged_output[current_entity_type].append(current_entity_id)
 
             # Final check: ensure each level has at least "ALL" if empty
             for level in hierarchy:
                 if not merged_output[level]:
                     merged_output[level].append("ALL")
 
-            print("Structured Entity Hierarchy:", json.dumps(merged_output, indent=2))            
+            print("Structured Entity Hierarchy:", json.dumps(merged_output, indent=2))  
             return merged_output
 
         except Exception as e:
@@ -684,4 +689,3 @@ class Programs:
                     SolutionResults[SolutionName] = ProjectCreation[1]
         print(SolutionResults,"SolutionResults")
         return SolutionResults
-
